@@ -72,11 +72,8 @@ def generate_index_page():
 
 
 def generate_entry(root_path, path):
-    entry_template = """\
-<div class="list_entry">
-    <a href="{link}" class="entry_link">{title}</a> {tags} <a href="{edit}" class="edit_link">\u270e</a>
-    <div class="description">{desc}</div>
-</div>"""
+    entry_template = read_file('entry_template.html')
+
     metadata = common.read_json(join(root_path, path, path + '.json'))
 
     if metadata['description']:
