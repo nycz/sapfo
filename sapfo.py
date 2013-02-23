@@ -8,6 +8,7 @@ import sys
 from PyQt4 import QtCore, QtGui, QtWebKit
 
 import common
+from common import read_file, write_file
 import downloaddialog
 
 
@@ -63,13 +64,11 @@ def generate_index_page():
     entries = [generate_entry(root_path, x) for x in os.listdir(root_path)
                if x not in ignorefiles and os.path.isdir(join(root_path,x))]
 
-    with open('index_page_template.html', encoding='utf-8') as f:
-        html_template = f.read()
-    with open('index_page.css', encoding='utf-8') as f:
-        css = f.read()
+    html_template = read_file('index_page_template.html')
+    css = read_file('index_page.css')
 
-    with open('index_page_generated.html', 'w', encoding='utf-8') as f:
-        f.write(html_template.format(body='\n<hr />\n\t'.join(entries), css=css))
+    write_file('index_page_generated.html',
+            html_template.format(body='\n<hr />\n'.join(entries), css=css))
 
 
 def generate_entry(root_path, path):
