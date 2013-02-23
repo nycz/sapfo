@@ -33,13 +33,13 @@ class MainWindow(QtWebKit.QWebView):
         if not url.isLocalFile():
             import webbrowser
             webbrowser.open_new_tab(url.toString())
-        rawurl = url.toString()
-        ext = os.path.splitext(rawurl)[1]
-        if ext == '.json':
-            os.startfile(os.path.normpath(rawurl))
-        elif ext == '.html':
-            self.setUrl(url)
-        # url.setUrl(url.toString().replace('edit_url', 'file'))
+        else:
+            rawurl = url.toString()
+            ext = os.path.splitext(rawurl)[1]
+            if ext == '.json':
+                os.startfile(os.path.normpath(rawurl))
+            elif ext == '.html':
+                self.setUrl(url)
 
     # Override
     def mouseReleaseEvent(self, ev):
@@ -78,14 +78,18 @@ def generate_entry(root_path, path):
     <div class="description">{desc}</div>
 </div>"""
     metadata = common.read_json(join(root_path, path, path + '.json'))
-    desc = metadata['description'] if metadata['description'] else "<em>[no desc]</em>"
+
+    if metadata['description']:
+        desc = metadata['description']
+    else:
+        desc = "<em>[no desc]</em>"
+
     first_page_link = join(root_path, path ,
             get_first_page_relative_url(root_path, path)).replace('\\', '/')
     first_page_link = QtCore.QUrl.fromLocalFile(first_page_link).toString()
     tags = ['<span class="tag">{}</span>'.format(x) for x in sorted(metadata['tags'])]
     edit_url = QtCore.QUrl.fromLocalFile(join(root_path, path, path + '.json'))
-    # edit_url = edit_url.toString().replace('file://', 'edit_url://')
-    # print(edit_url)
+
     return entry_template.format(link=first_page_link, title=path, desc=desc,
              tags=', '.join(tags), edit=edit_url.toString())
 

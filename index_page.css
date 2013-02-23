@@ -3,6 +3,9 @@ body {
     font-family: "Calibri";
     color: #abb;
 }
+div.list_entry {
+/*    background-color: #322;*/
+}
 div.description {
     margin-left: 20px;
     margin-top: 5px;
@@ -13,7 +16,6 @@ span.tag {
     color: #011;
     font-family: monospace;
     font-size: 0.9em;
-    /*font-style: italic;*/
     margin: 0px 5px;
     padding: 0.2em;
 }
