@@ -3,6 +3,7 @@
 import os
 import os.path
 from os.path import join
+import re
 import sys
 
 from PyQt4 import QtCore, QtGui, QtWebKit
@@ -81,6 +82,8 @@ def generate_entry(root_path, path):
     else:
         desc = "<em>[no desc]</em>"
 
+    page_count = generate_page_count(join(root_path, path))
+
     first_page_link = join(root_path, path ,
             get_first_page_relative_url(root_path, path)).replace('\\', '/')
     first_page_link = QtCore.QUrl.fromLocalFile(first_page_link).toString()
@@ -88,7 +91,36 @@ def generate_entry(root_path, path):
     edit_url = QtCore.QUrl.fromLocalFile(join(root_path, path, path + '.json'))
 
     return entry_template.format(link=first_page_link, title=path, desc=desc,
-             tags=', '.join(tags), edit=edit_url.toString())
+             tags=', '.join(tags), edit=edit_url.toString(), page_count=page_count)
+
+
+def generate_page_count(path):
+    dir_rx = re.compile(r'Ch\. \d\d$')
+
+    items = os.listdir(path)
+    files = [x for x in items
+             if os.path.isfile(join(path, x)) \
+             and os.path.splitext(x)[1] == '.html']
+
+    page_count = len(files)
+
+    dirs = [x for x in items
+            if os.path.isdir(join(path, x)) \
+            and dir_rx.match(x)]
+
+    for d in dirs:
+        sub_files = [x for x in os.listdir(join(path, d))
+                     if os.path.isfile(join(path, d, x)) \
+                     and os.path.splitext(x)[1] == '.html']
+        page_count += len(sub_files)
+
+    if page_count == 1:
+        return ""
+
+    if not dirs:
+        return '({} pages)'.format(page_count)
+
+    return '({} chapter{}, {} pages)'.format(len(dirs), 's'*(len(dirs)>1), page_count)
 
 
 def get_first_page_relative_url(root_path, path):
