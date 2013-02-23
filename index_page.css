@@ -1,0 +1,45 @@
+body {
+    background-color: #233;
+    font-family: "Calibri";
+    color: #abb;
+}
+div.description {
+    margin-left: 20px;
+    margin-top: 5px;
+}
+span.tag {
+    background-color: #677;
+    border-radius: 0.25em;
+    color: #011;
+    font-family: monospace;
+    font-size: 0.9em;
+    /*font-style: italic;*/
+    margin: 0px 5px;
+    padding: 0.2em;
+}
+a {
+    outline: none;
+    color: #dee;
+}
+a:active {
+    color: #eef;
+}
+a.edit_link {
+    background-color: #122;
+    border-radius: 3px;
+    color: #455;
+    float: right;
+    font-size: 1.8em;
+    padding: 0px 2px;
+    text-align: right;
+    text-decoration: none;
+}
+a.entry_link {
+    margin-right: 10px;
+}
+hr {
+    background-color: black;
+    border: none;
+    height: 1px;
+    margin: 10px;
+}
