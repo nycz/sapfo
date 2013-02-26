@@ -15,22 +15,39 @@ from common import read_file, write_file
 import downloaddialog
 
 
-class MainWindow(QtWebKit.QWebView):
+class MainWindow(QtGui.QFrame):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Sapfo')
 
         download_window = downloaddialog.DownloadDialog()
-        generate_index_page()
 
-        self.setUrl(QtCore.QUrl('index_page_generated.html'))
+        vert_layout = QtGui.QVBoxLayout(self)
+        vert_layout.setMargin(0)
+        vert_layout.setSpacing(0)
+
+        self.webview = WebView()
+        vert_layout.addWidget(self.webview)
 
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+R"), self, self.reload)
         QtGui.QShortcut(QtGui.QKeySequence("F5"), self, self.reload)
 
+        self.setStyleSheet(read_file('qt.css'))
+        self.show()
+
+    def reload(self):
+        self.setStyleSheet(read_file('qt.css'))
+        self.webview.reload()
+
+class WebView(QtWebKit.QWebView):
+    def __init__(self):
+        super().__init__()
+
+        generate_index_page()
+        self.setUrl(QtCore.QUrl('index_page_generated.html'))
+
         self.page().setLinkDelegationPolicy(QtWebKit.QWebPage.DelegateAllLinks)
         self.linkClicked.connect(self.link_clicked)
-        self.show()
 
     def link_clicked(self, url):
         if not url.isLocalFile():
