@@ -83,6 +83,9 @@ class WebView(QtWebKit.QWebView):
         generate_index_page(self.root_path, self.generated_index, self.entry_pages)
         self.goto_index()
 
+        QtGui.QShortcut(QtGui.QKeySequence("N"), self, self.next)
+        QtGui.QShortcut(QtGui.QKeySequence("P"), self, self.previous)
+
         self.page().setLinkDelegationPolicy(QtWebKit.QWebPage.DelegateAllLinks)
         self.linkClicked.connect(self.link_clicked)
 
