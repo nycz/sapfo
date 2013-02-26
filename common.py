@@ -1,5 +1,6 @@
 import json
 import os.path
+import re
 
 from PyQt4 import QtGui
 
@@ -25,3 +26,16 @@ def kill_theming(layout):
 
 def set_hotkey(key, target, callback):
     QtGui.QShortcut(QtGui.QKeySequence(key), target, callback)
+
+def read_qt_stylesheet(path):
+    data = read_file(path)
+    re_values = re.compile(r'^(?P<key>\$\S+?)\s*:\s*(?P<value>\S+?);?$',
+                           re.MULTILINE)
+
+    stylesheet = '\n'.join([l for l in data.splitlines()
+                            if not l.startswith('$')])
+
+    for key, value in re_values.findall(data):
+        stylesheet = stylesheet.replace(key, value)
+
+    return stylesheet

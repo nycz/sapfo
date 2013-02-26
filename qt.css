@@ -1,8 +1,50 @@
+$main_bgcolor: #222
+$main_textcolor: #999
+
 InfoPanel {
+    border: none;
     background-color: white;
 }
 InfoPanelLabel {
     color: #111;
-    font-family: "Calibri";
+    font-family: Calibri;
     font-size: 16px;
+}
+
+
+MainWindow {
+    background-color: $main_bgcolor;
+}
+QTabWidget::tab-bar {
+    alignment: center;
+}
+QTabWidget::pane {
+    border-top: 2px solid black;
+    position: absolute;
+    /*top: -0.5em;*/
+}
+QTabBar::tab {
+    border-top-left-radius:4px;
+    border-top-right-radius:4px;
+    border: 2px solid #666;
+    border-bottom: none;
+    background: $main_bgcolor;
+    color: $main_textcolor;
+    font-size: 12px;
+    font-family: Cambria;
+    margin-left: 10px;
+    margin-right: 10px;
+    margin-top: 4px;
+    min-width: 4em;
+    padding-left: 3px;
+    padding-right: 3px;
+    padding-top: 2px;
+    padding-bottom: 4px;
+}
+
+QTabBar::tab:selected {
+    background: $main_textcolor;
+    border: 2px solid $main_textcolor;
+    border-bottom: none;
+    color: $main_bgcolor;
 }

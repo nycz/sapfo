@@ -42,11 +42,11 @@ class MainWindow(QtGui.QFrame):
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+R"), self, self.reload)
         QtGui.QShortcut(QtGui.QKeySequence("F5"), self, self.reload)
 
-        self.setStyleSheet(common.read_file('qt.css'))
+        self.setStyleSheet(common.read_qt_stylesheet('qt.css'))
         self.show()
 
     def reload(self):
-        self.setStyleSheet(common.read_file('qt.css'))
+        self.setStyleSheet(common.read_qt_stylesheet('qt.css'))
         self.tab_widget.currentWidget().reload()
 
 
