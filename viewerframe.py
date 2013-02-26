@@ -24,6 +24,7 @@ class ViewerFrame(QtGui.QFrame):
             else:
                 super().mouseReleaseEvent(ev)
 
+    set_fullscreen = QtCore.pyqtSignal(bool)
 
     def __init__(self, title, data):
         super().__init__()
@@ -40,6 +41,7 @@ class ViewerFrame(QtGui.QFrame):
 
         self.current_entry = []
         self.current_page = -1
+        self.fullscreen = False
 
         # Layout
         layout = QtGui.QVBoxLayout(self)
@@ -68,13 +70,15 @@ class ViewerFrame(QtGui.QFrame):
             common.set_hotkey(key, self, self.previous)
         for key in data['hotkeys']['home']:
             common.set_hotkey(key, self, self.goto_index)
-        for key in data['hotkeys']['toggle_status_bar']:
-            common.set_hotkey(key, self, self.toggle_status_bar)
+        for key in data['hotkeys']['toggle_fullscreen']:
+            common.set_hotkey(key, self, self.toggle_fullscreen)
 
 
-    def toggle_status_bar(self):
-        if self.current_page != -1:
-            self.info_panel.toggle_hidden()
+    def toggle_fullscreen(self):
+        self.fullscreen = not self.fullscreen
+        self.info_panel.set_fullscreen(self.fullscreen, self.current_page)
+        self.set_fullscreen.emit(self.fullscreen)
+
 
     def reload(self):
         if self.current_page == -1:

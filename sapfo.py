@@ -31,19 +31,23 @@ class MainWindow(QtGui.QFrame):
                     basedict[key] = value
             return basedict
 
-
         instances = common.read_json('settings.json')
         for name, data in instances.items():
             if name == 'default':
                 continue
             newdata = update_dict(instances['default'].copy(), data)
-            self.tab_widget.addTab(ViewerFrame(name, newdata), name)
+            vf = ViewerFrame(name, newdata)
+            vf.set_fullscreen.connect(self.set_fullscreen)
+            self.tab_widget.addTab(vf, name)
 
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+R"), self, self.reload)
         QtGui.QShortcut(QtGui.QKeySequence("F5"), self, self.reload)
 
         self.setStyleSheet(common.read_qt_stylesheet('qt.css'))
         self.show()
+
+    def set_fullscreen(self, fullscreen):
+        self.tab_widget.tabBar().setHidden(fullscreen)
 
     def reload(self):
         self.setStyleSheet(common.read_qt_stylesheet('qt.css'))

@@ -34,6 +34,9 @@ class InfoPanel(QtGui.QFrame):
         if not self.stay_hidden:
             super().show()
 
-    def toggle_hidden(self):
-        self.stay_hidden = not self.stay_hidden
-        self.setHidden(self.stay_hidden)
+    def set_fullscreen(self, fullscreen, page):
+        self.stay_hidden = fullscreen
+        if page == -1:
+            self.hide()
+        else:
+            self.setHidden(self.stay_hidden)
