@@ -8,7 +8,8 @@
     "hotkeys": {
       "next": [],
       "previous": [],
-      "home": []
+      "home": [],
+      "toggle_status_bar": []
     }
   }
 }
