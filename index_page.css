@@ -10,6 +10,10 @@ div.description {
     margin-left: 20px;
     margin-top: 5px;
 }
+span.empty_desc {
+    color: #d96;
+    font-style: italic;
+}
 span.tag {
     background-color: #677;
     border-radius: 0.25em;

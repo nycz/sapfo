@@ -80,7 +80,7 @@ def generate_entry(root_path, path):
     if metadata['description']:
         desc = metadata['description']
     else:
-        desc = "<em>[no desc]</em>"
+        desc = '<span class="empty_desc">[no desc]</span>'
 
     page_count = generate_page_count(join(root_path, path))
 
