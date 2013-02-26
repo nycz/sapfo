@@ -15,7 +15,7 @@ span.empty_desc {
     font-style: italic;
 }
 span.tag {
-    background-color: #677;
+    /*background-color: #677;*/
     border-radius: 0.25em;
     color: #011;
     font-family: monospace;

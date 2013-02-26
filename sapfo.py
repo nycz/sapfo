@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import colorsys
+import hashlib
 import os
 import os.path
 from os.path import join
@@ -87,12 +89,26 @@ def generate_entry(root_path, path):
     first_page_link = join(root_path, path ,
             get_first_page_relative_url(root_path, path)).replace('\\', '/')
     first_page_link = QtCore.QUrl.fromLocalFile(first_page_link).toString()
-    tags = ['<span class="tag">{}</span>'.format(x) for x in sorted(metadata['tags'])]
+    tags = ['<span class="tag" style="background-color:{color};">{tag}</span>'.format(color=tag_color(x),tag=x)\
+            for x in sorted(metadata['tags'])]
     edit_url = QtCore.QUrl.fromLocalFile(join(root_path, path, path + '.json'))
 
     return entry_template.format(link=first_page_link, title=path, desc=desc,
-             tags=', '.join(tags), edit=edit_url.toString(), page_count=page_count)
+             tags=''.join(tags), edit=edit_url.toString(), page_count=page_count)
 
+
+def tag_color(text):
+    md5 = hashlib.md5()
+    md5.update(bytes(text, 'utf-8'))
+    hashnum = int(md5.hexdigest(), 16)
+    r = (hashnum & 0xFF0000) >> 16
+    g = (hashnum & 0x00FF00) >> 8
+    b = (hashnum & 0x0000FF)
+    # h = int(((hashnum & 0xFF00) >> 8) / 256 * 360)
+    # s = (hashnum & 0xFF) / 256
+    # l = 0.5
+    # return 'hsl({h}, {s:.0%}, {l:.0%})'.format(h=h, s=s, l=l)
+    return 'rgb({r}, {g}, {b})'.format(r=r, g=g, b=b)
 
 def generate_page_count(path):
     dir_rx = re.compile(r'Ch\. \d\d$')
