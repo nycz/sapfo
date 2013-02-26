@@ -1,4 +1,5 @@
 settings.json
 index_page_generated.html
 __pycache__
-init_metadata.py3
+*.py3
+!sapfo_bootstrap.py3
