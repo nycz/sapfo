@@ -58,8 +58,12 @@ class ViewerFrame(QtGui.QFrame):
         self.webview.next.connect(self.next)
         self.webview.previous.connect(self.previous)
 
-        QtGui.QShortcut(QtGui.QKeySequence("N"), self, self.next)
-        QtGui.QShortcut(QtGui.QKeySequence("P"), self, self.previous)
+        for key in data['hotkeys']['next']:
+            common.set_hotkey(key, self, self.next)
+        for key in data['hotkeys']['previous']:
+            common.set_hotkey(key, self, self.previous)
+        for key in data['hotkeys']['home']:
+            common.set_hotkey(key, self, self.goto_index)
 
         self.webview.page().setLinkDelegationPolicy(QtWebKit.QWebPage.DelegateAllLinks)
         self.webview.linkClicked.connect(self.link_clicked)
@@ -81,6 +85,7 @@ class ViewerFrame(QtGui.QFrame):
 
     def start_entry(self, path):
         self.current_entry = self.entry_pages[os.path.basename(path)]
+        # print('\n'.join(x for x,_ in self.current_entry))
         self.current_page = 0
         self.set_page()
 

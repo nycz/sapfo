@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import collections
 import os
 import os.path
 from os.path import join
@@ -28,9 +29,27 @@ class MainWindow(QtGui.QFrame):
         self.tab_widget = QtGui.QTabWidget(self)
         layout.addWidget(self.tab_widget)
 
+        def update_dict(basedict, newdict):
+            for key, value in newdict.items():
+                if isinstance(value, collections.Mapping):
+                    subdict = update_dict(basedict.get(key, {}), value)
+                    basedict[key] = subdict
+                elif isinstance(value, type([])):
+                    basedict[key] = list(set(value + basedict.get(key, [])))
+                else:
+                    basedict[key] = value
+            return basedict
+
+
         instances = common.read_json('settings.json')
         for name, data in instances.items():
-            self.tab_widget.addTab(ViewerFrame(name, data), name)
+            if name == 'default':
+                continue
+            newdata = update_dict(instances['default'].copy(), data)
+            print(instances['default'].copy())
+            print(data)
+            print(newdata)
+            self.tab_widget.addTab(ViewerFrame(name, newdata), name)
 
         # vert_layout = QtGui.QVBoxLayout(self)
         # vert_layout.setMargin(0)

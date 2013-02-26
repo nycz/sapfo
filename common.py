@@ -1,6 +1,9 @@
 import json
 import os.path
 
+from PyQt4 import QtGui
+
+
 def read_json(path):
     return json.loads(read_file(path))
 
@@ -19,3 +22,6 @@ def write_file(path, data):
 def kill_theming(layout):
     layout.setMargin(0)
     layout.setSpacing(0)
+
+def set_hotkey(key, target, callback):
+    QtGui.QShortcut(QtGui.QKeySequence(key), target, callback)

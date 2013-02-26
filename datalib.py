@@ -102,9 +102,9 @@ def generate_page_links(path, name_rx, blacklist):
             and d not in blacklist]
 
     for d in sorted(dirs):
-        files.extend([(join(f,d),d) for f in sorted(os.listdir(join(path, d)))
+        files.extend([(join(d,f),d) for f in sorted(os.listdir(join(path, d)))
                       if os.path.isfile(join(path, d, f))\
-                      and name_rx.match(f)\
+                      and name_rx.search(f)\
                       and d + '/' + f not in blacklist])
     # print(len(files))
     return [(join(path, f), subdir) for f,subdir in files]

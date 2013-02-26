@@ -1,0 +1,14 @@
+{
+  "default": {
+    /*
+    "path": <PATH>,
+    "name_filter": <REGEX>,
+    */
+    "blacklist": [],
+    "hotkeys": {
+      "next": [],
+      "previous": [],
+      "home"
+    }
+  }
+}
