@@ -128,11 +128,11 @@ class WebView(QtWebKit.QWebView):
             self.set_page()
 
     def set_page(self):
-        self.setUrl(QtCore.QUrl.fromLocalFile(self.current_entry[self.current_page][0]))
+        self.load(QtCore.QUrl.fromLocalFile(self.current_entry[self.current_page][0]))
 
     def goto_index(self):
         self.current_page = -1
-        self.setUrl(QtCore.QUrl.fromLocalFile(self.generated_index))
+        self.load(QtCore.QUrl.fromLocalFile(self.generated_index))
 
     # Override
     def mouseReleaseEvent(self, ev):
