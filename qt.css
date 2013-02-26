@@ -1,7 +1,8 @@
 InfoPanel {
-    background-color: #233;
+    background-color: white;
 }
 InfoPanelLabel {
-    color: #abb;
+    color: #111;
     font-family: "Calibri";
+    font-size: 16px;
 }
