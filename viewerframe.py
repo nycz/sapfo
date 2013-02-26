@@ -16,12 +16,6 @@ class ViewerFrame(QtGui.QFrame):
         previous = QtCore.pyqtSignal()
         next = QtCore.pyqtSignal()
         # Overrides
-        def reload(self):
-            if self.url() == QtCore.QUrl.fromLocalFile(self.generated_index):
-                datalib.generate_index_page(self.root_path, self.generated_index,
-                                    self.entry_pages)
-            super().reload()
-
         def mouseReleaseEvent(self, ev):
             if ev.button() == QtCore.Qt.XButton1:
                 self.previous.emit()
@@ -83,7 +77,11 @@ class ViewerFrame(QtGui.QFrame):
             self.info_panel.toggle_hidden()
 
     def reload(self):
-        self.webview.reload()
+        if self.current_page == -1:
+            datalib.generate_index_page(self.root_path, self.generated_index,
+                                self.entry_pages)
+            self.webview.reload()
+            self.current_entry = []
 
     def link_clicked(self, url):
         if not url.isLocalFile():
