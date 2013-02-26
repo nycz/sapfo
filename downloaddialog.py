@@ -1,1 +1,0 @@
-class DownloadDialog: pass
