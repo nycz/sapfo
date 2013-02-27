@@ -15,6 +15,7 @@ class ViewerFrame(QtGui.QFrame):
     class WebView(QtWebKit.QWebView):
         previous = QtCore.pyqtSignal()
         next = QtCore.pyqtSignal()
+        wheel_event = QtCore.pyqtSignal(int)
         # Overrides
         def mouseReleaseEvent(self, ev):
             if ev.button() == QtCore.Qt.XButton1:
@@ -23,6 +24,16 @@ class ViewerFrame(QtGui.QFrame):
                 self.next.emit()
             else:
                 super().mouseReleaseEvent(ev)
+
+        def wheelEvent(self, ev):
+            viewport_size = self.page().viewportSize()
+            true_size = self.page().currentFrame().contentsSize()
+            # If there are scrollbars, do the regular thing
+            if true_size.width() > viewport_size.width() \
+                    or true_size.height() > viewport_size.height():
+                super().wheelEvent(ev)
+            else:
+                self.wheel_event.emit(ev.delta())
 
     set_fullscreen = QtCore.pyqtSignal(bool)
 
@@ -62,6 +73,7 @@ class ViewerFrame(QtGui.QFrame):
         self.webview.previous.connect(self.previous)
         self.webview.page().setLinkDelegationPolicy(QtWebKit.QWebPage.DelegateAllLinks)
         self.webview.linkClicked.connect(self.link_clicked)
+        self.webview.wheel_event.connect(self.wheel_event)
 
         # Key shortcuts
         for key in data['hotkeys']['next']:
@@ -78,6 +90,14 @@ class ViewerFrame(QtGui.QFrame):
         self.fullscreen = not self.fullscreen
         self.info_panel.set_fullscreen(self.fullscreen, self.current_page)
         self.set_fullscreen.emit(self.fullscreen)
+
+
+    def wheel_event(self, delta):
+        # Negative delta means scrolling towards you
+        if delta < 0:
+            self.next()
+        elif delta > 0:
+            self.previous()
 
 
     def reload(self):
