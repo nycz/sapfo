@@ -8,6 +8,7 @@ from PyQt4 import QtCore, QtGui, QtWebKit
 import common
 import datalib
 import infopanel
+import metadataeditor
 
 
 class ViewerFrame(QtGui.QFrame):
@@ -57,12 +58,18 @@ class ViewerFrame(QtGui.QFrame):
         # Layout
         layout = QtGui.QVBoxLayout(self)
         common.kill_theming(layout)
+
         self.webview = self.WebView(self)
         layout.addWidget(self.webview)
         layout.setStretchFactor(self.webview, 1)
+
         self.info_panel = infopanel.InfoPanel(self)
         layout.addWidget(self.info_panel)
         layout.setStretchFactor(self.info_panel, 0)
+
+        self.editor = metadataeditor.MetadataEditor(self)
+        layout.addWidget(self.editor)
+        layout.setStretchFactor(self.editor, 0)
 
         datalib.generate_index_page(self.root_path, self.generated_index,
                                     self.entry_pages)
@@ -74,6 +81,7 @@ class ViewerFrame(QtGui.QFrame):
         self.webview.page().setLinkDelegationPolicy(QtWebKit.QWebPage.DelegateAllLinks)
         self.webview.linkClicked.connect(self.link_clicked)
         self.webview.wheel_event.connect(self.wheel_event)
+        self.editor.reload_index.connect(self.reload)
 
         # Key shortcuts
         for key in data['hotkeys']['next']:
@@ -101,9 +109,9 @@ class ViewerFrame(QtGui.QFrame):
 
 
     def reload(self):
+        datalib.generate_index_page(self.root_path, self.generated_index,
+                                    self.entry_pages)
         if self.current_page == -1:
-            datalib.generate_index_page(self.root_path, self.generated_index,
-                                self.entry_pages)
             self.webview.reload()
             self.current_entry = []
 
@@ -115,7 +123,7 @@ class ViewerFrame(QtGui.QFrame):
             rawurl = url.toString()
             ext = os.path.splitext(rawurl)[1]
             if ext == '.json':
-                os.startfile(os.path.normpath(rawurl))
+                self.editor.activate(url.toLocalFile())
             elif os.path.basename(rawurl) == 'start_here.sapfo':
                 self.start_entry(os.path.dirname(rawurl))
 
