@@ -1,8 +1,8 @@
 import os.path
 
-from PyQt4 import QtCore, QtGui, QtWebKit
+from PyQt4 import QtCore, QtGui
 
-import common
+from libsyntyche import common
 
 
 class InfoPanel(QtGui.QFrame):

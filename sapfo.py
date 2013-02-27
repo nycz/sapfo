@@ -5,7 +5,7 @@ import sys
 
 from PyQt4 import QtGui
 
-import common
+from libsyntyche import common
 from viewerframe import ViewerFrame
 
 
@@ -43,7 +43,7 @@ class MainWindow(QtGui.QFrame):
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+R"), self, self.reload)
         QtGui.QShortcut(QtGui.QKeySequence("F5"), self, self.reload)
 
-        self.setStyleSheet(common.read_qt_stylesheet('qt.css'))
+        self.setStyleSheet(common.read_stylesheet('qt.css'))
         self.show()
 
     def set_fullscreen(self, fullscreen):

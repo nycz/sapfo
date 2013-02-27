@@ -5,7 +5,7 @@ from os.path import join
 
 from PyQt4 import QtCore
 
-import common
+from libsyntyche import common
 
 
 def generate_index_page(root_path, generated_index, entry_page_list):

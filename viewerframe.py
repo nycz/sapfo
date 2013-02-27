@@ -5,7 +5,7 @@ import re
 
 from PyQt4 import QtCore, QtGui, QtWebKit
 
-import common
+from libsyntyche import common
 import datalib
 import infopanel
 import metadataeditor
