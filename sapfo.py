@@ -50,7 +50,7 @@ class MainWindow(QtGui.QFrame):
         self.tab_widget.tabBar().setHidden(fullscreen)
 
     def reload(self):
-        self.setStyleSheet(common.read_qt_stylesheet('qt.css'))
+        self.setStyleSheet(common.read_stylesheet('qt.css'))
         self.tab_widget.currentWidget().reload()
 
 
