@@ -20,25 +20,16 @@ class MainWindow(QtGui.QFrame):
         self.tab_widget = QtGui.QTabWidget(self)
         layout.addWidget(self.tab_widget)
 
-        def update_dict(basedict, newdict):
-            for key, value in newdict.items():
-                if isinstance(value, collections.Mapping):
-                    subdict = update_dict(basedict.get(key, {}), value)
-                    basedict[key] = subdict
-                elif isinstance(value, type([])):
-                    basedict[key] = list(set(value + basedict.get(key, [])))
-                else:
-                    basedict[key] = value
-            return basedict
-
         instances = common.read_json('settings.json')
+        self.viewerframes = {}
         for name, data in instances.items():
             if name == 'default':
                 continue
             newdata = update_dict(instances['default'].copy(), data)
-            vf = ViewerFrame(name, newdata)
-            vf.set_fullscreen.connect(self.set_fullscreen)
-            self.tab_widget.addTab(vf, name)
+            self.viewerframes[name] = ViewerFrame(name, newdata)
+            self.viewerframes[name].set_fullscreen.connect(self.set_fullscreen)
+            self.viewerframes[name].request_reload.connect(self.reload)
+            self.tab_widget.addTab(self.viewerframes[name], name)
 
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+R"), self, self.reload)
         QtGui.QShortcut(QtGui.QKeySequence("F5"), self, self.reload)
@@ -51,7 +42,24 @@ class MainWindow(QtGui.QFrame):
 
     def reload(self):
         self.setStyleSheet(common.read_stylesheet('qt.css'))
-        self.tab_widget.currentWidget().reload()
+        instances = common.read_json('settings.json')
+        for name, data in instances.items():
+            if name == 'default':
+                continue
+            newdata = update_dict(instances['default'].copy(), data)
+            self.viewerframes[name].reload(newdata)
+        # self.tab_widget.currentWidget().reload()
+
+def update_dict(basedict, newdict):
+    for key, value in newdict.items():
+        if isinstance(value, collections.Mapping):
+            subdict = update_dict(basedict.get(key, {}), value)
+            basedict[key] = subdict
+        elif isinstance(value, type([])):
+            basedict[key] = list(set(value + basedict.get(key, [])))
+        else:
+            basedict[key] = value
+    return basedict
 
 
 def main():

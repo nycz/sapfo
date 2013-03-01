@@ -53,7 +53,10 @@ class MetadataEditor(QtGui.QFrame):
     def finished(self):
         self.metadata['title'] = self.title.text()
         self.metadata['description'] = self.description.text()
-        self.metadata['tags'] = self.tags.text().split(', ')
+        if self.tags.text().strip():
+            self.metadata['tags'] = self.tags.text().strip().split(', ')
+        else:
+            self.metadata['tags'] = []
         common.write_json(self.path, self.metadata)
         self.hide()
         self.reload_index.emit()

@@ -2,29 +2,40 @@ import hashlib
 import os
 import os.path
 from os.path import join
+import re
 
 from PyQt4 import QtCore
 
 from libsyntyche import common
 
 
-def generate_index_page(root_path, generated_index, entry_page_list):
-    entries = [get_entry_data(root_path, x, entry_page_list)\
-               for x in os.listdir(root_path)
-               if os.path.isdir(join(root_path,x))]
+def generate_index_page(root_path, generated_index_path, data):
+    """
+    Create an index page with all stories in the instance's directory and
+    return a list of all pages.
 
+    root_path - the path to where all stories' directories are
+    generated_index_path - where the generated index page is to be saved
+    data - the data from settings.json including blacklist and name_filter
+    """
+    fname_rx = re.compile(data['name_filter'], re.IGNORECASE)
+    entry_page_list = _get_all_stories_with_pages(root_path, fname_rx,
+                                                  data['blacklist'])
+
+    entries = [_get_entry_data(root_path, d, entry_page_list)\
+               for d in os.listdir(root_path)
+               if os.path.isdir(join(root_path, d))]
     html_template = common.read_file('index_page_template.html')
     entry_template = common.read_file('entry_template.html')
-
-    formatted_entries = [format_entry(entry_template, **data) \
+    formatted_entries = [_format_entry(entry_template, **data) \
             for data in sorted(entries, key=lambda x:x['title'])]
-
-    common.write_file(generated_index, html_template.format(\
+    common.write_file(generated_index_path, html_template.format(\
                         body='\n<hr />\n'.join(formatted_entries),
                         css=common.read_file('index_page.css')))
+    return entry_page_list
 
 
-def get_entry_data(root_path, path, entry_page_list):
+def _get_entry_data(root_path, path, entry_page_list):
     """
     Return a dict with all relevant data from an entry.
 
@@ -50,7 +61,7 @@ def get_entry_data(root_path, path, entry_page_list):
         'page_count': len(entry_page_list[path])
     }
 
-def format_entry(template, title, desc, tags, edit_url, start_link, page_count):
+def _format_entry(template, title, desc, tags, edit_url, start_link, page_count):
     """
     Return the formatted entry as a html string.
     """
@@ -83,19 +94,43 @@ def format_entry(template, title, desc, tags, edit_url, start_link, page_count):
     )
 
 
-def generate_page_links(path, name_rx, blacklist):
+def _get_all_stories_with_pages(root_path, fname_rx, blacklist):
+    """
+    Return all stories as a dict.
+
+    { storyname: [pages] }
+    """
+    return {
+        d: _generate_page_links(join(root_path, d),
+                               fname_rx, blacklist) \
+        for d in os.listdir(root_path)
+        if os.path.isdir(join(root_path,d))
+    }
+
+
+
+
+def _generate_page_links(path, name_rx, blacklist):
     """
     Return a list of all pages in the directory.
+    [(filepath, subdir), (filepath2, subdir), ...]
 
     Files in the root directory should always be loaded first, then files in
     the subdirectories.
     """
+    def in_blacklist(name):
+        for b in blacklist:
+            if (b.startswith('$RX:') and re.search(b[4:], name)) \
+                    or name == b:
+                return True
+        return False
+    t1 = time.time()
     # name_rx = re.compile(name_filter)
     files = []
     if '.' not in blacklist:
         files = [(f, '') for f in sorted(os.listdir(path))
                  if os.path.isfile(join(path, f))\
-                 and name_rx.search(f) and f not in blacklist]
+                 and name_rx.search(f) and not in_blacklist(f)]
 
     dirs = [d for d in os.listdir(path)
             if os.path.isdir(join(path, d))\
@@ -105,6 +140,7 @@ def generate_page_links(path, name_rx, blacklist):
         files.extend([(join(d,f),d) for f in sorted(os.listdir(join(path, d)))
                       if os.path.isfile(join(path, d, f))\
                       and name_rx.search(f)\
-                      and d + '/' + f not in blacklist])
+                      and not in_blacklist(d + '/' + f)])
+
     # print(len(files))
     return [(join(path, f), subdir) for f,subdir in files]

@@ -37,19 +37,16 @@ class ViewerFrame(QtGui.QFrame):
                 self.wheel_event.emit(ev.delta())
 
     set_fullscreen = QtCore.pyqtSignal(bool)
+    request_reload = QtCore.pyqtSignal()
 
     def __init__(self, title, data):
         super().__init__()
         self.title = title
         self.root_path = os.path.normpath(data['path'])
-        self.generated_index = join(self.root_path,
+        self.generated_index_path = join(self.root_path,
                     'index_page_generated_{}.html'.format(title))
-        self.fname_rx = re.compile(data['name_filter'], re.IGNORECASE)
-        self.entry_pages = {d:datalib.generate_page_links(join(self.root_path, d),
-                                                self.fname_rx,
-                                                data['blacklist'])\
-                            for d in os.listdir(self.root_path)
-                            if os.path.isdir(join(self.root_path,d))}
+        # self.entry_pages = datalib.get_all_stories_with_pages(\
+        #                     self.root_path, self.fname_rx, data['blacklist'])
 
         self.current_entry = []
         self.current_page = -1
@@ -71,8 +68,8 @@ class ViewerFrame(QtGui.QFrame):
         layout.addWidget(self.editor)
         layout.setStretchFactor(self.editor, 0)
 
-        datalib.generate_index_page(self.root_path, self.generated_index,
-                                    self.entry_pages)
+        self.entry_pages = datalib.generate_index_page(self.root_path,
+                                        self.generated_index_path, data)
         self.goto_index()
 
         # Signals
@@ -81,7 +78,7 @@ class ViewerFrame(QtGui.QFrame):
         self.webview.page().setLinkDelegationPolicy(QtWebKit.QWebPage.DelegateAllLinks)
         self.webview.linkClicked.connect(self.link_clicked)
         self.webview.wheel_event.connect(self.wheel_event)
-        self.editor.reload_index.connect(self.reload)
+        self.editor.reload_index.connect(self.request_reload.emit)
 
         # Key shortcuts
         for key in data['hotkeys']['next']:
@@ -108,12 +105,17 @@ class ViewerFrame(QtGui.QFrame):
             self.previous()
 
 
-    def reload(self):
-        datalib.generate_index_page(self.root_path, self.generated_index,
-                                    self.entry_pages)
-        if self.current_page == -1:
+    def reload(self, data):
+        import time
+        print(self.title, 'starting reload', time.time())
+        self.entry_pages = datalib.generate_index_page(self.root_path,
+                                    self.generated_index_path, data)
+        print(self.title, 'pages generated', time.time())
+        if self.current_page == -1 \
+                or not os.path.isfile(self.current_entry[self.current_page][0]):
             self.webview.reload()
             self.current_entry = []
+        print(self.title, 'finished reload', time.time())
 
     def link_clicked(self, url):
         if not url.isLocalFile():
@@ -155,12 +157,17 @@ class ViewerFrame(QtGui.QFrame):
             self.set_page()
 
     def set_page(self):
-        self.webview.load(QtCore.QUrl.fromLocalFile(self.current_entry[self.current_page][0]))
-        if self.info_panel.isHidden():
-            self.info_panel.show()
-        self.info_panel.set_info(self.current_entry, self.current_page)
+        newpath = self.current_entry[self.current_page][0]
+        if not os.path.isfile(newpath):
+            self.request_reload.emit()
+            self.goto_index()
+        else:
+            self.webview.load(QtCore.QUrl.fromLocalFile(newpath))
+            if self.info_panel.isHidden():
+                self.info_panel.show()
+            self.info_panel.set_info(self.current_entry, self.current_page)
 
     def goto_index(self):
         self.current_page = -1
-        self.webview.load(QtCore.QUrl.fromLocalFile(self.generated_index))
+        self.webview.load(QtCore.QUrl.fromLocalFile(self.generated_index_path))
         self.info_panel.hide()

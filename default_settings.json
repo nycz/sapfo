@@ -4,7 +4,10 @@
     "path": <PATH>,
     "name_filter": <REGEX>,
     */
-    "blacklist": [],
+    "blacklist": [
+      "this is exactly matched",
+      "$RX:this is parsed as a regex"
+    ],
     "hotkeys": {
       "next": [],
       "previous": [],
