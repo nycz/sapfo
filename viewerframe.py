@@ -106,16 +106,12 @@ class ViewerFrame(QtGui.QFrame):
 
 
     def reload(self, data):
-        import time
-        print(self.title, 'starting reload', time.time())
         self.entry_pages = datalib.generate_index_page(self.root_path,
                                     self.generated_index_path, data)
-        print(self.title, 'pages generated', time.time())
         if self.current_page == -1 \
                 or not os.path.isfile(self.current_entry[self.current_page][0]):
             self.webview.reload()
             self.current_entry = []
-        print(self.title, 'finished reload', time.time())
 
     def link_clicked(self, url):
         if not url.isLocalFile():

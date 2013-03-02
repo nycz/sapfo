@@ -124,7 +124,7 @@ def _generate_page_links(path, name_rx, blacklist):
                     or name == b:
                 return True
         return False
-    t1 = time.time()
+
     # name_rx = re.compile(name_filter)
     files = []
     if '.' not in blacklist:
