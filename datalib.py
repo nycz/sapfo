@@ -118,6 +118,8 @@ def _generate_page_links(path, name_rx, blacklist):
     Files in the root directory should always be loaded first, then files in
     the subdirectories.
     """
+    blacklist.append('metadata.json')
+
     def in_blacklist(name):
         for b in blacklist:
             if (b.startswith('$RX:') and re.search(b[4:], name)) \
