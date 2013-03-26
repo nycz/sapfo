@@ -20,7 +20,7 @@ class MainWindow(QtGui.QFrame):
         self.tab_widget = QtGui.QTabWidget(self)
         layout.addWidget(self.tab_widget)
 
-        instances = common.read_json('settings.json')
+        instances = common.read_json(common.local_path('settings.json'))
         self.viewerframes = {}
         for name, data in instances.items():
             if name == 'default':
@@ -34,15 +34,15 @@ class MainWindow(QtGui.QFrame):
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+R"), self, self.reload)
         QtGui.QShortcut(QtGui.QKeySequence("F5"), self, self.reload)
 
-        self.setStyleSheet(common.read_stylesheet('qt.css'))
+        self.setStyleSheet(common.read_stylesheet(common.local_path('qt.css')))
         self.show()
 
     def set_fullscreen(self, fullscreen):
         self.tab_widget.tabBar().setHidden(fullscreen)
 
     def reload(self):
-        self.setStyleSheet(common.read_stylesheet('qt.css'))
-        instances = common.read_json('settings.json')
+        self.setStyleSheet(common.read_stylesheet(common.local_path('qt.css')))
+        instances = common.read_json(common.local_path('settings.json'))
         for name, data in instances.items():
             if name == 'default':
                 continue

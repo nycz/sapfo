@@ -25,13 +25,13 @@ def generate_index_page(root_path, generated_index_path, data):
     entries = [_get_entry_data(root_path, d, entry_page_list)\
                for d in os.listdir(root_path)
                if os.path.isdir(join(root_path, d))]
-    html_template = common.read_file('index_page_template.html')
-    entry_template = common.read_file('entry_template.html')
+    html_template = common.read_file(common.local_path('index_page_template.html'))
+    entry_template = common.read_file(common.local_path('entry_template.html'))
     formatted_entries = [_format_entry(entry_template, **data) \
             for data in sorted(entries, key=lambda x:x['title'])]
     common.write_file(generated_index_path, html_template.format(\
                         body='\n<hr />\n'.join(formatted_entries),
-                        css=common.read_file('index_page.css')))
+                        css=common.read_file(common.local_path('index_page.css'))))
     return entry_page_list
 
 
