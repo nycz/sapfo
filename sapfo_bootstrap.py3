@@ -1,4 +1,8 @@
-import sapfo
-
 if __name__ == '__main__':
-    sapfo.main()
+    try:
+        import sapfo
+        sapfo.main()
+    except:
+        from libsyntyche import common
+        common.print_traceback()
+        input()
