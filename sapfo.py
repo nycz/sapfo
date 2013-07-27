@@ -34,14 +34,14 @@ class MainWindow(QtGui.QFrame):
         QtGui.QShortcut(QtGui.QKeySequence("Ctrl+R"), self, self.reload)
         QtGui.QShortcut(QtGui.QKeySequence("F5"), self, self.reload)
 
-        self.setStyleSheet(common.read_stylesheet(common.local_path('qt.css')))
+        self.set_stylesheet()
         self.show()
 
     def set_fullscreen(self, fullscreen):
         self.tab_widget.tabBar().setHidden(fullscreen)
 
     def reload(self):
-        self.setStyleSheet(common.read_stylesheet(common.local_path('qt.css')))
+        self.set_stylesheet()
         instances = common.read_json(common.local_path('settings.json'))
         for name, data in instances.items():
             if name == 'default':
@@ -49,6 +49,10 @@ class MainWindow(QtGui.QFrame):
             newdata = update_dict(instances['default'].copy(), data)
             self.viewerframes[name].reload(newdata)
         # self.tab_widget.currentWidget().reload()
+
+    def set_stylesheet(self):
+        self.setStyleSheet(common.parse_stylesheet(\
+                           common.read_file(common.local_path('qt.css'))))
 
 def update_dict(basedict, newdict):
     for key, value in newdict.items():
