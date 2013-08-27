@@ -1,9 +1,5 @@
 {
   "default": {
-    /*
-    "path": <PATH>,
-    "name_filter": <REGEX>,
-    */
     "blacklist": [
       "this is exactly matched",
       "$RX:this is parsed as a regex"
@@ -14,5 +10,9 @@
       "home": [],
       "toggle_fullscreen": []
     }
+  },
+  "example": {
+    "path": "<PATH>",
+    "name_filter": "<REGEX>"
   }
 }
