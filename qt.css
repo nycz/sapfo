@@ -14,7 +14,7 @@ InfoPanelLabel {
 }
 
 
-MainWindow {
+MainWindow,QTextEdit {
     background-color: $main_bgcolor;
 }
 QTabWidget::tab-bar {
