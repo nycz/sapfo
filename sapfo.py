@@ -103,16 +103,6 @@ def index_stories(data):
         wordcount = generate_word_count(join(path,d), filter(fname_rx.search, os.listdir(join(path,d))))
         metadata.update({'wordcount': wordcount})
         entries.append(metadata)
-
-    # files = [filter(fname_rx.search, os.listdir(os.path.join(path,d)))
-    #          for d in dirs]
-    # entries = [common.read_json(join(path, d, 'metadata.json'))
-    #            for d in dirs]
-    # for wc, e in zip(map(generate_word_count,
-    #                      map(lambda x:join(path,x), list(files))),
-    #                  entries):
-    #     e.update({'wordcount': wc})
-    # entries.sort()
     return {'dirs': dirs, 'entries': {n:e for n,e in enumerate(entries)}}
 
 

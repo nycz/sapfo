@@ -1,7 +1,7 @@
 body {
     background-color: #233;
     color: #abb;
-    font-family: "Serif";
+    font-family: "Sans";
 }
 div.list_entry {
 /*    background-color: #322;*/
@@ -53,5 +53,5 @@ hr {
     background-color: black;
     border: none;
     height: 1px;
-    margin: 10px;
+    margin: 5px;
 }
