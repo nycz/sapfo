@@ -43,6 +43,7 @@ class MainWindow(QtGui.QFrame):
 
         self.index_viewer = QtWebKit.QWebView(index_widget)
         layout.addWidget(self.index_viewer, stretch=1)
+        self.index_viewer.setDisabled(True)
 
         self.terminal = Terminal(index_widget)
         layout.addWidget(self.terminal)
@@ -65,6 +66,9 @@ class MainWindow(QtGui.QFrame):
 
         self.set_stylesheet()
         self.show()
+
+    def wheelEvent(self, ev):
+        self.index_viewer.wheelEvent(ev)
 
     def update_view(self):
         self.index_viewer.setHtml(generate_index(self.entries,
