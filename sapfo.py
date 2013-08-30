@@ -10,6 +10,7 @@ import shutil
 import sys
 
 from PyQt4 import QtGui, QtWebKit
+from PyQt4.QtCore import Qt, QEvent
 
 from libsyntyche import common
 from terminal import Terminal
@@ -70,6 +71,21 @@ class MainWindow(QtGui.QFrame):
     def wheelEvent(self, ev):
         self.index_viewer.wheelEvent(ev)
 
+    def scroll_viewer(self, ev):
+        self.index_viewer.event(ev)
+
+    def keyPressEvent(self, ev):
+        if ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
+            self.index_viewer.keyPressEvent(ev)
+        else:
+            return super().keyPressEvent(ev)
+
+    def keyReleaseEvent(self, ev):
+        if ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
+            self.index_viewer.keyReleaseEvent(ev)
+        else:
+            return super().keyReleaseEvent(ev)
+
     def update_view(self):
         self.index_viewer.setHtml(generate_index(self.entries,
                                                 self.entries_sortkey,
@@ -80,6 +96,7 @@ class MainWindow(QtGui.QFrame):
         self.terminal.filter_.connect(self.filter_entries)
         self.terminal.sort.connect(self.sort_entries)
         self.terminal.open_.connect(self.open_entry)
+        self.terminal.input_term.scroll_index.connect(self.scroll_viewer)
         self.story_viewer.show_index.connect(self.show_index)
 
     def filter_entries(self, arg):

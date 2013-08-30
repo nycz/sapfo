@@ -13,6 +13,8 @@ class Terminal(QtGui.QWidget):
         history_up = pyqtSignal()
         history_down = pyqtSignal()
 
+        scroll_index = pyqtSignal(QtGui.QKeyEvent)
+
         # This has to be here, keyPressEvent does not capture tab press
         def event(self, event):
             if event.type() == QEvent.KeyPress and\
@@ -27,12 +29,22 @@ class Terminal(QtGui.QWidget):
                 QtGui.QLineEdit.keyPressEvent(self, event)
                 self.reset_ac_suggestions.emit()
                 self.reset_history_travel.emit()
+            elif event.modifiers() == Qt.ControlModifier and event.key() in (Qt.Key_Up, Qt.Key_Down):
+                nev = QtGui.QKeyEvent(QEvent.KeyPress, event.key(), Qt.NoModifier)
+                self.scroll_index.emit(nev)
             elif event.key() == Qt.Key_Up:
                 self.history_up.emit()
             elif event.key() == Qt.Key_Down:
                 self.history_down.emit()
             else:
                 return super().keyPressEvent(event)
+
+        def keyReleaseEvent(self, event):
+            if event.modifiers() == Qt.ControlModifier and event.key() in (Qt.Key_Up, Qt.Key_Down):
+                nev = QtGui.QKeyEvent(QEvent.KeyRelease, event.key(), Qt.NoModifier)
+                self.scroll_index.emit(nev)
+            else:
+                return super().keyReleaseEvent(event)
 
     # This needs to be here for the stylesheet
     class TerminalOutputBox(QtGui.QLineEdit):
