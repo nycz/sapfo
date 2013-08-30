@@ -95,7 +95,7 @@ class MainWindow(QtGui.QFrame):
     def connect_signals(self):
         self.terminal.filter_.connect(self.filter_entries)
         self.terminal.sort.connect(self.sort_entries)
-        self.terminal.open_.connect(self.open_entry)
+        self.terminal.open_.connect(self.find_entry)
         self.terminal.edit.connect(self.edit_entry)
         self.terminal.input_term.scroll_index.connect(self.scroll_viewer)
         self.story_viewer.show_index.connect(self.show_index)
@@ -161,12 +161,27 @@ class MainWindow(QtGui.QFrame):
         self.entries_sort_reverse = reverse
         self.update_view()
 
-    def open_entry(self, arg):
-        if not arg.isdigit():
+    def find_entry(self, arg):
+        #TODO: better acronyms than s/g
+        if len(arg) < 2:
             return
-        if not self.entries[int(arg)]['pages']:
+        if arg[0] not in 'sg':
             return
-        self.story_viewer.start(self.entries[int(arg)])
+        if arg[0] == 's':
+            f = lambda x: x[1]['title'].lower().startswith(arg[1:].lower())
+        else:
+            f = lambda x: arg[1:].lower() in x[1]['title'].lower()
+        candidates = list(filter(f, enumerate(self.entries)))
+        if len(candidates) == 1:
+            self.open_entry(candidates[0][0])
+
+
+    def open_entry(self, num):
+        if not isinstance(num, int):
+            return
+        if not self.entries[num]['pages']:
+            return
+        self.story_viewer.start(self.entries[num])
         self.stack.setCurrentIndex(1)
 
     def edit_entry(self, arg):

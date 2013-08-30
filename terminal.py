@@ -90,7 +90,7 @@ class Terminal(QtGui.QWidget):
         self.output_term.setText('')
 
         if text.isdigit():
-            self.open_.emit(text)
+            self.open_.emit(int(text))
             return
 
         command = text[0].lower()
