@@ -8,7 +8,7 @@
       "next": [],
       "previous": [],
       "home": [],
-      "toggle_fullscreen": []
+      "toggle fullscreen": []
     },
     "tag colors": {}
   },
@@ -16,7 +16,7 @@
   "profiles": {
     "example": {
       "path": "<PATH>",
-      "name_filter": "<REGEX>",
+      "name filter": "<REGEX>",
       "tag colors": {}
     }
   }

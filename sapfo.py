@@ -168,7 +168,7 @@ def index_stories(data):
     path = data['path']
     dirs = [d for d in os.listdir(path)
             if os.path.isdir(join(path, d))]
-    fname_rx = re.compile(data['name_filter'], re.IGNORECASE)
+    fname_rx = re.compile(data['name filter'], re.IGNORECASE)
     entries = []
     for d in dirs:
         metadata = common.read_json(join(path, d, 'metadata.json'))
