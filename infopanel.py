@@ -16,9 +16,7 @@ class InfoPanel(QtGui.QFrame):
         self.label = InfoPanelLabel()
         layout.addWidget(self.label, 0, 0, QtCore.Qt.AlignHCenter)
 
-        self.stay_hidden = False
-
-        self.hide()
+        self.show()
 
     def set_info(self, page_list, index):
         s = "<em>Page</em> {page}/{maxpages}\t–\t<strong>File</strong>: {fname}"
@@ -30,13 +28,5 @@ class InfoPanel(QtGui.QFrame):
             fname=os.path.basename(page_list[index][0]))
         )
 
-    def show(self):
-        if not self.stay_hidden:
-            super().show()
-
-    def set_fullscreen(self, fullscreen, page):
-        self.stay_hidden = fullscreen
-        if page == -1:
-            self.hide()
-        else:
-            self.setHidden(self.stay_hidden)
+    def set_fullscreen(self, fullscreen):
+        self.setHidden(fullscreen)

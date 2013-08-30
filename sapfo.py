@@ -13,6 +13,7 @@ from PyQt4 import QtGui, QtWebKit
 
 from libsyntyche import common
 from terminal import Terminal
+from viewerframe import ViewerFrame
 
 
 class MainWindow(QtGui.QFrame):
@@ -47,6 +48,10 @@ class MainWindow(QtGui.QFrame):
         layout.addWidget(self.terminal)
 
         self.stack.addWidget(index_widget)
+
+        # Story viewer
+        self.story_viewer = ViewerFrame(self, hotkeys)
+        self.stack.addWidget(self.story_viewer)
 
 
         self.tagcolors = profile_settings['tag colors']
