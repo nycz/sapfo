@@ -6,6 +6,12 @@ body {
 div.list_entry {
 /*    background-color: #322;*/
 }
+span.id {
+    color: #677;
+    font-size: 0.7em;
+    font-style: italic;
+    margin-right: 5px;
+}
 span.title {
     font-size: 0.9em;
     margin-right: 5px;

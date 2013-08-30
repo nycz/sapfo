@@ -130,11 +130,11 @@ def generate_index(raw_entries, key, reverse):
         return desc if desc else '<span class="empty_desc">[no desc]</span>'
 
     entrystr = common.read_file(common.local_path('entry_template.html'))
-    entries = [entrystr.format(title=s['title'],
+    entries = [entrystr.format(title=s['title'], id=n,
                                tags=format_tags(s['tags']),
                                desc=format_desc(s['description']),
                                wc=s['wordcount'])
-               for s in sorted(raw_entries, reverse=reverse, key=itemgetter(key))]
+               for n,s in enumerate(sorted(raw_entries, reverse=reverse, key=itemgetter(key)))]
     body = '<hr />'.join(entries)
     boilerplate = """
         <style type="text/css">{css}</style>
