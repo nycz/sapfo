@@ -53,6 +53,7 @@ class Terminal(QtGui.QWidget):
     filter_ = pyqtSignal(str)
     sort = pyqtSignal(str)
     open_ = pyqtSignal(str)
+    edit = pyqtSignal(str)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -109,7 +110,7 @@ class Terminal(QtGui.QWidget):
         self.open_.emit(arg)
 
     def cmd_edit(self, arg):
-        pass
+        self.edit.emit(arg)
 
     def cmd_sort(self, arg):
         self.sort.emit(arg)

@@ -96,6 +96,7 @@ class MainWindow(QtGui.QFrame):
         self.terminal.filter_.connect(self.filter_entries)
         self.terminal.sort.connect(self.sort_entries)
         self.terminal.open_.connect(self.open_entry)
+        self.terminal.edit.connect(self.edit_entry)
         self.terminal.input_term.scroll_index.connect(self.scroll_viewer)
         self.story_viewer.show_index.connect(self.show_index)
 
@@ -168,6 +169,33 @@ class MainWindow(QtGui.QFrame):
         self.story_viewer.start(self.entries[int(arg)])
         self.stack.setCurrentIndex(1)
 
+    def edit_entry(self, arg):
+        if not arg:
+            return
+        category = {'d': 'description', 'n': 'title', 't': 'tags'}[arg[0]]
+        full_rx = re.compile(r'[dtn](\d+)\s+(.+)$')
+        partial_rx = re.compile(r'[dtn](\d+)$')
+        if partial_rx.match(arg):
+            if int(arg[1:]) >= len(self.entries):
+                self.terminal.error('Index out of range')
+                return
+            new = 'e' + arg + ' ' + self.entries[int(arg[1:])][category]
+            self.terminal.input_term.setText(new)
+        elif full_rx.match(arg):
+            entry_id, payload = full_rx.match(arg).groups()
+            entry_id = int(entry_id)
+            if entry_id >= len(self.entries):
+                self.terminal.error('Index out of range')
+                return
+            # Update the metadata file
+            metadata = common.read_json(self.entries[entry_id]['metadatafile'])
+            metadata[category] = payload
+            common.write_json(self.entries[entry_id]['metadatafile'], metadata)
+            # Update the memory
+            self.entries[entry_id][category] = payload
+            self.update_view()
+
+
     def show_index(self):
         self.stack.setCurrentIndex(0)
         self.terminal.setFocus()
@@ -219,12 +247,14 @@ def index_stories(data):
     fname_rx = re.compile(data['name filter'], re.IGNORECASE)
     entries = []
     for d in dirs:
-        metadata = common.read_json(join(path, d, 'metadata.json'))
+        metadatafile = join(path, d, 'metadata.json')
+        metadata = common.read_json(metadatafile)
         files = [join(path,d,f) for f in os.listdir(join(path,d))
                  if fname_rx.search(f)]
         wordcount = generate_word_count(files)
         metadata.update({'wordcount': wordcount,
-                         'pages': sorted(files)})
+                         'pages': sorted(files),
+                         'metadatafile': metadatafile})
         entries.append(metadata)
     return sorted(entries, key=itemgetter('title'))
 
