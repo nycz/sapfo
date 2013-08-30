@@ -35,9 +35,15 @@ class MainWindow(QtGui.QFrame):
             profile = settings['default profile']
         if profile not in settings['profiles']:
             raise NameError('Profile not found')
+        profile_settings = settings['profiles'][profile]
 
-        self.tagcolors = settings['profiles'][profile]['tag colors']
-        self.data = index_stories(settings['profiles'][profile])
+        # Generate hotkeys
+        hotkeys = update_dict(settings['default settings']['hotkeys'],
+                              profile_settings.get('hotkeys', {}))
+
+
+        self.tagcolors = profile_settings['tag colors']
+        self.data = index_stories(profile_settings)
         self.entries = self.data['entries'].copy()
         self.entries_sortkey = 'title'
         self.entries_sort_reverse = False
@@ -182,6 +188,18 @@ def read_config():
         shutil.copyfile(common.local_path('default_settings.json'), config_file)
         print("No config found, copied the default to {}. Edit it at once.".format(config_dir))
     return common.read_json(config_file)
+
+
+def update_dict(basedict, newdict):
+    for key, value in newdict.items():
+        if isinstance(value, collections.Mapping):
+            subdict = update_dict(basedict.get(key, {}), value)
+            basedict[key] = subdict
+        elif isinstance(value, type([])):
+            basedict[key] = list(set(value + basedict.get(key, [])))
+        else:
+            basedict[key] = value
+    return basedict
 
 
 def main():
