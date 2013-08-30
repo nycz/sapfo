@@ -38,15 +38,16 @@ class MainWindow(QtGui.QFrame):
             raise NameError('Profile not found')
 
         self.data = index_stories(settings['profiles'][profile])
-        self.set_entries(self.data['entries'])
+        self.fentries = self.data['entries'].copy()
+        self.set_entries()
 
         self.connect_signals()
 
         self.set_stylesheet()
         self.show()
 
-    def set_entries(self, entries):
-        self.main_widget.setHtml(generate_index(entries))
+    def set_entries(self):
+        self.main_widget.setHtml(generate_index(self.fentries))
 
     def connect_signals(self):
         self.terminal.filter_.connect(self.filter_entries)
@@ -54,7 +55,8 @@ class MainWindow(QtGui.QFrame):
     def filter_entries(self, arg):
         # Reset filter if no argument
         if not arg:
-            self.set_entries(self.data['entries'])
+            self.fentries = self.data['entries'].copy()
+            self.set_entries()
             return
         if len(arg) == 1:
             return #TODO
@@ -62,9 +64,9 @@ class MainWindow(QtGui.QFrame):
         def testfilter(acronym, fullname, filtered=lambda x: x.lower()):
             if arg[0] == acronym:
                 name = arg[1:].strip().lower()
-                fentries = {n:e for n,e in self.data['entries'].items()
+                self.fentries = {n:e for n,e in self.data['entries'].items()
                             if name in filtered(e[fullname])}
-                self.set_entries(fentries)
+                self.set_entries()
                 return
 
         # Filter on title (name)
@@ -75,9 +77,9 @@ class MainWindow(QtGui.QFrame):
         if arg[0] == 't':
             tags = set(re.split(r'\s*,\s*', arg[1:].strip().lower()))
             print(tags)
-            fentries = {n:e for n,e in self.data['entries'].items()
+            self.fentries = {n:e for n,e in self.fentries.items()
                         if tags <= set(map(str.lower, e['tags']))}
-            self.set_entries(fentries)
+            self.set_entries()
             return
         # Filter on length
         if arg[0] == 'l':
@@ -97,9 +99,9 @@ class MainWindow(QtGui.QFrame):
                     if not f(wordcount, num):
                         return False
                 return True
-            fentries = {n:e for n,e in self.data['entries'].items()
+            self.fentries = {n:e for n,e in self.fentries.items()
                         if matches(e['wordcount'])}
-            self.set_entries(fentries)
+            self.set_entries()
 
     def set_stylesheet(self):
         self.setStyleSheet(common.parse_stylesheet(\
