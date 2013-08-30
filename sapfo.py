@@ -9,7 +9,7 @@ import re
 import shutil
 import sys
 
-from PyQt4 import QtGui
+from PyQt4 import QtGui, QtWebKit
 
 from libsyntyche import common
 from terminal import Terminal
@@ -23,9 +23,8 @@ class MainWindow(QtGui.QFrame):
         layout = QtGui.QVBoxLayout(self)
         common.kill_theming(layout)
 
-        self.main_widget = QtGui.QTextEdit(self)
-        layout.addWidget(self.main_widget)
-        self.main_widget.setReadOnly(True)
+        self.main_widget = QtWebKit.QWebView(self)
+        layout.addWidget(self.main_widget, stretch=1)
 
         self.terminal = Terminal(self)
         layout.addWidget(self.terminal)
