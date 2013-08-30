@@ -61,6 +61,7 @@ class ViewerFrame(QtGui.QFrame):
         self.webview.next.connect(self.next)
         self.webview.previous.connect(self.previous)
         self.webview.page().setLinkDelegationPolicy(QtWebKit.QWebPage.DelegateAllLinks)
+        self.webview.linkClicked.connect(self.link_clicked)
         self.webview.wheel_event.connect(self.wheel_event)
 
         # Key shortcuts
