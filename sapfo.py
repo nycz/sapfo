@@ -20,15 +20,6 @@ class MainWindow(QtGui.QFrame):
         super().__init__()
         self.setWindowTitle('Sapfo')
 
-        layout = QtGui.QVBoxLayout(self)
-        common.kill_theming(layout)
-
-        self.main_widget = QtWebKit.QWebView(self)
-        layout.addWidget(self.main_widget, stretch=1)
-
-        self.terminal = Terminal(self)
-        layout.addWidget(self.terminal)
-
         # Load profile
         settings = read_config()
         if not profile:
@@ -40,6 +31,22 @@ class MainWindow(QtGui.QFrame):
         # Generate hotkeys
         hotkeys = update_dict(settings['default settings']['hotkeys'],
                               profile_settings.get('hotkeys', {}))
+
+        # Create stuff
+        self.stack = QtGui.QStackedLayout(self)
+        common.kill_theming(self.stack)
+
+        index_widget = QtGui.QWidget(self)
+        layout = QtGui.QVBoxLayout(index_widget)
+        common.kill_theming(layout)
+
+        self.index_viewer = QtWebKit.QWebView(index_widget)
+        layout.addWidget(self.index_viewer, stretch=1)
+
+        self.terminal = Terminal(index_widget)
+        layout.addWidget(self.terminal)
+
+        self.stack.addWidget(index_widget)
 
 
         self.tagcolors = profile_settings['tag colors']
@@ -55,7 +62,7 @@ class MainWindow(QtGui.QFrame):
         self.show()
 
     def update_view(self):
-        self.main_widget.setHtml(generate_index(self.entries,
+        self.index_viewer.setHtml(generate_index(self.entries,
                                                 self.entries_sortkey,
                                                 self.entries_sort_reverse,
                                                 self.tagcolors))
