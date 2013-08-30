@@ -70,11 +70,15 @@ class Terminal(QtGui.QWidget):
 
 
     def parse_command(self):
-        text = self.input_term.text()
-        if not text.strip():
+        text = self.input_term.text().strip()
+        if not text:
             return
         self.input_term.setText('')
         self.output_term.setText('')
+
+        if text.isdigit():
+            self.open_.emit(text)
+            return
 
         command = text[0].lower()
         if command in self.commands:
