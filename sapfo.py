@@ -15,7 +15,7 @@ from terminal import Terminal
 
 
 class MainWindow(QtGui.QFrame):
-    def __init__(self):
+    def __init__(self, profile):
         super().__init__()
         self.setWindowTitle('Sapfo')
 
@@ -29,15 +29,22 @@ class MainWindow(QtGui.QFrame):
         self.terminal = Terminal(self)
         layout.addWidget(self.terminal)
 
-        instances = read_config()
+        # Load profile
+        settings = read_config()
+        if not profile:
+            profile = settings['default profile']
+        if profile not in settings['profiles']:
+            raise NameError('Profile not found')
 
-        main_data = index_stories(instances['test'])
+        self.data = index_stories(settings['profiles'][profile])
+        self.set_entries(self.data['entries'])
 
-        self.main_widget.setHtml(generate_index(main_data['entries']))
 
         self.set_stylesheet()
         self.show()
 
+    def set_entries(self, entries):
+        self.main_widget.setHtml(generate_index(entries))
 
     def set_stylesheet(self):
         self.setStyleSheet(common.parse_stylesheet(\
@@ -100,8 +107,13 @@ def read_config():
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('profile', nargs='?')
+    args = parser.parse_args()
+
     app = QtGui.QApplication(sys.argv)
-    window = MainWindow()
+    window = MainWindow(args.profile)
     app.setActiveWindow(window)
     sys.exit(app.exec_())
 

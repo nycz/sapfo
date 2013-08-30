@@ -1,5 +1,5 @@
 {
-  "default": {
+  "default settings": {
     "blacklist": [
       "this is exactly matched",
       "$RX:this is parsed as a regex"
@@ -11,8 +11,11 @@
       "toggle_fullscreen": []
     }
   },
-  "example": {
-    "path": "<PATH>",
-    "name_filter": "<REGEX>"
+  "default profile": "example",
+  "profiles": {
+    "example": {
+      "path": "<PATH>",
+      "name_filter": "<REGEX>"
+    }
   }
 }
