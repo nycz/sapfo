@@ -36,19 +36,6 @@ a {
 a:active {
     color: #eef;
 }
-a.edit_link {
-    background-color: #122;
-    border-radius: 3px;
-    color: #455;
-    float: right;
-    font-size: 1.8em;
-    padding: 0px 2px;
-    text-align: right;
-    text-decoration: none;
-}
-a.entry_link {
-    margin-right: 5px;
-}
 hr {
     background-color: black;
     border: none;

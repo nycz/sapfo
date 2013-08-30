@@ -76,7 +76,6 @@ class MainWindow(QtGui.QFrame):
         # Filter on tags
         if arg[0] == 't':
             tags = set(re.split(r'\s*,\s*', arg[1:].strip().lower()))
-            print(tags)
             self.fentries = {n:e for n,e in self.fentries.items()
                         if tags <= set(map(str.lower, e['tags']))}
             self.set_entries()
@@ -120,12 +119,14 @@ def generate_index(raw_entries):
     return boilerplate.format(body=body,
                 css=common.read_file(common.local_path('index_page.css')))
 
+
 def generate_word_count(path, files):
     wordcount_rx = re.compile(r'\S+')
     def count_words(fpath):
         with open(join(path,fpath)) as f:
             return len(wordcount_rx.findall(f.read()))
     return sum(map(count_words, files))
+
 
 def index_stories(data):
     path = data['path']
@@ -140,17 +141,6 @@ def index_stories(data):
         entries.append(metadata)
     return {'dirs': dirs, 'entries': {n:e for n,e in enumerate(entries)}}
 
-
-# def update_dict(basedict, newdict):
-#     for key, value in newdict.items():
-#         if isinstance(value, collections.Mapping):
-#             subdict = update_dict(basedict.get(key, {}), value)
-#             basedict[key] = subdict
-#         elif isinstance(value, type([])):
-#             basedict[key] = list(set(value + basedict.get(key, [])))
-#         else:
-#             basedict[key] = value
-#     return basedict
 
 def read_config():
     config_dir = os.path.join(os.getenv('HOME'), '.config', 'sapfo')
