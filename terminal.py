@@ -70,8 +70,14 @@ class Terminal(QtGui.QWidget):
         layout.addWidget(self.output_term)
 
         self.input_term.setFocus()
-
         self.input_term.returnPressed.connect(self.parse_command)
+
+        # History
+        self.history = ['']
+        self.history_index = 0
+        self.input_term.reset_history_travel.connect(self.reset_history_travel)
+        self.input_term.history_up.connect(self.history_up)
+        self.input_term.history_down.connect(self.history_down)
 
     def setFocus(self):
         self.input_term.setFocus()
@@ -87,6 +93,7 @@ class Terminal(QtGui.QWidget):
         text = self.input_term.text().strip()
         if not text:
             return
+        self.add_history(text)
         self.input_term.setText('')
         self.output_term.setText('')
 
@@ -100,6 +107,27 @@ class Terminal(QtGui.QWidget):
             self.commands[command][0](self, text[1:].strip())
         else:
             self.error('No such command (? for help)')
+
+
+    # ==== History =============================== #
+
+    def history_up(self):
+        if self.history_index < len(self.history)-1:
+            self.history_index += 1
+        self.input_term.setText(self.history[self.history_index])
+
+    def history_down(self):
+        if self.history_index > 0:
+            self.history_index -= 1
+        self.input_term.setText(self.history[self.history_index])
+
+    def add_history(self, text):
+        self.history[0] = text
+        self.history.insert(0, '')
+
+    def reset_history_travel(self):
+        self.history_index = 0
+        self.history[self.history_index] = self.input_term.text()
 
 
     # ==== Commands ============================== #
