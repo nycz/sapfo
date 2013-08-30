@@ -173,20 +173,32 @@ class MainWindow(QtGui.QFrame):
         if not arg:
             return
         category = {'d': 'description', 'n': 'title', 't': 'tags'}[arg[0]]
+        tagedit_rx = re.compile(r't(\d+)([+-])\s+(.+)$')
         full_rx = re.compile(r'[dtn](\d+)\s+(.+)$')
         partial_rx = re.compile(r'[dtn](\d+)$')
+        splittags_rx = re.compile(r'\s*,\s*')
+        # No data specified, so the current is provided instead
         if partial_rx.match(arg):
-            if int(arg[1:]) >= len(self.entries):
+            entry_id = int(arg[1:])
+            if entry_id >= len(self.entries):
                 self.terminal.error('Index out of range')
                 return
-            new = 'e' + arg + ' ' + self.entries[int(arg[1:])][category]
-            self.terminal.input_term.setText(new)
+            if arg[0] == 't':
+                new = ', '.join(self.entries[entry_id][category])
+            else:
+                new = self.entries[entry_id][category]
+
+            self.terminal.input_term.setText('e' + arg + ' ' + new)
+        # Update the chosen data with new stuff
         elif full_rx.match(arg):
             entry_id, payload = full_rx.match(arg).groups()
             entry_id = int(entry_id)
             if entry_id >= len(self.entries):
                 self.terminal.error('Index out of range')
                 return
+            # Convert the string to a list if tags
+            if arg[0] == 't':
+                payload = splittags_rx.split(payload)
             # Update the metadata file
             metadata = common.read_json(self.entries[entry_id]['metadatafile'])
             metadata[category] = payload
@@ -194,7 +206,24 @@ class MainWindow(QtGui.QFrame):
             # Update the memory
             self.entries[entry_id][category] = payload
             self.update_view()
-
+        # Update the tags specifically
+        elif tagedit_rx.match(arg):
+            entry_id, mode, tags = tagedit_rx.match(arg).groups()
+            entry_id = int(entry_id)
+            if entry_id >= len(self.entries):
+                self.terminal.error('Index out of range')
+                return
+            tags = splittags_rx.split(tags)
+            metadata = common.read_json(self.entries[entry_id]['metadatafile'])
+            if mode == '-':
+                newtags = list(set(metadata['tags']) - set(tags))
+            else:
+                newtags = list(set(metadata['tags'] + tags))
+            metadata['tags'] = newtags
+            common.write_json(self.entries[entry_id]['metadatafile'], metadata)
+            # Update the memory
+            self.entries[entry_id][category] = newtags
+            self.update_view()
 
     def show_index(self):
         self.stack.setCurrentIndex(0)
