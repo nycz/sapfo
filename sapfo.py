@@ -146,6 +146,8 @@ class MainWindow(QtGui.QFrame):
     def open_entry(self, arg):
         if not arg.isdigit():
             return
+        if not self.entries[int(arg)]['pages']:
+            return
         self.story_viewer.start(self.entries[int(arg)])
         self.stack.setCurrentIndex(1)
 
