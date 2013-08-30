@@ -59,8 +59,6 @@ class MainWindow(QtGui.QFrame):
         self.tagcolors = profile_settings['tag colors']
         self.all_entries = index_stories(profile_settings)
         self.entries = self.all_entries.copy()
-        self.entries_sortkey = 'title'
-        self.entries_sort_reverse = False
         self.update_view()
 
         self.connect_signals()
@@ -87,10 +85,7 @@ class MainWindow(QtGui.QFrame):
             return super().keyReleaseEvent(ev)
 
     def update_view(self):
-        self.index_viewer.setHtml(generate_index(self.entries,
-                                                self.entries_sortkey,
-                                                self.entries_sort_reverse,
-                                                self.tagcolors))
+        self.index_viewer.setHtml(generate_index(self.entries, self.tagcolors))
 
     def connect_signals(self):
         self.terminal.filter_.connect(self.filter_entries)
@@ -158,8 +153,7 @@ class MainWindow(QtGui.QFrame):
         reverse = False
         if len(arg) > 1 and arg[1] == '-':
             reverse = True
-        self.entries_sortkey = acronyms[arg[0]]
-        self.entries_sort_reverse = reverse
+        self.entries.sort(key=itemgetter(acronyms[arg[0]]), reverse=reverse)
         self.update_view()
 
     def find_entry(self, arg):
@@ -251,7 +245,7 @@ class MainWindow(QtGui.QFrame):
                            common.read_file(common.local_path('qt.css'))))
 
 
-def generate_index(raw_entries, key, reverse, tagcolors):
+def generate_index(raw_entries, tagcolors):
     def format_tags(tags):
         tag_template = '<span class="tag" style="background-color:{color};">{tag}</span>'
         return '<wbr>'.join([
@@ -267,7 +261,7 @@ def generate_index(raw_entries, key, reverse, tagcolors):
                                tags=format_tags(s['tags']),
                                desc=format_desc(s['description']),
                                wc=s['wordcount'])
-               for n,s in enumerate(sorted(raw_entries, reverse=reverse, key=itemgetter(key)))]
+               for n,s in enumerate(raw_entries)]
     body = '<hr />'.join(entries)
     boilerplate = """
         <style type="text/css">{css}</style>
