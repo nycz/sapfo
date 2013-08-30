@@ -105,10 +105,20 @@ class MainWindow(QtGui.QFrame):
         self.setStyleSheet(common.parse_stylesheet(\
                            common.read_file(common.local_path('qt.css'))))
 
+
 def generate_index(raw_entries):
-    entrystr = '<strong>{title}</strong> ({wc:,}) - <em>({tags})</em><br />{desc}'
-    entries = [entrystr.format(title=s['title'], tags=s['tags'],
-                               desc=s['description'], wc=s['wordcount'])
+    def format_tags(tags):
+        tag_template = '<span class="tag">{tag}</span>'
+        return ''.join([tag_template.format(tag=x)
+                          for x in sorted(tags)])
+    def format_desc(desc):
+        return desc if desc else '<span class="empty_desc">[no desc]</span>'
+
+    entrystr = common.read_file(common.local_path('entry_template.html'))
+    entries = [entrystr.format(title=s['title'],
+                               tags=format_tags(s['tags']),
+                               desc=format_desc(s['description']),
+                               wc=s['wordcount'])
                for s in raw_entries.values()]
     body = '<hr />'.join(entries)
     boilerplate = """

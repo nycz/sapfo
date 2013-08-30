@@ -1,12 +1,18 @@
 body {
     background-color: #233;
-    color: #abb;
-    font-family: "Sans";
+    color: #cdd;
+    font-family: "Serif";
 }
 div.list_entry {
 /*    background-color: #322;*/
 }
+span.title {
+    font-size: 0.9em;
+    margin-right: 5px;
+}
 div.description {
+    color: #899;
+    font-size: 0.8em;
     margin-left: 20px;
     margin-top: 5px;
 }
@@ -15,7 +21,7 @@ span.empty_desc {
     font-style: italic;
 }
 span.tag {
-    /*background-color: #677;*/
+    background-color: #677;
     border-radius: 0.25em;
     color: #011;
     font-family: monospace;
@@ -23,11 +29,12 @@ span.tag {
     margin: 0px 5px;
     padding: 0.2em;
 }
-span.page_count {
-    color: #899;
+span.wordcount {
+    color: #677;
     font-size: 0.8em;
     font-style: italic;
-    margin-right: 10px;
+    margin-left: 5px;
+    margin-right: 5px;
 }
 a {
     outline: none;
@@ -40,5 +47,5 @@ hr {
     background-color: black;
     border: none;
     height: 1px;
-    margin: 5px;
+    margin: 10px;
 }
