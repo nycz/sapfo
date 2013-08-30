@@ -124,8 +124,8 @@ class MainWindow(QtGui.QFrame):
 def generate_index(raw_entries, key, reverse):
     def format_tags(tags):
         tag_template = '<span class="tag">{tag}</span>'
-        return ''.join([tag_template.format(tag=x)
-                          for x in sorted(tags)])
+        return '<wbr>'.join([tag_template.format(tag=x.replace(' ', '&nbsp;').replace('-', '&#8209;'))
+                        for x in sorted(tags)])
     def format_desc(desc):
         return desc if desc else '<span class="empty_desc">[no desc]</span>'
 
