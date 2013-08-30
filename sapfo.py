@@ -67,8 +67,8 @@ class MainWindow(QtGui.QFrame):
         def testfilter(acronym, fullname, filtered=lambda x: x.lower()):
             if arg[0] == acronym:
                 name = arg[1:].strip().lower()
-                self.entries = {n:e for n,e in self.data['entries'].items()
-                            if name in filtered(e[fullname])}
+                self.entries = [x for x in self.data['entries']
+                            if name in filtered(x[fullname])]
                 self.update_view()
                 return
 
@@ -79,8 +79,8 @@ class MainWindow(QtGui.QFrame):
         # Filter on tags
         if arg[0] == 't':
             tags = set(re.split(r'\s*,\s*', arg[1:].strip().lower()))
-            self.entries = {n:e for n,e in self.entries.items()
-                             if tags <= set(map(str.lower, e['tags']))}
+            self.entries = [x for x in self.entries
+                            if tags <= set(map(str.lower, x['tags']))]
             self.update_view()
             return
         # Filter on length
@@ -101,8 +101,8 @@ class MainWindow(QtGui.QFrame):
                     if not f(wordcount, num):
                         return False
                 return True
-            self.entries = {n:e for n,e in self.entries.items()
-                        if matches(e['wordcount'])}
+            self.entries = [x for x in self.entries
+                            if matches(x['wordcount'])]
             self.update_view()
 
     def sort_entries(self, arg):
@@ -134,7 +134,7 @@ def generate_index(raw_entries, key, reverse):
                                tags=format_tags(s['tags']),
                                desc=format_desc(s['description']),
                                wc=s['wordcount'])
-               for s in sorted(raw_entries.values(), reverse=reverse, key=itemgetter(key))]
+               for s in sorted(raw_entries, reverse=reverse, key=itemgetter(key))]
     body = '<hr />'.join(entries)
     boilerplate = """
         <style type="text/css">{css}</style>
@@ -164,7 +164,7 @@ def index_stories(data):
         metadata.update({'wordcount': wordcount})
         entries.append(metadata)
     entries.sort(key=itemgetter('title'))
-    return {'dirs': dirs, 'entries': {n:e for n,e in enumerate(entries)}}
+    return {'dirs': dirs, 'entries': entries}
 
 
 def read_config():
