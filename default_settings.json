@@ -9,13 +9,15 @@
       "previous": [],
       "home": [],
       "toggle_fullscreen": []
-    }
+    },
+    "tag colors": {}
   },
   "default profile": "example",
   "profiles": {
     "example": {
       "path": "<PATH>",
-      "name_filter": "<REGEX>"
+      "name_filter": "<REGEX>",
+      "tag colors": {}
     }
   }
 }

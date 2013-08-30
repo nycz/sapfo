@@ -36,6 +36,7 @@ class MainWindow(QtGui.QFrame):
         if profile not in settings['profiles']:
             raise NameError('Profile not found')
 
+        self.tagcolors = settings['profiles'][profile]['tag colors']
         self.data = index_stories(settings['profiles'][profile])
         self.entries = self.data['entries'].copy()
         self.entries_sortkey = 'title'
@@ -48,8 +49,10 @@ class MainWindow(QtGui.QFrame):
         self.show()
 
     def update_view(self):
-        self.main_widget.setHtml(generate_index(self.entries, \
-                            self.entries_sortkey, self.entries_sort_reverse))
+        self.main_widget.setHtml(generate_index(self.entries,
+                                                self.entries_sortkey,
+                                                self.entries_sort_reverse,
+                                                self.tagcolors))
 
     def connect_signals(self):
         self.terminal.filter_.connect(self.filter_entries)
@@ -121,11 +124,14 @@ class MainWindow(QtGui.QFrame):
                            common.read_file(common.local_path('qt.css'))))
 
 
-def generate_index(raw_entries, key, reverse):
+def generate_index(raw_entries, key, reverse, tagcolors):
     def format_tags(tags):
-        tag_template = '<span class="tag">{tag}</span>'
-        return '<wbr>'.join([tag_template.format(tag=x.replace(' ', '&nbsp;').replace('-', '&#8209;'))
-                        for x in sorted(tags)])
+        tag_template = '<span class="tag" style="background-color:{color};">{tag}</span>'
+        return '<wbr>'.join([
+            tag_template.format(tag=x.replace(' ', '&nbsp;').replace('-', '&#8209;'),
+                                color=tagcolors.get(x, '#677'))
+            for x in sorted(tags)
+        ])
     def format_desc(desc):
         return desc if desc else '<span class="empty_desc">[no desc]</span>'
 
