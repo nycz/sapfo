@@ -35,38 +35,9 @@ class MainWindow(QtGui.QFrame):
 
         self.main_widget.setHtml(generate_index(main_data['entries']))
 
-    #     self.tab_widget = QtGui.QTabWidget(self)
-    #     layout.addWidget(self.tab_widget)
-
-    #     instances = read_config()
-    #     self.viewerframes = {}
-    #     for name, data in instances.items():
-    #         if name == 'default':
-    #             continue
-    #         newdata = update_dict(instances['default'].copy(), data)
-    #         self.viewerframes[name] = ViewerFrame(name, newdata)
-    #         self.viewerframes[name].set_fullscreen.connect(self.set_fullscreen)
-    #         self.viewerframes[name].request_reload.connect(self.reload)
-    #         self.tab_widget.addTab(self.viewerframes[name], name)
-
-    #     QtGui.QShortcut(QtGui.QKeySequence("Ctrl+R"), self, self.reload)
-    #     QtGui.QShortcut(QtGui.QKeySequence("F5"), self, self.reload)
-
         self.set_stylesheet()
         self.show()
 
-    # def set_fullscreen(self, fullscreen):
-    #     self.tab_widget.tabBar().setHidden(fullscreen)
-
-    # def reload(self):
-    #     self.set_stylesheet()
-    #     instances = read_config()
-    #     for name, data in instances.items():
-    #         if name == 'default':
-    #             continue
-    #         newdata = update_dict(instances['default'].copy(), data)
-    #         self.viewerframes[name].reload(newdata)
-    #     # self.tab_widget.currentWidget().reload()
 
     def set_stylesheet(self):
         self.setStyleSheet(common.parse_stylesheet(\
