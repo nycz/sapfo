@@ -95,7 +95,8 @@ class MainWindow(QtGui.QFrame):
     def connect_signals(self):
         self.terminal.filter_.connect(self.filter_entries)
         self.terminal.sort.connect(self.sort_entries)
-        self.terminal.open_.connect(self.find_entry)
+        self.terminal.find_open.connect(self.find_entry)
+        self.terminal.open_.connect(self.open_entry)
         self.terminal.edit.connect(self.edit_entry)
         self.terminal.input_term.scroll_index.connect(self.scroll_viewer)
         self.story_viewer.show_index.connect(self.show_index)

@@ -52,7 +52,8 @@ class Terminal(QtGui.QWidget):
 
     filter_ = pyqtSignal(str)
     sort = pyqtSignal(str)
-    open_ = pyqtSignal(str)
+    open_ = pyqtSignal(int)
+    find_open = pyqtSignal(str)
     edit = pyqtSignal(str)
 
     def __init__(self, parent):
@@ -107,7 +108,7 @@ class Terminal(QtGui.QWidget):
         self.filter_.emit(arg)
 
     def cmd_open(self, arg):
-        self.open_.emit(arg)
+        self.find_open.emit(arg)
 
     def cmd_edit(self, arg):
         self.edit.emit(arg)
