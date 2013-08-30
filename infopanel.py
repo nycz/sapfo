@@ -16,17 +16,20 @@ class InfoPanel(QtGui.QFrame):
         self.label = InfoPanelLabel()
         layout.addWidget(self.label, 0, 0, QtCore.Qt.AlignHCenter)
 
+        self.data = {}
+
         self.show()
 
-    def set_info(self, page_list, index):
-        s = "<em>Page</em> {page}/{maxpages}\t–\t<strong>File</strong>: {fname}"
-        if page_list[index][1]:
-            s += "\t–\tChapter: {}".format(page_list[index][1])
+    def set_data(self, data=None, pagenr=0):
+        if data is not None:
+            self.data = data
+        s = "<em>Page</em> {page}/{maxpages}\t\t–\t\t<em>({words:,})</em>\t\t–\t\t<strong>{fname}</strong>"
         self.label.setText(s.format(
-            page=index+1,
-            maxpages=len(page_list),
-            fname=os.path.basename(page_list[index][0]))
-        )
+            page=pagenr+1,
+            maxpages=len(self.data['pages']),
+            fname=self.data['title'],
+            words=self.data['wordcount']
+        ))
 
     def set_fullscreen(self, fullscreen):
         self.setHidden(fullscreen)

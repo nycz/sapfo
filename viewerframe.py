@@ -53,10 +53,9 @@ class ViewerFrame(QtGui.QFrame):
         layout.addWidget(self.webview)
         layout.setStretchFactor(self.webview, 1)
 
-        # self.info_panel = infopanel.InfoPanel(self)
-        # layout.addWidget(self.info_panel)
-        # layout.setStretchFactor(self.info_panel, 0)
-
+        self.info_panel = infopanel.InfoPanel(self)
+        layout.addWidget(self.info_panel)
+        layout.setStretchFactor(self.info_panel, 0)
 
         # Signals
         self.webview.next.connect(self.next)
@@ -77,9 +76,7 @@ class ViewerFrame(QtGui.QFrame):
 
     def toggle_fullscreen(self):
         self.fullscreen = not self.fullscreen
-        self.info_panel.set_fullscreen(self.fullscreen, self.page)
-        self.set_fullscreen.emit(self.fullscreen)
-
+        self.info_panel.set_fullscreen(self.fullscreen)
 
     def wheel_event(self, delta):
         # Negative delta means scrolling towards you
@@ -94,6 +91,7 @@ class ViewerFrame(QtGui.QFrame):
             webbrowser.open_new_tab(url.toString())
 
     def start(self, data):
+        self.info_panel.set_data(data)
         self.setEnabled(True)
         self.pages = data['pages']
         self.page = 0
@@ -101,7 +99,7 @@ class ViewerFrame(QtGui.QFrame):
 
     def set_page(self):
         self.webview.load(QtCore.QUrl.fromLocalFile(self.pages[self.page]))
-        # self.info_panel.update_info()
+        self.info_panel.set_data(pagenr=self.page)
 
     def next(self):
         if self.page < len(self.pages)-1:
@@ -113,9 +111,6 @@ class ViewerFrame(QtGui.QFrame):
             self.page -= 1
             self.set_page()
 
-
     def goto_index(self):
         self.setDisabled(True)
         self.show_index.emit()
-        # self.page = -1
-        # self.info_panel.hide()
