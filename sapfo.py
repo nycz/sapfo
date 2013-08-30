@@ -11,7 +11,7 @@ import sys
 from PyQt4 import QtGui
 
 from libsyntyche import common
-from viewerframe import ViewerFrame
+from terminal import Terminal
 
 
 class MainWindow(QtGui.QFrame):
@@ -25,6 +25,9 @@ class MainWindow(QtGui.QFrame):
         self.main_widget = QtGui.QTextEdit(self)
         layout.addWidget(self.main_widget)
         self.main_widget.setReadOnly(True)
+
+        self.terminal = Terminal(self)
+        layout.addWidget(self.terminal)
 
         instances = read_config()
 
