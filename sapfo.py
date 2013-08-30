@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import collections
+import operator
 import os
 import os.path
 from os.path import join
@@ -39,12 +40,66 @@ class MainWindow(QtGui.QFrame):
         self.data = index_stories(settings['profiles'][profile])
         self.set_entries(self.data['entries'])
 
+        self.connect_signals()
 
         self.set_stylesheet()
         self.show()
 
     def set_entries(self, entries):
         self.main_widget.setHtml(generate_index(entries))
+
+    def connect_signals(self):
+        self.terminal.filter_.connect(self.filter_entries)
+
+    def filter_entries(self, arg):
+        # Reset filter if no argument
+        if not arg:
+            self.set_entries(self.data['entries'])
+            return
+        if len(arg) == 1:
+            return #TODO
+
+        def testfilter(acronym, fullname, filtered=lambda x: x.lower()):
+            if arg[0] == acronym:
+                name = arg[1:].strip().lower()
+                fentries = {n:e for n,e in self.data['entries'].items()
+                            if name in filtered(e[fullname])}
+                self.set_entries(fentries)
+                return
+
+        # Filter on title (name)
+        testfilter('n', 'title')
+        # Filter on description
+        testfilter('d', 'description')
+        # Filter on tags
+        if arg[0] == 't':
+            tags = set(re.split(r'\s*,\s*', arg[1:].strip().lower()))
+            print(tags)
+            fentries = {n:e for n,e in self.data['entries'].items()
+                        if tags <= set(map(str.lower, e['tags']))}
+            self.set_entries(fentries)
+            return
+        # Filter on length
+        if arg[0] == 'l':
+            from operator import lt,gt,le,ge
+            def tonum(num):
+                if num.endswith('k'):
+                    return int(num[:-1])*1000
+                else:
+                    return int(num)
+            compfuncs = {'<': lt, '>': gt, '<=': le, '>=': ge}
+            expressions = [
+                (compfuncs[match.group(1)], tonum(match.group(2))) for match
+                in re.finditer(r'([<>][=]?)(\d+k?)', arg[1:].strip().lower())
+            ]
+            def matches(wordcount):
+                for f, num in expressions:
+                    if not f(wordcount, num):
+                        return False
+                return True
+            fentries = {n:e for n,e in self.data['entries'].items()
+                        if matches(e['wordcount'])}
+            self.set_entries(fentries)
 
     def set_stylesheet(self):
         self.setStyleSheet(common.parse_stylesheet(\

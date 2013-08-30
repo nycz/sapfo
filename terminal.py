@@ -38,6 +38,8 @@ class Terminal(QtGui.QWidget):
     class TerminalOutputBox(QtGui.QLineEdit):
         pass
 
+    filter_ = pyqtSignal(str)
+
     def __init__(self, parent):
         super().__init__(parent)
 
@@ -80,7 +82,7 @@ class Terminal(QtGui.QWidget):
     # ==== Commands ============================== #
 
     def cmd_filter(self, arg):
-        pass
+        self.filter_.emit(arg)
 
     def cmd_open(self, arg):
         pass
