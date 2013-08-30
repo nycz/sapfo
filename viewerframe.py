@@ -6,7 +6,6 @@ import re
 from PyQt4 import QtCore, QtGui, QtWebKit
 
 from libsyntyche import common
-import datalib
 import infopanel
 
 
