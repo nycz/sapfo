@@ -39,6 +39,7 @@ class Terminal(QtGui.QWidget):
         pass
 
     filter_ = pyqtSignal(str)
+    sort = pyqtSignal(str)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -91,7 +92,7 @@ class Terminal(QtGui.QWidget):
         pass
 
     def cmd_sort(self, arg):
-        pass
+        self.sort.emit(arg)
 
     def cmd_help(self, arg):
         if not arg:

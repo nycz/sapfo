@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import collections
-import operator
+from operator import itemgetter
 import os
 import os.path
 from os.path import join
@@ -38,6 +38,8 @@ class MainWindow(QtGui.QFrame):
 
         self.data = index_stories(settings['profiles'][profile])
         self.entries = self.data['entries'].copy()
+        self.entries_sortkey = 'title'
+        self.entries_sort_reverse = False
         self.update_view()
 
         self.connect_signals()
@@ -46,10 +48,12 @@ class MainWindow(QtGui.QFrame):
         self.show()
 
     def update_view(self):
-        self.main_widget.setHtml(generate_index(self.entries))
+        self.main_widget.setHtml(generate_index(self.entries, \
+                            self.entries_sortkey, self.entries_sort_reverse))
 
     def connect_signals(self):
         self.terminal.filter_.connect(self.filter_entries)
+        self.terminal.sort.connect(self.sort_entries)
 
     def filter_entries(self, arg):
         # Reset filter if no argument
@@ -101,12 +105,23 @@ class MainWindow(QtGui.QFrame):
                         if matches(e['wordcount'])}
             self.update_view()
 
+    def sort_entries(self, arg):
+        acronyms = {'n': 'title', 'l': 'wordcount'}
+        if not arg or arg[0] not in acronyms:
+            return #TODO
+        reverse = False
+        if len(arg) > 1 and arg[1] == '-':
+            reverse = True
+        self.entries_sortkey = acronyms[arg[0]]
+        self.entries_sort_reverse = reverse
+        self.update_view()
+
     def set_stylesheet(self):
         self.setStyleSheet(common.parse_stylesheet(\
                            common.read_file(common.local_path('qt.css'))))
 
 
-def generate_index(raw_entries):
+def generate_index(raw_entries, key, reverse):
     def format_tags(tags):
         tag_template = '<span class="tag">{tag}</span>'
         return ''.join([tag_template.format(tag=x)
@@ -119,7 +134,7 @@ def generate_index(raw_entries):
                                tags=format_tags(s['tags']),
                                desc=format_desc(s['description']),
                                wc=s['wordcount'])
-               for s in raw_entries.values()]
+               for s in sorted(raw_entries.values(), reverse=reverse, key=itemgetter(key))]
     body = '<hr />'.join(entries)
     boilerplate = """
         <style type="text/css">{css}</style>
@@ -148,6 +163,7 @@ def index_stories(data):
         wordcount = generate_word_count(join(path,d), filter(fname_rx.search, os.listdir(join(path,d))))
         metadata.update({'wordcount': wordcount})
         entries.append(metadata)
+    entries.sort(key=itemgetter('title'))
     return {'dirs': dirs, 'entries': {n:e for n,e in enumerate(entries)}}
 
 
