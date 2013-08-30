@@ -40,6 +40,7 @@ class Terminal(QtGui.QWidget):
 
     filter_ = pyqtSignal(str)
     sort = pyqtSignal(str)
+    open_ = pyqtSignal(str)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -57,6 +58,9 @@ class Terminal(QtGui.QWidget):
         self.input_term.setFocus()
 
         self.input_term.returnPressed.connect(self.parse_command)
+
+    def setFocus(self):
+        self.input_term.setFocus()
 
     def print_(self, msg):
         self.output_term.setText(str(msg))
@@ -86,7 +90,7 @@ class Terminal(QtGui.QWidget):
         self.filter_.emit(arg)
 
     def cmd_open(self, arg):
-        pass
+        self.open_.emit(arg)
 
     def cmd_edit(self, arg):
         pass

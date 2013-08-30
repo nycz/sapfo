@@ -36,12 +36,14 @@ class ViewerFrame(QtGui.QFrame):
                 self.wheel_event.emit(ev.delta())
 
     set_fullscreen = QtCore.pyqtSignal(bool)
+    show_index = QtCore.pyqtSignal()
 
     def __init__(self, parent, hotkeys):
         super().__init__(parent)
         self.pages = []
         self.page = 0
         self.fullscreen = False
+        self.setDisabled(True)
 
         # Layout
         layout = QtGui.QVBoxLayout(self)
@@ -75,7 +77,7 @@ class ViewerFrame(QtGui.QFrame):
 
     def toggle_fullscreen(self):
         self.fullscreen = not self.fullscreen
-        self.info_panel.set_fullscreen(self.fullscreen, self.current_page)
+        self.info_panel.set_fullscreen(self.fullscreen, self.page)
         self.set_fullscreen.emit(self.fullscreen)
 
 
@@ -91,9 +93,9 @@ class ViewerFrame(QtGui.QFrame):
             import webbrowser
             webbrowser.open_new_tab(url.toString())
 
-    def start(self, data, pages):
-        self.enable()
-        self.pages = pages
+    def start(self, data):
+        self.setEnabled(True)
+        self.pages = data['pages']
         self.page = 0
         self.set_page()
 
@@ -103,17 +105,17 @@ class ViewerFrame(QtGui.QFrame):
 
     def next(self):
         if self.page < len(self.pages)-1:
-            self.current_page += 1
+            self.page += 1
             self.set_page()
 
     def previous(self):
-        if self.current_page > 0:
-            self.current_page -= 1
+        if self.page > 0:
+            self.page -= 1
             self.set_page()
 
 
     def goto_index(self):
-        self.disable()
-        self.goto_index.emit()
-        # self.current_page = -1
+        self.setDisabled(True)
+        self.show_index.emit()
+        # self.page = -1
         # self.info_panel.hide()

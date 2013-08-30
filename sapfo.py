@@ -55,8 +55,8 @@ class MainWindow(QtGui.QFrame):
 
 
         self.tagcolors = profile_settings['tag colors']
-        self.data = index_stories(profile_settings)
-        self.entries = self.data['entries'].copy()
+        self.all_entries = index_stories(profile_settings)
+        self.entries = self.all_entries.copy()
         self.entries_sortkey = 'title'
         self.entries_sort_reverse = False
         self.update_view()
@@ -75,11 +75,13 @@ class MainWindow(QtGui.QFrame):
     def connect_signals(self):
         self.terminal.filter_.connect(self.filter_entries)
         self.terminal.sort.connect(self.sort_entries)
+        self.terminal.open_.connect(self.open_entry)
+        self.story_viewer.show_index.connect(self.show_index)
 
     def filter_entries(self, arg):
         # Reset filter if no argument
         if not arg:
-            self.entries = self.data['entries'].copy()
+            self.entries = self.all_entries.copy()
             self.update_view()
             return
         if len(arg) == 1:
@@ -88,7 +90,7 @@ class MainWindow(QtGui.QFrame):
         def testfilter(acronym, fullname, filtered=lambda x: x.lower()):
             if arg[0] == acronym:
                 name = arg[1:].strip().lower()
-                self.entries = [x for x in self.data['entries']
+                self.entries = [x for x in self.all_entries
                             if name in filtered(x[fullname])]
                 self.update_view()
                 return
@@ -137,6 +139,17 @@ class MainWindow(QtGui.QFrame):
         self.entries_sort_reverse = reverse
         self.update_view()
 
+    def open_entry(self, arg):
+        if not arg.isdigit():
+            return
+        self.story_viewer.start(self.entries[int(arg)])
+        self.stack.setCurrentIndex(1)
+
+    def show_index(self):
+        self.stack.setCurrentIndex(0)
+        self.terminal.setFocus()
+
+
     def set_stylesheet(self):
         self.setStyleSheet(common.parse_stylesheet(\
                            common.read_file(common.local_path('qt.css'))))
@@ -168,10 +181,10 @@ def generate_index(raw_entries, key, reverse, tagcolors):
                 css=common.read_file(common.local_path('index_page.css')))
 
 
-def generate_word_count(path, files):
+def generate_word_count(files):
     wordcount_rx = re.compile(r'\S+')
     def count_words(fpath):
-        with open(join(path,fpath)) as f:
+        with open(fpath) as f:
             return len(wordcount_rx.findall(f.read()))
     return sum(map(count_words, files))
 
@@ -184,11 +197,13 @@ def index_stories(data):
     entries = []
     for d in dirs:
         metadata = common.read_json(join(path, d, 'metadata.json'))
-        wordcount = generate_word_count(join(path,d), filter(fname_rx.search, os.listdir(join(path,d))))
-        metadata.update({'wordcount': wordcount})
+        files = [join(path,d,f) for f in os.listdir(join(path,d))
+                 if fname_rx.search(f)]
+        wordcount = generate_word_count(files)
+        metadata.update({'wordcount': wordcount,
+                         'pages': sorted(files)})
         entries.append(metadata)
-    entries.sort(key=itemgetter('title'))
-    return {'dirs': dirs, 'entries': entries}
+    return sorted(entries, key=itemgetter('title'))
 
 
 def read_config():
