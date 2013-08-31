@@ -299,13 +299,8 @@ def index_stories(data):
 
 
 def read_config():
-    config_dir = os.path.join(os.getenv('HOME'), '.config', 'sapfo')
-    config_file = os.path.join(config_dir, 'settings.json')
-    if not os.path.exists(config_file):
-        if not os.path.exists(config_dir):
-            os.makedirs(config_dir, mode=0o755, exist_ok=True)
-        shutil.copyfile(common.local_path('default_settings.json'), config_file)
-        print("No config found, copied the default to {}. Edit it at once.".format(config_dir))
+    config_file = os.path.join(os.getenv('HOME'), '.config', 'sapfo', 'settings.json')
+    common.make_sure_config_exists(config_file, common.local_path('default_settings.json'))
     return common.read_json(config_file)
 
 
