@@ -32,7 +32,6 @@ Everything is done in the *Terminal*. Love it, be one with it.
 Commands are entered with (surprise) Enter, and a history of previous commands is accessible with Up/Down arrow keys.
 
 All commands are one character, but some may have one or more arguments.
-The commands are `o` (open), `f` (filter), `s` (sort), 
 
 ###Commands###
 
