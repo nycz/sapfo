@@ -57,9 +57,17 @@ class MainWindow(QtGui.QFrame):
 
 
         self.tagcolors = profile_settings['tag colors']
-        self.all_entries = index_stories(profile_settings)
-        self.entries = self.all_entries.copy()
-        self.update_view()
+
+        # Update
+        def update():
+            self.all_entries = index_stories(profile_settings)
+            self.entries = self.all_entries.copy()
+            self.update_view()
+
+        update()
+
+        common.set_hotkey("Ctrl+R", self, update)
+        common.set_hotkey("F5", self, update)
 
         self.connect_signals()
 
