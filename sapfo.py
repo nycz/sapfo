@@ -23,16 +23,8 @@ class MainWindow(QtGui.QFrame):
         self.setWindowTitle('Sapfo')
 
         # Load profile
-        settings = read_config()
-        if not profile:
-            profile = settings['default profile']
-        if profile not in settings['profiles']:
-            raise NameError('Profile not found')
-        profile_settings = settings['profiles'][profile]
-
-        # Generate hotkeys
-        hotkeys = update_dict(settings['default settings']['hotkeys'],
-                              profile_settings.get('hotkeys', {}))
+        self.profile = profile
+        self.reload_settings(firsttime=True)
 
         # Create stuff
         self.stack = QtGui.QStackedLayout(self)
@@ -52,15 +44,12 @@ class MainWindow(QtGui.QFrame):
         self.stack.addWidget(index_widget)
 
         # Story viewer
-        self.story_viewer = ViewerFrame(self, hotkeys)
+        self.story_viewer = ViewerFrame(self, self.hotkeys)
         self.stack.addWidget(self.story_viewer)
-
-
-        self.tagcolors = profile_settings['tag colors']
 
         # Update
         def update():
-            self.all_entries = index_stories(profile_settings)
+            self.all_entries = index_stories(self.profile_settings)
             self.entries = self.all_entries.copy()
             self.update_view()
 
@@ -73,6 +62,23 @@ class MainWindow(QtGui.QFrame):
 
         self.set_stylesheet()
         self.show()
+
+
+    def reload_settings(self, firsttime=False):
+        settings = read_config()
+        if not self.profile:
+            self.profile = settings['default profile']
+        if self.profile not in settings['profiles']:
+            raise NameError('Profile not found')
+        self.profile_settings = settings['profiles'][self.profile]
+        self.tagcolors = self.profile_settings['tag colors']
+        if not firsttime:
+            self.update_view()
+
+        # Generate hotkeys
+        self.hotkeys = update_dict(settings['default settings']['hotkeys'],
+                              self.profile_settings.get('hotkeys', {}))
+
 
     def wheelEvent(self, ev):
         self.index_viewer.wheelEvent(ev)
@@ -101,6 +107,7 @@ class MainWindow(QtGui.QFrame):
         self.terminal.find_open.connect(self.find_entry)
         self.terminal.open_.connect(self.open_entry)
         self.terminal.edit.connect(self.edit_entry)
+        self.terminal.reload_settings.connect(self.reload_settings)
         self.terminal.input_term.scroll_index.connect(self.scroll_viewer)
         self.story_viewer.show_index.connect(self.show_index)
 

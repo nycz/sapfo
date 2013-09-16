@@ -55,6 +55,7 @@ class Terminal(QtGui.QWidget):
     open_ = pyqtSignal(int)
     find_open = pyqtSignal(str)
     edit = pyqtSignal(str)
+    reload_settings = pyqtSignal()
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -152,13 +153,17 @@ class Terminal(QtGui.QWidget):
         else:
             self.error('No such command')
 
+    def cmd_reload_settings(self, arg):
+        self.reload_settings.emit()
+
 
     commands = {
         'f': (cmd_filter, 'Filter'),
         'o': (cmd_open, 'Open'),
         'e': (cmd_edit, 'Edit'),
         's': (cmd_sort, 'Sort'),
-        '?': (cmd_help, 'Help')
+        '?': (cmd_help, 'Help'),
+        'r': (cmd_reload_settings, 'Reload settings')
     }
 
 #   f - filter entries (filter on: tags, desc, name, author, length)
