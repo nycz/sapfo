@@ -14,6 +14,7 @@ from PyQt4.QtCore import Qt, QEvent
 
 from libsyntyche import common
 from terminal import Terminal
+from indexframe import IndexFrame
 from viewerframe import ViewerFrame
 
 
@@ -22,241 +23,75 @@ class MainWindow(QtGui.QFrame):
         super().__init__()
         self.setWindowTitle('Sapfo')
 
-        # Load profile
-        self.profile = profile
-        self.reload_settings(firsttime=True)
-
-        # Create stuff
+        # Create layouts
         self.stack = QtGui.QStackedLayout(self)
         common.kill_theming(self.stack)
-
-        index_widget = QtGui.QWidget(self)
-        layout = QtGui.QVBoxLayout(index_widget)
+        self.index_widget = QtGui.QWidget(self)
+        layout = QtGui.QVBoxLayout(self.index_widget)
         common.kill_theming(layout)
 
-        self.index_viewer = QtWebKit.QWebView(index_widget)
+        # Index viewer
+        self.index_viewer = IndexFrame(self.index_widget)
         layout.addWidget(self.index_viewer, stretch=1)
-        self.index_viewer.setDisabled(True)
 
-        self.terminal = Terminal(index_widget)
+        # Terminal
+        self.terminal = Terminal(self.index_widget)
         layout.addWidget(self.terminal)
 
-        self.stack.addWidget(index_widget)
+        # Add both to stack
+        self.stack.addWidget(self.index_widget)
 
         # Story viewer
-        self.story_viewer = ViewerFrame(self, self.hotkeys)
+        self.story_viewer = ViewerFrame(self)
         self.stack.addWidget(self.story_viewer)
 
-        # Update
-        def update():
-            self.all_entries = index_stories(self.profile_settings)
-            self.entries = self.all_entries.copy()
-            self.update_view(keep_position=True)
+        # Load profile
+        self.profile = profile
+        self.reload_settings()
 
-        update()
-
-        common.set_hotkey("Ctrl+R", self, update)
-        common.set_hotkey("F5", self, update)
-
+        # Misc
         self.connect_signals()
-
         self.set_stylesheet()
         self.show()
 
+    def connect_signals(self):
+        t, iv = self.terminal, self.index_viewer
+        connects = (
+            (t.filter_,                 iv.filter_entries),
+            (t.sort,                    iv.sort_entries),
+            (t.find_open,               iv.find_entry),
+            (t.open_,                   iv.open_entry),
+            (t.edit,                    iv.edit_entry),
+            (t.input_term.scroll_index, iv.event),
+            (t.reload_settings,         self.reload_settings),
+            (self.story_viewer.show_index, self.show_index),
+            (iv.start_entry,            self.start_entry),
+            (iv.error,                  t.error),
+            (iv.set_terminal_text,      t.input_term.setText)
+        )
+        for signal, slot in connects:
+            signal.connect(slot)
 
-    def reload_settings(self, firsttime=False):
+    def show_index(self):
+        self.stack.setCurrentWidget(self.index_widget)
+        self.terminal.setFocus()
+
+
+    def start_entry(self, entry):
+        self.story_viewer.start(entry)
+        self.stack.setCurrentWidget(self.story_viewer)
+
+
+    def reload_settings(self):
         settings = read_config()
         if not self.profile:
             self.profile = settings['default profile']
         if self.profile not in settings['profiles']:
             raise NameError('Profile not found')
-        self.profile_settings = settings['profiles'][self.profile]
-        self.tagcolors = self.profile_settings['tag colors']
-        if not firsttime:
-            self.update_view(keep_position=True)
-
-        # Generate hotkeys
-        self.hotkeys = update_dict(settings['default settings']['hotkeys'],
-                              self.profile_settings.get('hotkeys', {}))
-
-
-    def wheelEvent(self, ev):
-        self.index_viewer.wheelEvent(ev)
-
-    def scroll_viewer(self, ev):
-        self.index_viewer.event(ev)
-
-    def keyPressEvent(self, ev):
-        if self.stack.currentWidget == self.index_viewer and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.keyPressEvent(ev)
-        else:
-            return super().keyPressEvent(ev)
-
-    def keyReleaseEvent(self, ev):
-        if self.stack.currentWidget == self.index_viewer and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.keyReleaseEvent(ev)
-        else:
-            return super().keyReleaseEvent(ev)
-
-    def update_view(self, keep_position=False):
-        frame = self.index_viewer.page().mainFrame()
-        pos = frame.scrollBarValue(Qt.Vertical)
-        self.index_viewer.setHtml(generate_index(self.entries, self.tagcolors))
-        if keep_position:
-            frame.setScrollBarValue(Qt.Vertical, pos)
-
-    def connect_signals(self):
-        self.terminal.filter_.connect(self.filter_entries)
-        self.terminal.sort.connect(self.sort_entries)
-        self.terminal.find_open.connect(self.find_entry)
-        self.terminal.open_.connect(self.open_entry)
-        self.terminal.edit.connect(self.edit_entry)
-        self.terminal.reload_settings.connect(self.reload_settings)
-        self.terminal.input_term.scroll_index.connect(self.scroll_viewer)
-        self.story_viewer.show_index.connect(self.show_index)
-
-    def filter_entries(self, arg):
-        # Reset filter if no argument
-        if not arg:
-            self.entries = self.all_entries.copy()
-            self.update_view()
-            return
-        if len(arg) == 1:
-            return #TODO
-
-        def testfilter(acronym, fullname, filtered=lambda x: x.lower()):
-            if arg[0] == acronym:
-                name = arg[1:].strip().lower()
-                self.entries = [x for x in self.all_entries
-                            if name in filtered(x[fullname])]
-                self.update_view()
-                return
-
-        # Filter on title (name)
-        testfilter('n', 'title')
-        # Filter on description
-        testfilter('d', 'description')
-        # Filter on tags
-        if arg[0] == 't':
-            tags = set(re.split(r'\s*,\s*', arg[1:].strip().lower()))
-            self.entries = [x for x in self.entries
-                            if tags <= set(map(str.lower, x['tags']))]
-            self.update_view()
-            return
-        # Filter on length
-        if arg[0] == 'l':
-            from operator import lt,gt,le,ge
-            def tonum(num):
-                if num.endswith('k'):
-                    return int(num[:-1])*1000
-                else:
-                    return int(num)
-            compfuncs = {'<': lt, '>': gt, '<=': le, '>=': ge}
-            expressions = [
-                (compfuncs[match.group(1)], tonum(match.group(2))) for match
-                in re.finditer(r'([<>][=]?)(\d+k?)', arg[1:].strip().lower())
-            ]
-            def matches(wordcount):
-                for f, num in expressions:
-                    if not f(wordcount, num):
-                        return False
-                return True
-            self.entries = [x for x in self.entries
-                            if matches(x['wordcount'])]
-            self.update_view()
-
-    def sort_entries(self, arg):
-        acronyms = {'n': 'title', 'l': 'wordcount'}
-        if not arg or arg[0] not in acronyms:
-            return #TODO
-        reverse = False
-        if len(arg) > 1 and arg[1] == '-':
-            reverse = True
-        self.entries.sort(key=itemgetter(acronyms[arg[0]]), reverse=reverse)
-        self.update_view()
-
-    def find_entry(self, arg):
-        #TODO: better acronyms than s/g
-        if len(arg) < 2:
-            return
-        if arg[0] not in 'sg':
-            return
-        if arg[0] == 's':
-            f = lambda x: x[1]['title'].lower().startswith(arg[1:].lower())
-        else:
-            f = lambda x: arg[1:].lower() in x[1]['title'].lower()
-        candidates = list(filter(f, enumerate(self.entries)))
-        if len(candidates) == 1:
-            self.open_entry(candidates[0][0])
-
-
-    def open_entry(self, num):
-        if not isinstance(num, int):
-            return
-        if not self.entries[num]['pages']:
-            return
-        self.story_viewer.start(self.entries[num])
-        self.stack.setCurrentIndex(1)
-
-    def edit_entry(self, arg):
-        if not arg:
-            return
-        category = {'d': 'description', 'n': 'title', 't': 'tags'}[arg[0]]
-        tagedit_rx = re.compile(r't(\d+)([+-])\s+(.+)$')
-        full_rx = re.compile(r'[dtn](\d+)\s+(.+)$')
-        partial_rx = re.compile(r'[dtn](\d+)$')
-        splittags_rx = re.compile(r'\s*,\s*')
-        # No data specified, so the current is provided instead
-        if partial_rx.match(arg):
-            entry_id = int(arg[1:])
-            if entry_id >= len(self.entries):
-                self.terminal.error('Index out of range')
-                return
-            if arg[0] == 't':
-                new = ', '.join(self.entries[entry_id][category])
-            else:
-                new = self.entries[entry_id][category]
-
-            self.terminal.input_term.setText('e' + arg + ' ' + new)
-        # Update the chosen data with new stuff
-        elif full_rx.match(arg):
-            entry_id, payload = full_rx.match(arg).groups()
-            entry_id = int(entry_id)
-            if entry_id >= len(self.entries):
-                self.terminal.error('Index out of range')
-                return
-            # Convert the string to a list if tags
-            if arg[0] == 't':
-                payload = splittags_rx.split(payload)
-            # Update the metadata file
-            metadata = common.read_json(self.entries[entry_id]['metadatafile'])
-            metadata[category] = payload
-            common.write_json(self.entries[entry_id]['metadatafile'], metadata)
-            # Update the memory
-            self.entries[entry_id][category] = payload
-            self.update_view(keep_position=True)
-        # Update the tags specifically
-        elif tagedit_rx.match(arg):
-            entry_id, mode, tags = tagedit_rx.match(arg).groups()
-            entry_id = int(entry_id)
-            if entry_id >= len(self.entries):
-                self.terminal.error('Index out of range')
-                return
-            tags = splittags_rx.split(tags)
-            metadata = common.read_json(self.entries[entry_id]['metadatafile'])
-            if mode == '-':
-                newtags = list(set(metadata['tags']) - set(tags))
-            else:
-                newtags = list(set(metadata['tags'] + tags))
-            metadata['tags'] = newtags
-            common.write_json(self.entries[entry_id]['metadatafile'], metadata)
-            # Update the memory
-            self.entries[entry_id][category] = newtags
-            self.update_view(keep_position=True)
-
-    def show_index(self):
-        self.stack.setCurrentIndex(0)
-        self.terminal.setFocus()
+        profile_settings = update_dict(settings['default settings'],
+                                       settings['profiles'][self.profile])
+        self.index_viewer.update_settings(profile_settings)
+        self.story_viewer.set_hotkeys(profile_settings['hotkeys'])
 
 
     def set_stylesheet(self):
@@ -264,57 +99,23 @@ class MainWindow(QtGui.QFrame):
                            common.read_file(common.local_path('qt.css'))))
 
 
-def generate_index(raw_entries, tagcolors):
-    def format_tags(tags):
-        tag_template = '<span class="tag" style="background-color:{color};">{tag}</span>'
-        return '<wbr>'.join([
-            tag_template.format(tag=x.replace(' ', '&nbsp;').replace('-', '&#8209;'),
-                                color=tagcolors.get(x, '#677'))
-            for x in sorted(tags)
-        ])
-    def format_desc(desc):
-        return desc if desc else '<span class="empty_desc">[no desc]</span>'
+    # ===== Input overrides ===========================
+    def wheelEvent(self, ev):
+        self.index_viewer.wheelEvent(ev)
 
-    entrystr = common.read_file(common.local_path('entry_template.html'))
-    entries = [entrystr.format(title=s['title'], id=n,
-                               tags=format_tags(s['tags']),
-                               desc=format_desc(s['description']),
-                               wc=s['wordcount'])
-               for n,s in enumerate(raw_entries)]
-    body = '<hr />'.join(entries)
-    boilerplate = """
-        <style type="text/css">{css}</style>
-        <body>{body}</body>
-    """
-    return boilerplate.format(body=body,
-                css=common.read_file(common.local_path('index_page.css')))
+    def keyPressEvent(self, ev):
+        if self.stack.currentWidget() == self.index_widget and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
+            self.index_viewer.keyPressEvent(ev)
+        else:
+            return super().keyPressEvent(ev)
 
+    def keyReleaseEvent(self, ev):
+        if self.stack.currentWidget() == self.index_widget and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
+            self.index_viewer.keyReleaseEvent(ev)
+        else:
+            return super().keyReleaseEvent(ev)
+    # =================================================
 
-def generate_word_count(files):
-    wordcount_rx = re.compile(r'\S+')
-    def count_words(fpath):
-        with open(fpath) as f:
-            return len(wordcount_rx.findall(f.read()))
-    return sum(map(count_words, files))
-
-
-def index_stories(data):
-    path = data['path']
-    dirs = [d for d in os.listdir(path)
-            if os.path.isdir(join(path, d))]
-    fname_rx = re.compile(data['name filter'], re.IGNORECASE)
-    entries = []
-    for d in dirs:
-        metadatafile = join(path, d, 'metadata.json')
-        metadata = common.read_json(metadatafile)
-        files = [join(path,d,f) for f in os.listdir(join(path,d))
-                 if fname_rx.search(f)]
-        wordcount = generate_word_count(files)
-        metadata.update({'wordcount': wordcount,
-                         'pages': sorted(files),
-                         'metadatafile': metadatafile})
-        entries.append(metadata)
-    return sorted(entries, key=itemgetter('title'))
 
 
 def read_config():

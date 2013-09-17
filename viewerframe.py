@@ -37,7 +37,7 @@ class ViewerFrame(QtGui.QFrame):
     set_fullscreen = QtCore.pyqtSignal(bool)
     show_index = QtCore.pyqtSignal()
 
-    def __init__(self, parent, hotkeys):
+    def __init__(self, parent):
         super().__init__(parent)
         self.pages = []
         self.page = 0
@@ -63,7 +63,7 @@ class ViewerFrame(QtGui.QFrame):
         self.webview.linkClicked.connect(self.link_clicked)
         self.webview.wheel_event.connect(self.wheel_event)
 
-        # Key shortcuts
+    def set_hotkeys(self, hotkeys):
         for key in hotkeys['next']:
             common.set_hotkey(key, self, self.next)
         for key in hotkeys['previous']:
@@ -72,7 +72,6 @@ class ViewerFrame(QtGui.QFrame):
             common.set_hotkey(key, self, self.goto_index)
         for key in hotkeys['toggle fullscreen']:
             common.set_hotkey(key, self, self.toggle_fullscreen)
-
 
     def toggle_fullscreen(self):
         self.fullscreen = not self.fullscreen
