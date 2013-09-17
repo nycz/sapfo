@@ -19,8 +19,8 @@ class IndexFrame(QtWebKit.QWebView):
         super().__init__(parent)
         self.setDisabled(True)
 
-        set_hotkey("Ctrl+R", self, self.reload_view)
-        set_hotkey("F5", self, self.reload_view)
+        set_hotkey("Ctrl+R", parent, self.reload_view)
+        set_hotkey("F5", parent, self.reload_view)
 
         self.undo_stack = []
 
