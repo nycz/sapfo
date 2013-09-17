@@ -51,7 +51,7 @@ class MainWindow(QtGui.QFrame):
         def update():
             self.all_entries = index_stories(self.profile_settings)
             self.entries = self.all_entries.copy()
-            self.update_view()
+            self.update_view(keep_position=True)
 
         update()
 
@@ -73,7 +73,7 @@ class MainWindow(QtGui.QFrame):
         self.profile_settings = settings['profiles'][self.profile]
         self.tagcolors = self.profile_settings['tag colors']
         if not firsttime:
-            self.update_view()
+            self.update_view(keep_position=True)
 
         # Generate hotkeys
         self.hotkeys = update_dict(settings['default settings']['hotkeys'],
@@ -98,8 +98,12 @@ class MainWindow(QtGui.QFrame):
         else:
             return super().keyReleaseEvent(ev)
 
-    def update_view(self):
+    def update_view(self, keep_position=False):
+        frame = self.index_viewer.page().mainFrame()
+        pos = frame.scrollBarValue(Qt.Vertical)
         self.index_viewer.setHtml(generate_index(self.entries, self.tagcolors))
+        if keep_position:
+            frame.setScrollBarValue(Qt.Vertical, pos)
 
     def connect_signals(self):
         self.terminal.filter_.connect(self.filter_entries)
@@ -230,7 +234,7 @@ class MainWindow(QtGui.QFrame):
             common.write_json(self.entries[entry_id]['metadatafile'], metadata)
             # Update the memory
             self.entries[entry_id][category] = payload
-            self.update_view()
+            self.update_view(keep_position=True)
         # Update the tags specifically
         elif tagedit_rx.match(arg):
             entry_id, mode, tags = tagedit_rx.match(arg).groups()
@@ -248,7 +252,7 @@ class MainWindow(QtGui.QFrame):
             common.write_json(self.entries[entry_id]['metadatafile'], metadata)
             # Update the memory
             self.entries[entry_id][category] = newtags
-            self.update_view()
+            self.update_view(keep_position=True)
 
     def show_index(self):
         self.stack.setCurrentIndex(0)
