@@ -158,7 +158,7 @@ class IndexFrame(QtWebKit.QWebView):
             self.undo_stack.append((entry_id, category, self.entries[entry_id][category]))
             # Convert the string to a list if tags
             if arg[0] == 't':
-                payload = re.split(r'\s*,\s*', payload)
+                payload = list(set(re.split(r'\s*,\s*', payload)))
             set_data(entry_id, category, payload)
 
 
