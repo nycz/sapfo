@@ -114,7 +114,7 @@ class IndexFrame(QtWebKit.QWebView):
     def open_entry(self, num):
         if not isinstance(num, int):
             return
-        if not self.entries[num]['pages']:
+        if num not in range(len(self.entries)) or not self.entries[num]['pages']:
             return
         self.start_entry.emit(self.entries[num])
 
