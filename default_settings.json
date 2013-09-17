@@ -10,7 +10,8 @@
       "home": [],
       "toggle fullscreen": []
     },
-    "tag colors": {}
+    "tag colors": {},
+    "loose files": false
   },
   "default profile": "example",
   "profiles": {

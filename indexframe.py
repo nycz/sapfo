@@ -170,20 +170,30 @@ def index_stories(data):
     of them with wordcount, paths and all data from the metadata file.
     """
     path = data['path']
-    dirs = [d for d in os.listdir(path)
-            if os.path.isdir(join(path, d))]
     fname_rx = re.compile(data['name filter'], re.IGNORECASE)
     entries = []
-    for d in dirs:
-        metadatafile = join(path, d, 'metadata.json')
+    def add_entry(metadatafile, files):
         metadata = read_json(metadatafile)
-        files = [join(path,d,f) for f in os.listdir(join(path,d))
-                 if fname_rx.search(f)]
-        wordcount = generate_word_count(files)
-        metadata.update({'wordcount': wordcount,
-                         'pages': sorted(files),
+        metadata.update({'wordcount': generate_word_count(files),
+                         'pages': files,
                          'metadatafile': metadatafile})
         entries.append(metadata)
+
+    if data.get('loose files', False):
+        md = lambda x: '.'+x+'.metadata'
+        files = [(join(p,f), join(p,md(f)))
+                 for p,_,fs in os.walk(path) for f in fs
+                 if fname_rx.search(f) and os.path.exists(join(p, md(f)))]
+        for fpath, metadatafile in files:
+            add_entry(metadatafile, [fpath])
+    else:
+        dirs = [d for d in os.listdir(path)
+                if os.path.isdir(join(path, d))]
+        for d in dirs:
+            metadatafile = join(path, d, 'metadata.json')
+            files = [join(path,d,f) for f in os.listdir(join(path,d))
+                     if fname_rx.search(f)]
+            add_entry(metadatafile, sorted(files))
     return sorted(entries, key=itemgetter('title'))
 
 
