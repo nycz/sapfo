@@ -125,41 +125,28 @@ class IndexFrame(QtWebKit.QWebView):
             return
         entry_id, payload = main_data.groups()
         entry_id = int(entry_id)
-        payload = payload.strip()
         if entry_id >= len(self.entries):
             self.error.emit('Index out of range')
             return
+        payload = payload.strip()
         category = {'d': 'description', 'n': 'title', 't': 'tags'}[arg[0]]
-        tagedit_rx = re.compile(r'([+-])\s+(.+)$')
-        splittags_rx = re.compile(r'\s*,\s*')
-
-        def save(metadata, entry_data):
-            metadata[category] = entry_data
-            write_json(self.entries[entry_id]['metadatafile'], metadata)
-            self.entries[entry_id][category] = entry_data
-            self.refresh_view(keep_position=True)
 
         # No data specified, so the current is provided instead
         if not payload:
             data = self.entries[entry_id][category]
             new = ', '.join(data) if arg[0] == 't' else data
             self.set_terminal_text.emit('e' + arg + ' ' + new)
-        # Update the tags specifically
-        elif arg[0] == 't' and tagedit_rx.match(arg):
-            mode, tags = tagedit_rx.match(arg).groups()
-            tags = splittags_rx.split(tags)
-            metadata = read_json(self.entries[entry_id]['metadatafile'])
-            oldtags = set(metadata['tags'])
-            newtags = list(oldtags - set(tags) if mode == '-' else oldtags + tags)
-            save(metadata, newtags)
         # Update the chosen data with new stuff
-        elif payload:
+        else:
             # Convert the string to a list if tags
             if arg[0] == 't':
-                payload = splittags_rx.split(payload)
-            # Update the metadata file
-            metadata = read_json(self.entries[entry_id]['metadatafile'])
-            save(metadata, payload)
+                payload = re.split(r'\s*,\s*', payload)
+            metadatafile = self.entries[entry_id]['metadatafile']
+            metadata = read_json(metadatafile)
+            metadata[category] = payload
+            write_json(metadatafile, metadata)
+            self.entries[entry_id][category] = payload
+            self.refresh_view(keep_position=True)
 
 
 
