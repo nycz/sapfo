@@ -87,13 +87,13 @@ class MainWindow(QtGui.QFrame):
         self.index_viewer.event(ev)
 
     def keyPressEvent(self, ev):
-        if ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
+        if self.stack.currentWidget == self.index_viewer and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
             self.index_viewer.keyPressEvent(ev)
         else:
             return super().keyPressEvent(ev)
 
     def keyReleaseEvent(self, ev):
-        if ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
+        if self.stack.currentWidget == self.index_viewer and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
             self.index_viewer.keyReleaseEvent(ev)
         else:
             return super().keyReleaseEvent(ev)
