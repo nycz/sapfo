@@ -28,7 +28,7 @@ All of them can be empty but at least with `title` it is not recommended.
 
 Usage
 -----
-Everything is done in the *Terminal*. Love it, be one with it. 
+Everything is done in the *Terminal*. Love it, be one with it.
 Commands are entered with (surprise) Enter, and a history of previous commands is accessible with Up/Down arrow keys.
 
 All commands are one character, but some may have one or more arguments.
@@ -65,6 +65,8 @@ ALLCAPS words are variables the users should fill in themselves, eg. TEXT or NUM
     * `NUMBER` is the id of the story (visible to the left of the title)
     * `VALUE` is a string for `n` and `d`, and a comma-separated list for `t` (eg `et12 tag1,tag2`)
     * if `VALUE` is omitted, the current value is inserted in the terminal for your convenience.
+* `eu` - undo edit
+    * Undoes last edit. The undo stack does not have a limit.
 
 By the way
 ----------

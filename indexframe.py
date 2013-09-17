@@ -22,6 +22,8 @@ class IndexFrame(QtWebKit.QWebView):
         set_hotkey("Ctrl+R", self, self.reload_view)
         set_hotkey("F5", self, self.reload_view)
 
+        self.undo_stack = []
+
     def reload_view(self):
         self.all_entries = index_stories(self.settings)
         self.entries = self.all_entries.copy()
@@ -120,6 +122,21 @@ class IndexFrame(QtWebKit.QWebView):
 
 
     def edit_entry(self, arg):
+        def set_data(entry_id, category, payload):
+            metadatafile = self.entries[entry_id]['metadatafile']
+            metadata = read_json(metadatafile)
+            metadata[category] = payload
+            write_json(metadatafile, metadata)
+            self.entries[entry_id][category] = payload
+            self.refresh_view(keep_position=True)
+
+        if arg.strip().lower() == 'u':
+            if not self.undo_stack:
+                self.error.emit('Nothing to undo')
+            else:
+                set_data(*self.undo_stack.pop())
+            return
+
         main_data = re.match(r'[dtn](\d+)(.*)$', arg)
         if not main_data:
             return
@@ -138,16 +155,11 @@ class IndexFrame(QtWebKit.QWebView):
             self.set_terminal_text.emit('e' + arg + ' ' + new)
         # Update the chosen data with new stuff
         else:
+            self.undo_stack.append((entry_id, category, self.entries[entry_id][category]))
             # Convert the string to a list if tags
             if arg[0] == 't':
                 payload = re.split(r'\s*,\s*', payload)
-            metadatafile = self.entries[entry_id]['metadatafile']
-            metadata = read_json(metadatafile)
-            metadata[category] = payload
-            write_json(metadatafile, metadata)
-            self.entries[entry_id][category] = payload
-            self.refresh_view(keep_position=True)
-
+            set_data(entry_id, category, payload)
 
 
 # ==== Generating functions =======================================
