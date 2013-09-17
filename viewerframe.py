@@ -47,6 +47,7 @@ class ViewerFrame(QtGui.QFrame):
         self.webview = self.WebView(self)
         layout.addWidget(self.webview)
         layout.setStretchFactor(self.webview, 1)
+        self.webview.settings().setDefaultTextEncoding('utf-8')
 
         self.info_panel = infopanel.InfoPanel(self)
         layout.addWidget(self.info_panel)
