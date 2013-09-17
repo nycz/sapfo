@@ -1,8 +1,6 @@
-import os.path
-
 from PyQt4 import QtCore, QtGui
 
-from libsyntyche import common
+from libsyntyche.common import kill_theming
 
 
 class InfoPanel(QtGui.QFrame):
@@ -10,7 +8,7 @@ class InfoPanel(QtGui.QFrame):
         super().__init__(parent)
 
         layout = QtGui.QGridLayout(self)
-        common.kill_theming(layout)
+        kill_theming(layout)
 
         class InfoPanelLabel(QtGui.QLabel): pass
         self.label = InfoPanelLabel()

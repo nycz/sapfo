@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 
 import collections
-from operator import itemgetter
-import os
-import os.path
+from os import getenv
 from os.path import join
-import re
-import shutil
 import sys
 
-from PyQt4 import QtGui, QtWebKit
-from PyQt4.QtCore import Qt, QEvent
+from PyQt4 import QtGui
+from PyQt4.QtCore import Qt
 
 from libsyntyche import common
 from terminal import Terminal
@@ -119,7 +115,7 @@ class MainWindow(QtGui.QFrame):
 
 
 def read_config():
-    config_file = os.path.join(os.getenv('HOME'), '.config', 'sapfo', 'settings.json')
+    config_file = join(getenv('HOME'), '.config', 'sapfo', 'settings.json')
     common.make_sure_config_exists(config_file, common.local_path('default_settings.json'))
     return common.read_json(config_file)
 

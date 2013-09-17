@@ -1,9 +1,7 @@
-
-
 from PyQt4 import QtGui
 from PyQt4.QtCore import pyqtSignal, Qt, QEvent
 
-from libsyntyche import common
+from libsyntyche.common import kill_theming
 
 class Terminal(QtGui.QWidget):
     class TerminalInputBox(QtGui.QLineEdit):
@@ -61,7 +59,7 @@ class Terminal(QtGui.QWidget):
         super().__init__(parent)
 
         layout = QtGui.QVBoxLayout(self)
-        common.kill_theming(layout)
+        kill_theming(layout)
 
         self.input_term = self.TerminalInputBox()
         self.output_term = self.TerminalOutputBox()
