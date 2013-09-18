@@ -12,7 +12,7 @@ from libsyntyche.common import local_path, read_file, read_json, set_hotkey, wri
 
 class IndexFrame(QtWebKit.QWebView):
 
-    start_entry = pyqtSignal(dict)
+    start_entry = pyqtSignal(dict, bool)
     error = pyqtSignal(str)
     set_terminal_text = pyqtSignal(str)
 
@@ -119,7 +119,7 @@ class IndexFrame(QtWebKit.QWebView):
             return
         if num not in range(len(self.entries)) or not self.entries[num]['pages']:
             return
-        self.start_entry.emit(self.entries[num])
+        self.start_entry.emit(self.entries[num], self.settings.get('raw text', False))
 
 
     def edit_entry(self, arg):

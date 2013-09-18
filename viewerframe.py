@@ -1,7 +1,7 @@
 from PyQt4.QtCore import pyqtSignal, Qt, QUrl
 from PyQt4 import QtGui, QtWebKit
 
-from libsyntyche.common import kill_theming, set_hotkey
+from libsyntyche.common import kill_theming, set_hotkey, read_file, local_path
 import infopanel
 
 
@@ -35,10 +35,14 @@ class ViewerFrame(QtGui.QFrame):
 
     def __init__(self, parent):
         super().__init__(parent)
+        self.title = ''
         self.pages = []
         self.page = 0
         self.fullscreen = False
         self.setDisabled(True)
+
+        self.is_rawtext = False
+        self.rawtext_wrapper = read_file(local_path('rawtext_wrapper.html'))
 
         # Layout
         layout = QtGui.QVBoxLayout(self)
@@ -86,15 +90,22 @@ class ViewerFrame(QtGui.QFrame):
             import webbrowser
             webbrowser.open_new_tab(url.toString())
 
-    def start(self, data):
+    def start(self, data, rawtext=False):
         self.info_panel.set_data(data)
+        self.is_rawtext = rawtext
         self.setEnabled(True)
+        self.title = data['title']
         self.pages = data['pages']
         self.page = 0
         self.set_page()
 
     def set_page(self):
-        self.webview.load(QUrl.fromLocalFile(self.pages[self.page]))
+        if self.is_rawtext:
+            rawtext = read_file(self.pages[self.page]).replace('\n', '<br>')
+            html = self.rawtext_wrapper.format(title=self.title, body=rawtext)
+            self.webview.setHtml(html)
+        else:
+            self.webview.load(QUrl.fromLocalFile(self.pages[self.page]))
         self.info_panel.set_data(pagenr=self.page)
 
     def next(self):
