@@ -3,6 +3,7 @@ import os
 import os.path
 from os.path import join
 import re
+import subprocess
 
 from PyQt4 import QtCore, QtGui, QtWebKit
 from PyQt4.QtCore import pyqtSignal, Qt
@@ -160,6 +161,19 @@ class IndexFrame(QtWebKit.QWebView):
             if arg[0] == 't':
                 payload = list(set(re.split(r'\s*,\s*', payload)))
             set_data(entry_id, category, payload)
+
+
+    def external_run_entry(self, arg):
+        if not arg.isdigit():
+            return
+        if not int(arg) in range(len(self.entries)):
+            self.error.emit('Index out of range')
+            return
+        if not self.settings.get('editor', None):
+            self.error.emit('No editor command defined')
+            return
+        subprocess.Popen([self.settings['editor'], self.entries[int(arg)]['pages'][0]])
+
 
 
 # ==== Generating functions =======================================

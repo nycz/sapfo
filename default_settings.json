@@ -11,7 +11,8 @@
       "toggle fullscreen": []
     },
     "tag colors": {},
-    "loose files": false
+    "loose files": false,
+    "editor": ""
   },
   "default profile": "example",
   "profiles": {
