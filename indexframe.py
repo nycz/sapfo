@@ -59,15 +59,21 @@ class IndexFrame(QtWebKit.QWebView):
 
         def tags_match(tags, oldtags):
             for t in tags:
+                negative = t.startswith('-')
+                t = t.lstrip('-')
                 if '*' in t:
                     rx = re.compile(t.replace('*', '.+')+'$')
                     for tag in oldtags:
                         if rx.match(tag):
-                            break
+                            if negative:
+                                return False
+                            else:
+                                break
                     else:
-                        return False
+                        if not negative:
+                            return False
                 else:
-                    if t not in oldtags:
+                    if (negative and t in oldtags) or (not negative and t not in oldtags):
                         return False
             return True
 

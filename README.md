@@ -48,7 +48,9 @@ ALLCAPS words are variables the users should fill in themselves, eg. TEXT or NUM
 * `f[ndt]TEXT` - filter
     * `n` filters by name(title)
     * `d` filters by description
-    * `t` filters by tags (no partial matches, `TEXT` has to be a tag
+    * `t` filters by tags
+        * If TEXT starts with `-`, the filtering will be inverted
+        * If TEXT contains `*`, that will be treated as a wildcard (at least one character)
     * Omitting arguments and `TEXT` will reset the filter, showing all entries.
 * `flEXPRESSIONS` - filter (by wordcount)
     * `EXPRESSIONS` are one of `<= >= < >` and a number, multiple are allowed (eg `fl<10000>=1500`)
