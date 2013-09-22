@@ -204,7 +204,6 @@ class IndexFrame(QtWebKit.QWebView):
                 self.error.emit('Nothing to undo')
             else:
                 if isinstance(self.undo_stack[-1], dict):
-                    print(len(self.undo_stack))
                     selected_entries = self.undo_stack.pop()
                     update_entry_list(selected_entries, self.all_entries, True)
                     update_entry_list(selected_entries, self.entries, True)
