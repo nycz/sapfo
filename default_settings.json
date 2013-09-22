@@ -5,10 +5,10 @@
       "$RX:this is parsed as a regex"
     ],
     "hotkeys": {
-      "next": [],
-      "previous": [],
-      "home": [],
-      "toggle fullscreen": []
+      "next": ["Ctrl+PgDown"],
+      "previous": ["Ctrl+PgUp"],
+      "home": ["Home"],
+      "toggle fullscreen": ["Ctrl+Space"]
     },
     "tag colors": {},
     "loose files": false,
