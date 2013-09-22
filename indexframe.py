@@ -57,6 +57,20 @@ class IndexFrame(QtWebKit.QWebView):
         def generic_filter(key):
             self.entries = [x for x in self.entries if payload in x[key].lower()]
 
+        def tags_match(tags, oldtags):
+            for t in tags:
+                if '*' in t:
+                    rx = re.compile(t.replace('*', '.+')+'$')
+                    for tag in oldtags:
+                        if rx.match(tag):
+                            break
+                    else:
+                        return False
+                else:
+                    if t not in oldtags:
+                        return False
+            return True
+
         # Filter on title (name)
         if cmd == 'n':
             generic_filter('title')
@@ -67,9 +81,9 @@ class IndexFrame(QtWebKit.QWebView):
 
         # Filter on tags
         elif cmd == 't':
-            tags = set(re.split(r'\s*,\s*', payload))
+            tags = re.split(r'\s*,\s*', payload)
             self.entries = [x for x in self.entries
-                            if tags <= set(map(str.lower, x['tags']))]
+                            if tags_match(tags, x['tags'])]
         # Filter on length
         elif cmd == 'l':
             from operator import lt,gt,le,ge
