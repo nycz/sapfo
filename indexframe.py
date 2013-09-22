@@ -205,6 +205,7 @@ def index_stories(data):
         metadata = read_json(metadatafile)
         length = generate_word_count(files) if count_words else len(files)
         metadata.update({'length': length,
+                         'count words': count_words,
                          'pages': files,
                          'metadatafile': metadatafile})
         entries.append(metadata)

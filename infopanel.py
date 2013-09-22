@@ -21,12 +21,15 @@ class InfoPanel(QtGui.QFrame):
     def set_data(self, data=None, pagenr=0):
         if data is not None:
             self.data = data
-        s = "<em>Page</em> {page}/{maxpages}\t\t–\t\t<em>({words:,})</em>\t\t–\t\t<strong>{fname}</strong>"
+        wc = ""
+        if self.data['count words']:
+            wc = "\t\t–\t\t<em>({:,})</em>".format(self.data['length'])
+        s = "<em>Page</em> {page}/{maxpages}{wordcount}\t\t–\t\t<strong>{fname}</strong>"
         self.label.setText(s.format(
             page=pagenr+1,
             maxpages=len(self.data['pages']),
             fname=self.data['title'],
-            words=self.data['wordcount']
+            wordcount=wc
         ))
 
     def set_fullscreen(self, fullscreen):
