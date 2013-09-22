@@ -94,9 +94,9 @@ class ViewerFrame(QtGui.QFrame):
             import webbrowser
             webbrowser.open_new_tab(url.toString())
 
-    def start(self, data, rawtext=False):
+    def start(self, data):
         self.info_panel.set_data(data)
-        self.is_rawtext = rawtext
+        self.is_rawtext = data['raw text']
         self.setEnabled(True)
         self.title = data['title']
         self.pages = data['pages']

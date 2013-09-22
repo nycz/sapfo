@@ -74,8 +74,8 @@ class MainWindow(QtGui.QFrame):
         self.terminal.setFocus()
 
 
-    def start_entry(self, entry, rawtext):
-        self.story_viewer.start(entry, rawtext)
+    def start_entry(self, entry):
+        self.story_viewer.start(entry)
         self.stack.setCurrentWidget(self.story_viewer)
 
 
