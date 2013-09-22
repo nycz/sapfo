@@ -67,6 +67,8 @@ ALLCAPS words are variables the users should fill in themselves, eg. TEXT or NUM
     * if `VALUE` is omitted, the current value is inserted in the terminal for your convenience.
 * `eu` - undo edit
     * Undoes last edit. The undo stack does not have a limit.
+* `xNUMBER` - open the entry with the chosen program/command
+    * Make sure you set the `editor` value in config to the program to open the entry with.
 
 By the way
 ----------
