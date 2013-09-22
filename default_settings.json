@@ -13,6 +13,7 @@
     "tag colors": {},
     "loose files": false,
     "raw text": false,
+    "wordcount": true,
     "editor": ""
   },
   "default profile": "example",

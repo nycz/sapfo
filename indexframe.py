@@ -184,11 +184,13 @@ def index_stories(data):
     of them with wordcount, paths and all data from the metadata file.
     """
     path = data['path']
+    count_words = data.get('wordcount', True)
     fname_rx = re.compile(data['name filter'], re.IGNORECASE)
     entries = []
     def add_entry(metadatafile, files):
         metadata = read_json(metadatafile)
-        metadata.update({'wordcount': generate_word_count(files),
+        length = generate_word_count(files) if count_words else len(files)
+        metadata.update({'length': length,
                          'pages': files,
                          'metadatafile': metadatafile})
         entries.append(metadata)
@@ -239,7 +241,7 @@ def generate_index(raw_entries, tagcolors):
     entries = [entrystr.format(title=s['title'], id=n,
                                tags=format_tags(s['tags']),
                                desc=format_desc(s['description']),
-                               wc=s['wordcount'])
+                               length=s['length'])
                for n,s in enumerate(raw_entries)]
     body = '<hr />'.join(entries)
     css = read_file(local_path('index_page.css'))
