@@ -71,6 +71,11 @@ ALLCAPS words are variables the users should fill in themselves, eg. TEXT or NUM
     * Undoes last edit. The undo stack does not have a limit.
 * `xNUMBER` - open the entry with the chosen program/command
     * Make sure you set the `editor` value in config to the program to open the entry with.
+* `l[ft][a]` - list active filters or all tags
+    * `f` prints all active filters in the terminal
+    * `t` opens a popup~ish screen with a list of all tags and the times they are used, sorted descendingly after number of uses.
+        * Add an `a` after `lt` to instead sort alphabetically.
+        * The screen is closed by pressing enter, with or without a command entered in the terminal (a command will be executed if present).
 
 By the way
 ----------

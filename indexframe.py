@@ -14,7 +14,9 @@ class IndexFrame(QtWebKit.QWebView):
 
     start_entry = pyqtSignal(dict)
     error = pyqtSignal(str)
+    print_ = pyqtSignal(str)
     set_terminal_text = pyqtSignal(str)
+    init_popup = pyqtSignal()
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -24,6 +26,8 @@ class IndexFrame(QtWebKit.QWebView):
         set_hotkey("F5", parent, self.reload_view)
 
         self.undo_stack = []
+        self.current_filters = []
+        self.old_pos = None
 
     def reload_view(self):
         self.all_entries = index_stories(self.settings)
@@ -41,12 +45,43 @@ class IndexFrame(QtWebKit.QWebView):
         self.settings = new_settings
         self.reload_view()
 
+    def list_(self, arg):
+        if arg.startswith('f'):
+            if self.current_filters:
+                self.print_.emit(', '.join(self.current_filters))
+            else:
+                self.error.emit('No active filters')
+        elif arg.startswith('t'):
+            # Sort alphabetically or after uses
+            sortarg = 1
+            if len(arg) == 2 and arg[1] == 'a':
+                sortarg = 0
+            self.old_pos = self.page().mainFrame().scrollBarValue(Qt.Vertical)
+            entry_template = '<div class="list_entry"><span class="tag" style="background-color:{color};">{tagname}</span><span class="length">({count:,})</span></div>'
+            tags = {}
+            for e in self.all_entries:
+                for t in e['tags']:
+                    tags[t] = tags.get(t, 0) + 1
+            t_entries = [entry_template.format(color=self.settings['tag colors'].get(tag, '#677'),
+                                               tagname=tag, count=num)
+                         for tag, num in sorted(tags.items(), key=itemgetter(sortarg), reverse=sortarg)]
+            body = '<br>'.join(t_entries)
+            css = read_file(local_path('index_page.css'))# + '#taglist {-webkit-column-width: 5-em}'
+            self.setHtml('<style type="text/css">{css}</style>\
+                          <body><div id="taglist">{body}</div></body>'.format(body=body, css=css))
+            self.init_popup.emit()
+
+    def close_popup(self):
+        self.refresh_view()
+        self.page().mainFrame().setScrollBarValue(Qt.Vertical, self.old_pos)
+
 
     # ==== Manage entries ====================================================
 
     def filter_entries(self, arg):
         # Reset filter if no argument
         if not arg:
+            self.current_filters = []
             self.entries = self.all_entries.copy()
             self.refresh_view()
             return
@@ -107,6 +142,7 @@ class IndexFrame(QtWebKit.QWebView):
             self.entries = list(filter(matches, self.entries))
 
         if cmd in 'ndtl':
+            self.current_filters.append(cmd + ' ' + payload)
             self.refresh_view()
 
 

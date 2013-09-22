@@ -29,6 +29,7 @@ class MainWindow(QtGui.QFrame):
         # Index viewer
         self.index_viewer = IndexFrame(self.index_widget)
         layout.addWidget(self.index_viewer, stretch=1)
+        self.popup = False
 
         # Terminal
         self.terminal = Terminal(self.index_widget)
@@ -59,11 +60,14 @@ class MainWindow(QtGui.QFrame):
             (t.open_,                   iv.open_entry),
             (t.edit,                    iv.edit_entry),
             (t.input_term.scroll_index, iv.event),
+            (t.list_,                   iv.list_),
             (t.external_edit,           iv.external_run_entry),
             (t.reload_settings,         self.reload_settings),
             (self.story_viewer.show_index, self.show_index),
             (iv.start_entry,            self.start_entry),
             (iv.error,                  t.error),
+            (iv.print_,                 t.print_),
+            (iv.init_popup,             self.popup_mode),
             (iv.set_terminal_text,      t.input_term.setText)
         )
         for signal, slot in connects:
@@ -77,6 +81,10 @@ class MainWindow(QtGui.QFrame):
     def start_entry(self, entry):
         self.story_viewer.start(entry)
         self.stack.setCurrentWidget(self.story_viewer)
+
+
+    def popup_mode(self):
+        self.popup = 2
 
 
     def reload_settings(self):
@@ -104,13 +112,22 @@ class MainWindow(QtGui.QFrame):
         if self.stack.currentWidget() == self.index_widget and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
             self.index_viewer.keyPressEvent(ev)
         else:
-            return super().keyPressEvent(ev)
+            if self.popup:
+                if ev.key() == Qt.Key_Return:
+                    if self.popup > 1:
+                        self.popup -= 1
+                    else:
+                        self.index_viewer.close_popup()
+                        self.popup = False
+            else:
+                return super().keyPressEvent(ev)
 
     def keyReleaseEvent(self, ev):
         if self.stack.currentWidget() == self.index_widget and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
             self.index_viewer.keyReleaseEvent(ev)
         else:
-            return super().keyReleaseEvent(ev)
+            if not self.popup:
+                return super().keyReleaseEvent(ev)
     # =================================================
 
 

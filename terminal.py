@@ -55,6 +55,7 @@ class Terminal(QtGui.QWidget):
     edit = pyqtSignal(str)
     reload_settings = pyqtSignal()
     external_edit = pyqtSignal(str)
+    list_ = pyqtSignal(str)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -155,6 +156,9 @@ class Terminal(QtGui.QWidget):
     def cmd_external_edit(self, arg):
         self.external_edit.emit(arg)
 
+    def cmd_list(self, arg):
+        self.list_.emit(arg)
+
     def cmd_reload_settings(self, arg):
         self.reload_settings.emit()
 
@@ -166,6 +170,7 @@ class Terminal(QtGui.QWidget):
         's': (cmd_sort, 'Sort'),
         '?': (cmd_help, 'Help'),
         'x': (cmd_external_edit, 'Open in external program/editor'),
+        'l': (cmd_list, 'List'),
         'r': (cmd_reload_settings, 'Reload settings')
     }
 
