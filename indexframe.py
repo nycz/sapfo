@@ -201,6 +201,12 @@ def index_stories(data):
     count_words = data.get('wordcount', True)
     fname_rx = re.compile(data['name filter'], re.IGNORECASE)
     entries = []
+    def blacklisted(fname):
+        for r in data.get('blacklist', []):
+            if re.search(r, fname, re.IGNORECASE):
+                return True
+        return False
+
     def add_entry(metadatafile, files):
         metadata = read_json(metadatafile)
         length = generate_word_count(files) if count_words else len(files)
@@ -215,7 +221,8 @@ def index_stories(data):
         md = lambda x: '.'+x+'.metadata'
         files = [(join(p,f), join(p,md(f)))
                  for p,_,fs in os.walk(path) for f in fs
-                 if fname_rx.search(f) and os.path.exists(join(p, md(f)))]
+                 if fname_rx.search(f) and os.path.exists(join(p, md(f)))
+                 and not blacklisted(f)]
         for fpath, metadatafile in files:
             add_entry(metadatafile, [fpath])
     else:
@@ -224,7 +231,7 @@ def index_stories(data):
         for d in dirs:
             metadatafile = join(path, d, 'metadata.json')
             files = [join(path,d,f) for f in os.listdir(join(path,d))
-                     if fname_rx.search(f)]
+                     if fname_rx.search(f) and not blacklisted(f)]
             add_entry(metadatafile, sorted(files))
     return sorted(entries, key=itemgetter('title'))
 

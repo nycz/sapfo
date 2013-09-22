@@ -1,9 +1,6 @@
 {
   "default settings": {
-    "blacklist": [
-      "this is exactly matched",
-      "$RX:this is parsed as a regex"
-    ],
+    "blacklist": [],
     "hotkeys": {
       "next": ["Ctrl+PgDown"],
       "previous": ["Ctrl+PgUp"],
