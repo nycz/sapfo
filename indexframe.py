@@ -143,12 +143,19 @@ class IndexFrame(QtWebKit.QWebView):
 
 
     def edit_entry(self, arg):
-        def set_data(entry_id, category, payload):
-            metadatafile = self.entries[entry_id]['metadatafile']
+        def find_entry_id(metadatafile, entries):
+            for n,e in enumerate(entries):
+                if metadatafile == e['metadatafile']:
+                    return n
+
+        def set_data(metadatafile, category, payload):
             metadata = read_json(metadatafile)
             metadata[category] = payload
             write_json(metadatafile, metadata)
-            self.entries[entry_id][category] = payload
+            entry_id = find_entry_id(metadatafile, self.entries)
+            if entry_id is not None:
+                self.entries[entry_id][category] = payload
+            self.all_entries[find_entry_id(metadatafile, self.all_entries)][category] = payload
             self.refresh_view(keep_position=True)
 
         if arg.strip().lower() == 'u':
@@ -176,11 +183,12 @@ class IndexFrame(QtWebKit.QWebView):
             self.set_terminal_text.emit('e' + arg + ' ' + new)
         # Update the chosen data with new stuff
         else:
-            self.undo_stack.append((entry_id, category, self.entries[entry_id][category]))
             # Convert the string to a list if tags
             if arg[0] == 't':
                 payload = list(set(re.split(r'\s*,\s*', payload)))
-            set_data(entry_id, category, payload)
+            metadatafile = self.entries[entry_id]['metadatafile']
+            self.undo_stack.append((metadatafile, category, self.entries[entry_id][category]))
+            set_data(metadatafile, category, payload)
 
 
     def external_run_entry(self, arg):
