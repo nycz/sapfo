@@ -67,6 +67,9 @@ ALLCAPS words are variables the users should fill in themselves, eg. TEXT or NUM
     * `NUMBER` is the id of the story (visible to the left of the title)
     * `VALUE` is a string for `n` and `d`, and a comma-separated list for `t` (eg `et12 tag1,tag2`)
     * if `VALUE` is omitted, the current value is inserted in the terminal for your convenience.
+* `et*OLDTAG,NEWTAG` - replace a tag
+    * Replaces all visible instances of `OLDTAG` with `NEWTAG`.
+    * *Note that this only changes the instances visible after filtering! To replace all instances, reset the filters first.*
 * `eu` - undo edit
     * Undoes last edit. The undo stack does not have a limit.
 * `xNUMBER` - open the entry with the chosen program/command

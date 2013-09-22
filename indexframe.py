@@ -194,12 +194,46 @@ class IndexFrame(QtWebKit.QWebView):
             self.all_entries[find_entry_id(metadatafile, self.all_entries)][category] = payload
             self.refresh_view(keep_position=True)
 
+        def update_entry_list(selected_entries, entries, revert):
+            for n,entry in enumerate(entries):
+                if entry['metadatafile'] in selected_entries:
+                    entries[n]['tags'] = selected_entries[entry['metadatafile']][revert]
+
         if arg.strip().lower() == 'u':
             if not self.undo_stack:
                 self.error.emit('Nothing to undo')
             else:
-                set_data(*self.undo_stack.pop())
+                if isinstance(self.undo_stack[-1], dict):
+                    print(len(self.undo_stack))
+                    selected_entries = self.undo_stack.pop()
+                    update_entry_list(selected_entries, self.all_entries, True)
+                    update_entry_list(selected_entries, self.entries, True)
+                    for metadatafile, entry in selected_entries.items():
+                        metadata = read_json(metadatafile)
+                        metadata['tags'] = entry[1]
+                        write_json(metadatafile, metadata)
+                    self.refresh_view(keep_position=True)
+                else:
+                    set_data(*self.undo_stack.pop())
             return
+
+        replace_tags = re.match(r't\*\s*(.+?)\s*,\s*(.+?)\s*$', arg)
+        if replace_tags:
+            oldtag, newtag = replace_tags.groups()
+            selected_entries = {}
+            for n,x in enumerate(self.entries):
+                if oldtag in x['tags']:
+                    metadata = read_json(x['metadatafile'])
+                    oldtags = metadata['tags'].copy()
+                    metadata['tags'].remove(oldtag)
+                    metadata['tags'] = list(set(metadata['tags'] + [newtag]))
+                    write_json(x['metadatafile'], metadata)
+                    self.entries[n]['tags'] = metadata['tags']
+                    selected_entries[x['metadatafile']] = (metadata['tags'], oldtags)
+            self.undo_stack.append(selected_entries)
+            update_entry_list(selected_entries, self.all_entries, False)
+            self.refresh_view(keep_position=True)
+
 
         main_data = re.match(r'[dtn](\d+)(.*)$', arg)
         if not main_data:
