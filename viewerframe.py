@@ -41,6 +41,8 @@ class ViewerFrame(QtGui.QFrame):
         self.fullscreen = False
         self.setDisabled(True)
 
+        self.hotkeys_set = False
+
         self.is_rawtext = False
         self.rawtext_wrapper = read_file(local_path('rawtext_wrapper.html'))
 
@@ -65,6 +67,8 @@ class ViewerFrame(QtGui.QFrame):
         self.webview.wheel_event.connect(self.wheel_event)
 
     def set_hotkeys(self, hotkeys):
+        if self.hotkeys_set:
+            return
         for key in hotkeys['next']:
             set_hotkey(key, self, self.next)
         for key in hotkeys['previous']:
