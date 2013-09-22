@@ -10,7 +10,7 @@
     "tag colors": {},
     "loose files": false,
     "raw text": false,
-    "wordcount": true,
+    "count words": true,
     "editor": ""
   },
   "default profile": "example",

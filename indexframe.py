@@ -101,7 +101,7 @@ class IndexFrame(QtWebKit.QWebView):
                            for match in rx.finditer(payload)]
             def matches(x):
                 for f, num in expressions:
-                    if not f(x['wordcount'], num):
+                    if not f(x['length'], num):
                         return False
                 return True
             self.entries = list(filter(matches, self.entries))
@@ -111,7 +111,7 @@ class IndexFrame(QtWebKit.QWebView):
 
 
     def sort_entries(self, arg):
-        acronyms = {'n': 'title', 'l': 'wordcount'}
+        acronyms = {'n': 'title', 'l': 'length'}
         if not arg or arg[0] not in acronyms:
             return #TODO
         reverse = False
@@ -212,7 +212,7 @@ def index_stories(data):
     of them with wordcount, paths and all data from the metadata file.
     """
     path = data['path']
-    count_words = data.get('wordcount', True)
+    count_words = data.get('count words', True)
     fname_rx = re.compile(data['name filter'], re.IGNORECASE)
     entries = []
     def blacklisted(fname):
