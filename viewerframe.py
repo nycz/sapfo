@@ -69,6 +69,7 @@ class ViewerFrame(QtGui.QFrame):
     def set_hotkeys(self, hotkeys):
         if self.hotkeys_set:
             return
+        self.hotkeys_set = True
         for key in hotkeys['next']:
             set_hotkey(key, self, self.next)
         for key in hotkeys['previous']:
