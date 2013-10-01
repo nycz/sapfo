@@ -58,13 +58,9 @@ class IndexFrame(QtWebKit.QWebView):
                 sortarg = 0
             self.old_pos = self.page().mainFrame().scrollBarValue(Qt.Vertical)
             entry_template = '<div class="list_entry"><span class="tag" style="background-color:{color};">{tagname}</span><span class="length">({count:,})</span></div>'
-            tags = {}
-            for e in self.all_entries:
-                for t in e['tags']:
-                    tags[t] = tags.get(t, 0) + 1
             t_entries = [entry_template.format(color=self.settings['tag colors'].get(tag, '#677'),
                                                tagname=tag, count=num)
-                         for tag, num in sorted(tags.items(), key=itemgetter(sortarg), reverse=sortarg)]
+                         for tag, num in sorted(self.get_tags(), key=itemgetter(sortarg), reverse=sortarg)]
             body = '<br>'.join(t_entries)
             css = read_file(local_path('index_page.css'))# + '#taglist {-webkit-column-width: 5-em}'
             self.setHtml('<style type="text/css">{css}</style>\
@@ -74,6 +70,13 @@ class IndexFrame(QtWebKit.QWebView):
     def close_popup(self):
         self.refresh_view()
         self.page().mainFrame().setScrollBarValue(Qt.Vertical, self.old_pos)
+
+    def get_tags(self):
+        tags = {}
+        for e in self.all_entries:
+            for t in e['tags']:
+                tags[t] = tags.get(t, 0) + 1
+        return list(tags.items())
 
 
     # ==== Manage entries ====================================================

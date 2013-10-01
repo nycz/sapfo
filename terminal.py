@@ -1,3 +1,6 @@
+from operator import itemgetter
+import re
+
 from PyQt4 import QtGui
 from PyQt4.QtCore import pyqtSignal, Qt, QEvent
 
@@ -32,8 +35,10 @@ class Terminal(GenericTerminal):
     external_edit = pyqtSignal(str)
     list_ = pyqtSignal(str)
 
-    def __init__(self, parent):
+    def __init__(self, parent, get_tags):
         super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox)
+
+        self.get_tags = get_tags
 
         self.commands = {
             'f': (self.filter_, 'Filter'),
@@ -50,3 +55,33 @@ class Terminal(GenericTerminal):
         if arg.isdigit():
             self.open_.emit(int(arg))
             return True
+
+    def autocomplete(self):
+        def get_interval(t, pos):
+            start, end = 0, len(t)
+            for n,i in enumerate(t):
+                if n < pos and i == ',':
+                    start = n + 1
+                if n >= pos and i == ',':
+                    end = n
+                    break
+            return start, end
+        text = self.input_term.text()
+        tabsep_rx = re.match(r'(ft|et\*|et\d+\s*)(.*)', text)
+        if not tabsep_rx:
+            return
+        prefix, payload = tabsep_rx.groups()
+        pos = self.input_term.cursorPosition() - len(prefix)
+        if pos < 0:
+            return
+        start, end = get_interval(payload, pos)
+        ws_prefix, target_text = re.match(r'(\s*)(.*)',payload[start:end]).groups()
+        new_text = self.run_autocompletion(target_text)
+        output = prefix + payload[:start] + ws_prefix + new_text + payload[end:]
+        self.prompt(output)
+        self.input_term.setCursorPosition(len(output) - len(payload[end:]))
+
+
+    def get_ac_suggestions(self, prefix):
+        tags = list(zip(*sorted(self.get_tags(), key=itemgetter(1), reverse=True)))[0]
+        return [x for x in tags if x.startswith(prefix)]

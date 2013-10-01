@@ -32,7 +32,7 @@ class MainWindow(QtGui.QFrame):
         self.popup = False
 
         # Terminal
-        self.terminal = Terminal(self.index_widget)
+        self.terminal = Terminal(self.index_widget, self.index_viewer.get_tags)
         layout.addWidget(self.terminal)
 
         # Add both to stack
@@ -68,7 +68,7 @@ class MainWindow(QtGui.QFrame):
             (iv.error,                  t.error),
             (iv.print_,                 t.print_),
             (iv.init_popup,             self.popup_mode),
-            (iv.set_terminal_text,      t.input_term.setText)
+            (iv.set_terminal_text,      t.prompt)
         )
         for signal, slot in connects:
             signal.connect(slot)

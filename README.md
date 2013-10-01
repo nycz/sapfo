@@ -39,6 +39,8 @@ Space should be omitted unless explicitly specified.
 Characters in square brackets are mutually exclusive and can not be used at the same time.
 ALLCAPS words are variables the users should fill in themselves, eg. TEXT or NUMBER.
 
+Tab-/autocompletion works for tag commands: `ft` and `et`.
+
 * `NUMBER` - open (by number)
     * a lone `NUMBER` opens the story with the corresponding number (if it exists)
 * `o[sg]TEXT` - open (by search)
