@@ -75,9 +75,9 @@ class Terminal(GenericTerminal):
         if pos < 0:
             return
         start, end = get_interval(payload, pos)
-        ws_prefix, target_text = re.match(r'(\s*)(.*)',payload[start:end]).groups()
+        ws_prefix, dash, target_text = re.match(r'(\s*)(-?)(.*)',payload[start:end]).groups()
         new_text = self.run_autocompletion(target_text)
-        output = prefix + payload[:start] + ws_prefix + new_text + payload[end:]
+        output = prefix + payload[:start] + ws_prefix + dash + new_text + payload[end:]
         self.prompt(output)
         self.input_term.setCursorPosition(len(output) - len(payload[end:]))
 
