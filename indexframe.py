@@ -160,19 +160,6 @@ class IndexFrame(QtWebKit.QWebView):
         self.refresh_view()
 
 
-    def find_entry(self, arg):
-        #TODO: better acronyms than s/g
-        if len(arg) < 2 or arg[0] not in 'sg':
-            return
-        if arg[0] == 's':
-            f = lambda x: x[1]['title'].lower().startswith(arg[1:].lower())
-        else:
-            f = lambda x: arg[1:].lower() in x[1]['title'].lower()
-        candidates = list(filter(f, enumerate(self.entries)))
-        if len(candidates) == 1:
-            self.open_entry(candidates[0][0])
-
-
     def open_entry(self, num):
         if not isinstance(num, int):
             return

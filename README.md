@@ -43,10 +43,6 @@ Tab-/autocompletion works for tag commands: `ft` and `et`.
 
 * `NUMBER` - open (by number)
     * a lone `NUMBER` opens the story with the corresponding number (if it exists)
-* `o[sg]TEXT` - open (by search)
-    * `s` search the beginning of the titles
-    * `g` search the whole titles
-    * if `TEXT` is only found in one story (considering `s` and `g`), that story is opened
 * `f[ndt]TEXT` - filter
     * `n` filters by name(title)
     * `d` filters by description

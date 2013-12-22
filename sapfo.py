@@ -56,7 +56,6 @@ class MainWindow(QtGui.QFrame):
         connects = (
             (t.filter_,                 iv.filter_entries),
             (t.sort,                    iv.sort_entries),
-            (t.find_open,               iv.find_entry),
             (t.open_,                   iv.open_entry),
             (t.edit,                    iv.edit_entry),
             (t.input_term.scroll_index, iv.event),
