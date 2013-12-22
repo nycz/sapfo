@@ -63,6 +63,7 @@ class MainWindow(QtGui.QFrame):
             (t.external_edit,           iv.external_run_entry),
             (t.reload_settings,         self.reload_settings),
             (self.story_viewer.show_index, self.show_index),
+            (t.quit,                    self.close),
             (iv.start_entry,            self.start_entry),
             (iv.error,                  t.error),
             (iv.print_,                 t.print_),
@@ -71,6 +72,7 @@ class MainWindow(QtGui.QFrame):
         )
         for signal, slot in connects:
             signal.connect(slot)
+
 
     def show_index(self):
         self.stack.setCurrentWidget(self.index_widget)
