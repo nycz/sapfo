@@ -61,6 +61,7 @@ class MainWindow(QtGui.QFrame):
             (t.edit,                    iv.edit_entry),
             (t.input_term.scroll_index, iv.event),
             (t.list_,                   iv.list_),
+            (t.count_length,            iv.count_length),
             (t.external_edit,           iv.external_run_entry),
             (t.reload_settings,         self.reload_settings),
             (self.story_viewer.show_index, self.show_index),

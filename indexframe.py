@@ -264,6 +264,11 @@ class IndexFrame(QtWebKit.QWebView):
             set_data(metadatafile, category, payload)
 
 
+    def count_length(self, arg):
+        total_length = sum(x['length'] for x in self.entries)
+        self.print_.emit(str(total_length))
+
+
     def external_run_entry(self, arg):
         if not arg.isdigit():
             return

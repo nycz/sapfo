@@ -34,6 +34,7 @@ class Terminal(GenericTerminal):
     reload_settings = pyqtSignal(str)
     external_edit = pyqtSignal(str)
     list_ = pyqtSignal(str)
+    count_length = pyqtSignal(str)
 
     def __init__(self, parent, get_tags):
         super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox)
@@ -48,6 +49,7 @@ class Terminal(GenericTerminal):
             '?': (self.cmd_help, 'List commands or help for [command]'),
             'x': (self.external_edit, 'Open in external program/editor'),
             'l': (self.list_, 'List'),
+            'c': (self.count_length, 'Count total length'),
             'r': (self.reload_settings, 'Reload settings')
         }
 
