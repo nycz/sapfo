@@ -29,7 +29,7 @@ class Terminal(GenericTerminal):
     filter_ = pyqtSignal(str)
     sort = pyqtSignal(str)
     open_ = pyqtSignal(int)
-    find_open = pyqtSignal(str)
+    quit = pyqtSignal(str)
     edit = pyqtSignal(str)
     reload_settings = pyqtSignal(str)
     external_edit = pyqtSignal(str)
@@ -43,9 +43,9 @@ class Terminal(GenericTerminal):
 
         self.commands = {
             'f': (self.filter_, 'Filter'),
-            'o': (self.find_open, 'Open'),
             'e': (self.edit, 'Edit'),
             's': (self.sort, 'Sort'),
+            'q': (self.quit, 'Quit'),
             '?': (self.cmd_help, 'List commands or help for [command]'),
             'x': (self.external_edit, 'Open in external program/editor'),
             'l': (self.list_, 'List'),

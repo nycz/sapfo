@@ -56,7 +56,6 @@ class MainWindow(QtGui.QFrame):
         connects = (
             (t.filter_,                 iv.filter_entries),
             (t.sort,                    iv.sort_entries),
-            (t.find_open,               iv.find_entry),
             (t.open_,                   iv.open_entry),
             (t.edit,                    iv.edit_entry),
             (t.input_term.scroll_index, iv.event),
@@ -65,6 +64,7 @@ class MainWindow(QtGui.QFrame):
             (t.external_edit,           iv.external_run_entry),
             (t.reload_settings,         self.reload_settings),
             (self.story_viewer.show_index, self.show_index),
+            (t.quit,                    self.close),
             (iv.start_entry,            self.start_entry),
             (iv.error,                  t.error),
             (iv.print_,                 t.print_),
@@ -73,6 +73,7 @@ class MainWindow(QtGui.QFrame):
         )
         for signal, slot in connects:
             signal.connect(slot)
+
 
     def show_index(self):
         self.stack.setCurrentWidget(self.index_widget)
