@@ -1,5 +1,5 @@
-What is this
-------------
+Sapfo
+=====
 
 A program to view and sort downloaded stories (eg. fanfiction),
 organized as a rootdirectory with each story (one or more files) in
@@ -36,49 +36,33 @@ All commands are one character, but some may have one or more arguments.
 ###Commands###
 
 Space should be omitted unless explicitly specified.
-Characters in square brackets are mutually exclusive and can not be used at the same time.
-ALLCAPS words are variables the users should fill in themselves, eg. TEXT or NUMBER.
 
 Tab-/autocompletion works for tag commands: `ft` and `et`.
 
-* `NUMBER` - open (by number)
-    * a lone `NUMBER` opens the story with the corresponding number (if it exists)
-* `q` - quit
-* `f[ndt]TEXT` - filter
-    * `n` filters by name(title)
-    * `d` filters by description
-    * `t` filters by tags
-        * If TEXT starts with `-`, the filtering will be inverted
-        * If TEXT contains `*`, that will be treated as a wildcard (at least one character)
-    * Omitting arguments and `TEXT` will reset the filter, showing all entries.
-* `flEXPRESSIONS` - filter (by wordcount)
-    * `EXPRESSIONS` are one of `<= >= < >` and a number, multiple are allowed (eg `fl<10000>=1500`)
-    * the letter 'k' in a number in the `EXPRESSIONS` is automagically converted into *1000 (2k = 2000)
-* `s[nl][-]` - sort
-    * `n` sorts after name(title)
-    * `l` sorts after wordcount
-    * `-` makes the sort descending (optional)
-* `e[ndt]NUMBER VALUE` - edit
-    * *note the space between `NUMBER` and `VALUE`!*
-    * `n` edits the name(title)
-    * `d` edits the description
-    * `t` edits the tags
-    * `NUMBER` is the id of the story (visible to the left of the title)
-    * `VALUE` is a string for `n` and `d`, and a comma-separated list for `t` (eg `et12 tag1,tag2`)
-    * if `VALUE` is omitted, the current value is inserted in the terminal for your convenience.
-* `et*[OLDTAG],NEWTAG` - replace a tag
-    * Replaces all visible instances of `OLDTAG` with `NEWTAG`.
-    * *Note that this only changes the instances visible after filtering! To replace all instances, reset the filters first.*
-    * To simply add a tag to all visible entries, omit `OLDTAG` *but remember the comma!*
-* `eu` - undo edit
-    * Undoes last edit. The undo stack does not have a limit.
-* `xNUMBER` - open the entry with the chosen program/command
+####Entry handling####
+* `<number>` – open the entry with the corresponding number
+* `x<number>` – open the entry with the chosen program/command
     * Make sure you set the `editor` value in config to the program to open the entry with.
-* `l[ft][a]` - list active filters or all tags
-    * `f` prints all active filters in the terminal
-    * `t` opens a popup~ish screen with a list of all tags and the times they are used, sorted descendingly after number of uses.
-        * Add an `a` after `lt` to instead sort alphabetically.
-        * The screen is closed by pressing enter, with or without a command entered in the terminal (a command will be executed if present).
+* `q` – quit
+
+####Edit####
+* `e(n|d|t)<number>[ (<text>|<tag>[, ...])]` – change name (`n`), description (`d`) or tags (`t`) for entry at `<number>` to `<text>` or `<tag>`s.
+    * If `<text>` and `<tag>` are both omitted, the current value is inserted in the terminal for your convenience.
+* `et*[<oldtag>],<newtag>` – replace all **visible** instances of `<oldtag>` with `<newtag>`. Tags not visible due to filters are unchanged. Omitting `<oldtag>` adds `<newtag>` to all visible entries.
+* `eu` – undo last edit (there is no limit to how many undos can exist)
+
+####Filter####
+* `f` – reset filter
+* `f(n|d)<text>` – show entries where `<text>` is found in either name (`n`) or description (`d`) (Case-insensitive)
+* `ft[-]<tag>[, ...]` – show entries that are tagged with all `<tag>`s and not tagged with all `<tag>`s prepended with a `-`.  `*` in a `<tag>` will be treated as a wildcard (at least on character)
+* `fl(<=|>=|<|>)<number>[...]` – show entries whose lengths match the expression(s). The letter 'k' in `<number>` is automagically converted into *1000 (`2k` = `2000`). The expressions can be stacked without delimiters, eg. `fl<10000>=1500`
+
+####Sort####
+* `s(n|l)[-]` – sort after name (`n`) or length (`l`). `-` sorts descendingly
+
+####List####
+* `l(f|t[a])` – list active filters (`f`) or all tags (`t`). Add `a` when listing tags to show them in alphabetical order instead of usage numbers.
+    * The popup screen shown from `lt[a]` is closed by pressing enter, with or without a command entered in the terminal (a command will be executed if present).
 
 By the way
 ----------
