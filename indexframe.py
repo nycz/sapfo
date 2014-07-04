@@ -14,7 +14,7 @@ from tagsystem import compile_tag_filter, parse_tag_filter
 
 class IndexFrame(QtWebKit.QWebView):
 
-    start_entry = pyqtSignal(dict)
+    view_entry = pyqtSignal(dict)
     error = pyqtSignal(str)
     print_ = pyqtSignal(str)
     set_terminal_text = pyqtSignal(str)
@@ -166,7 +166,7 @@ class IndexFrame(QtWebKit.QWebView):
             return
         if num not in range(len(self.entries)) or not self.entries[num]['page']:
             return
-        self.start_entry.emit(self.entries[num])
+        self.view_entry.emit(self.entries[num])
 
 
     def edit_entry(self, arg):
@@ -296,7 +296,6 @@ def index_stories(data):
             length = len(wordcount_rx.findall(f.read()))
         metadata.update({'length': length,
                          'page': file,
-                         'raw text': data.get('raw text', False),
                          'metadatafile': metadatafile})
         entries.append(metadata)
 

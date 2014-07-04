@@ -12,14 +12,11 @@ class ViewerFrame(QtGui.QFrame):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.title = ''
-        self.page = ''
         self.fullscreen = False
         self.setDisabled(True)
 
         self.hotkeys_set = False
 
-        self.is_rawtext = False
         self.rawtext_wrapper = read_file(local_path('rawtext_wrapper.html'))
 
         # Layout
@@ -79,18 +76,12 @@ class ViewerFrame(QtGui.QFrame):
             import webbrowser
             webbrowser.open_new_tab(url.toString())
 
-    def start(self, data):
+    def view_page(self, data):
         self.info_panel.set_data(data)
-        self.is_rawtext = data['raw text']
         self.setEnabled(True)
-        self.title = data['title']
-        self.page = data['page']
-        if self.is_rawtext:
-            rawtext = read_file(self.page).replace('\n', '<br>')
-            html = self.rawtext_wrapper.format(title=self.title, body=rawtext)
-            self.webview.setHtml(html)
-        else:
-            self.webview.load(QUrl.fromLocalFile(self.page))
+        rawtext = read_file(data['page']).replace('\n', '<br>')
+        html = self.rawtext_wrapper.format(title=data['title'], body=rawtext)
+        self.webview.setHtml(html)
 
     def goto_index(self):
         self.setDisabled(True)

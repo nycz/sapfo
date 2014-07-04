@@ -70,7 +70,7 @@ class MainWindow(QtGui.QFrame):
             (t.reload_settings,         self.reload_settings),
             (self.story_viewer.show_index, self.show_index),
             (t.quit,                    self.close),
-            (iv.start_entry,            self.start_entry),
+            (iv.view_entry,             self.view_entry),
             (iv.error,                  t.error),
             (iv.print_,                 t.print_),
             (iv.init_popup,             self.popup_mode),
@@ -85,8 +85,8 @@ class MainWindow(QtGui.QFrame):
         self.terminal.setFocus()
 
 
-    def start_entry(self, entry):
-        self.story_viewer.start(entry)
+    def view_entry(self, entry):
+        self.story_viewer.view_page(entry)
         self.stack.setCurrentWidget(self.story_viewer)
 
 
