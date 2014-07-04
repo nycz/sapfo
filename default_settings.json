@@ -2,8 +2,6 @@
   "default settings": {
     "blacklist": [],
     "hotkeys": {
-      "next": ["Ctrl+PgDown"],
-      "previous": ["Ctrl+PgUp"],
       "home": ["Home"],
       "toggle fullscreen": ["Ctrl+Space"],
       "zoom in": ["Ctrl++"],
@@ -11,9 +9,7 @@
       "reset zoom": ["Ctrl+0"]
     },
     "tag colors": {},
-    "loose files": false,
     "raw text": false,
-    "count words": true,
     "editor": ""
   },
   "default profile": "example",

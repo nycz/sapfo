@@ -21,28 +21,20 @@ class InfoPanel(QtGui.QFrame):
 
         set_hotkey("F6", self, self.toggle_filename)
 
-        self.data = {}
-
         self.show()
 
     def toggle_filename(self):
         self.fname_label.setHidden(self.fname_label.isVisible())
 
 
-    def set_data(self, data=None, pagenr=0):
-        if data is not None:
-            self.data = data
-        wc = ""
-        if self.data['count words']:
-            wc = "\t\t–\t\t<em>({:,})</em>".format(self.data['length'])
-        s = "<em>Page</em> {page}/{maxpages}{wordcount}\t\t–\t\t<strong>{fname}</strong>"
+    def set_data(self, data):
+        wc = "<em>({:,})</em>".format(data['length'])
+        s = "<strong>{fname}</strong>\t&nbsp;\t{wordcount}"
         self.label.setText(s.format(
-            page=pagenr+1,
-            maxpages=len(self.data['pages']),
-            fname=self.data['title'],
+            fname=data['title'],
             wordcount=wc
         ))
-        self.fname_label.setText(basename(self.data['pages'][pagenr]))
+        self.fname_label.setText(basename(data['page']))
 
     def set_fullscreen(self, fullscreen):
         self.setHidden(fullscreen)

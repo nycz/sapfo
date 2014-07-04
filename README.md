@@ -1,29 +1,41 @@
 Sapfo
 =====
 
-A program to view and sort downloaded stories (eg. fanfiction),
-organized as a rootdirectory with each story (one or more files) in
-a subdirectory under, with an accompanying metadata-file.
+A program for writers to organize what they write using tags.
+To let Sapfo find your files, create a .metadata file for each file
+and then set the root path in Sapfo's config to the directory your
+files are in.
+
+The metadata files are named .[originalfilename].metadata (including
+dots but excluding brackets)
 
 Example:
 
     root/
-      Super Fun Story/
-        metadata.json
-        super_fun_story.html
-      Hamlet and the Unicorn/
-        metadata.json
-        hamletpg01.html
-        hamletpg02.html
+        super-fun-story.txt
+        .super-fun-story.txt.metadata
+        Hamlet and the Unicorn.txt
+        .Hamlet and the Unicorn.txt.metadata
 
 
-metadata.json
--------------
-If you use sapfo-dl (when it's done (better)) one should be generated automagically.
-Otherwise you can make one yourself, or maybe sapfo helps you out there. I don't think so though.
+Metadata files
+--------------
+*These should really be automagically generated and then edited inside sapfo.*
 
-For now, the three values that has to be present is `title` (string), `description` (string) and `tags` (list).
+The metadata files are written in json. For now, the three values that has to be present is `title` (string), `description` (string) and `tags` (list).
 All of them can be empty but at least with `title` it is not recommended.
+
+Example:
+
+    {
+        "title": "Hamlet and the Unicorn",
+        "description": "The riveting tale about Hamlet and his amazing unicorn."
+        "tags": [
+            "adventure",
+            "romance",
+            "drama"
+        ]
+    }
 
 
 Usage
@@ -75,6 +87,7 @@ Asterisks `*` can be used as wildcards. This filter will match any entry with a 
 ####List####
 * `l(f|t[a])` – list active filters (`f`) or all tags (`t`). Add `a` when listing tags to show them in alphabetical order instead of usage numbers.
     * The popup screen shown from `lt[a]` is closed by pressing enter, with or without a command entered in the terminal (a command will be executed if present).
+
 
 By the way
 ----------

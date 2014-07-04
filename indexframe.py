@@ -164,7 +164,7 @@ class IndexFrame(QtWebKit.QWebView):
     def open_entry(self, num):
         if not isinstance(num, int):
             return
-        if num not in range(len(self.entries)) or not self.entries[num]['pages']:
+        if num not in range(len(self.entries)) or not self.entries[num]['page']:
             return
         self.start_entry.emit(self.entries[num])
 
@@ -269,7 +269,7 @@ class IndexFrame(QtWebKit.QWebView):
         if not self.settings.get('editor', None):
             self.error.emit('No editor command defined')
             return
-        subprocess.Popen([self.settings['editor'], self.entries[int(arg)]['pages'][0]])
+        subprocess.Popen([self.settings['editor'], self.entries[int(arg)]['page']])
 
 
 
@@ -281,8 +281,8 @@ def index_stories(data):
     of them with wordcount, paths and all data from the metadata file.
     """
     path = data['path']
-    count_words = data.get('count words', True)
     fname_rx = re.compile(data['name filter'], re.IGNORECASE)
+    wordcount_rx = re.compile(r'\S+')
     entries = []
     def blacklisted(fname):
         for r in data.get('blacklist', []):
@@ -290,42 +290,26 @@ def index_stories(data):
                 return True
         return False
 
-    def add_entry(metadatafile, files):
+    def add_entry(metadatafile, file):
         metadata = read_json(metadatafile)
-        length = generate_word_count(files) if count_words else len(files)
+        with open(file) as f:
+            length = len(wordcount_rx.findall(f.read()))
         metadata.update({'length': length,
-                         'count words': count_words,
-                         'pages': files,
+                         'page': file,
                          'raw text': data.get('raw text', False),
                          'metadatafile': metadatafile})
         entries.append(metadata)
 
-    if data.get('loose files', False):
-        md = lambda x: '.'+x+'.metadata'
-        files = [(join(p,f), join(p,md(f)))
-                 for p,_,fs in os.walk(path) for f in fs
-                 if fname_rx.search(f) and os.path.exists(join(p, md(f)))
-                 and not blacklisted(f)]
-        for fpath, metadatafile in files:
-            add_entry(metadatafile, [fpath])
-    else:
-        dirs = [d for d in os.listdir(path)
-                if os.path.isdir(join(path, d))]
-        for d in dirs:
-            metadatafile = join(path, d, 'metadata.json')
-            files = [join(path,d,f) for f in os.listdir(join(path,d))
-                     if fname_rx.search(f) and not blacklisted(f)]
-            add_entry(metadatafile, sorted(files))
+    md = lambda x: '.'+x+'.metadata'
+    files = [(join(p,f), join(p,md(f)))
+             for p,_,fs in os.walk(path) for f in fs
+             if fname_rx.search(f) and os.path.exists(join(p, md(f)))
+             and not blacklisted(f)]
+    for file, metadatafile in files:
+        add_entry(metadatafile, file)
     return sorted(entries, key=itemgetter('title'))
 
 
-def generate_word_count(files):
-    """ Return the total wordcount for all pages in the entry. """
-    wordcount_rx = re.compile(r'\S+')
-    def count_words(fpath):
-        with open(fpath) as f:
-            return len(wordcount_rx.findall(f.read()))
-    return sum(map(count_words, files))
 
 
 def generate_index(raw_entries, tagcolors, css):
