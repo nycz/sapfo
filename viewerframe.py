@@ -78,6 +78,12 @@ class ViewerFrame(QtGui.QFrame):
             set_hotkey(key, self, self.goto_index)
         for key in hotkeys['toggle fullscreen']:
             set_hotkey(key, self, self.toggle_fullscreen)
+        for key in hotkeys['zoom in']:
+            set_hotkey(key, self, self.zoom_in)
+        for key in hotkeys['zoom out']:
+            set_hotkey(key, self, self.zoom_out)
+        for key in hotkeys['reset zoom']:
+            set_hotkey(key, self, self.zoom_reset)
 
     def toggle_fullscreen(self):
         self.fullscreen = not self.fullscreen
@@ -89,6 +95,15 @@ class ViewerFrame(QtGui.QFrame):
             self.next()
         elif delta > 0:
             self.previous()
+
+    def zoom_in(self):
+        self.webview.setZoomFactor(self.webview.zoomFactor()+0.1)
+
+    def zoom_out(self):
+        self.webview.setZoomFactor(self.webview.zoomFactor()-0.1)
+
+    def zoom_reset(self):
+        self.webview.setZoomFactor(1)
 
     def link_clicked(self, url):
         if not url.isLocalFile():

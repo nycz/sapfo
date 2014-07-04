@@ -5,7 +5,10 @@
       "next": ["Ctrl+PgDown"],
       "previous": ["Ctrl+PgUp"],
       "home": ["Home"],
-      "toggle fullscreen": ["Ctrl+Space"]
+      "toggle fullscreen": ["Ctrl+Space"],
+      "zoom in": ["Ctrl++"],
+      "zoom out": ["Ctrl+-"],
+      "reset zoom": ["Ctrl+0"]
     },
     "tag colors": {},
     "loose files": false,
