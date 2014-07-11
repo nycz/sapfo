@@ -23,6 +23,7 @@ class IndexFrame(QtWebKit.QWebView):
     def __init__(self, parent):
         super().__init__(parent)
         self.setDisabled(True)
+        self.current_filters = []
 
         set_hotkey("Ctrl+R", parent, self.reload_view)
         set_hotkey("F5", parent, self.reload_view)
@@ -34,7 +35,10 @@ class IndexFrame(QtWebKit.QWebView):
     def reload_view(self):
         self.all_entries = index_stories(self.settings)
         self.entries = self.all_entries.copy()
+        for x in self.current_filters:
+            self.filter_entries(x, reapply=True)
         self.refresh_view(keep_position=True)
+        self.print_.emit('Reloaded')
 
     def refresh_view(self, keep_position=False):
         frame = self.page().mainFrame()
@@ -83,7 +87,7 @@ class IndexFrame(QtWebKit.QWebView):
 
     # ==== Manage entries ====================================================
 
-    def filter_entries(self, arg):
+    def filter_entries(self, arg, reapply=False):
         # Reset filter if no argument
         if not arg:
             self.current_filters = []
@@ -137,9 +141,10 @@ class IndexFrame(QtWebKit.QWebView):
                 return True
             self.entries = list(filter(matches, self.entries))
 
-        if cmd in 'ndtl':
+        if cmd in 'ndtl' and not reapply:
             self.current_filters.append(cmd + ' ' + payload)
             self.refresh_view()
+            self.print_.emit('Filter applied')
 
 
     def sort_entries(self, arg):
