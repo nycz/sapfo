@@ -10,6 +10,8 @@ from PyQt4.QtCore import pyqtSignal, Qt
 
 from libsyntyche.common import local_path, read_file, read_json, set_hotkey, write_json
 
+from tagsystem import compile_tag_filter, parse_tag_filter
+
 class IndexFrame(QtWebKit.QWebView):
 
     start_entry = pyqtSignal(dict)
@@ -95,26 +97,6 @@ class IndexFrame(QtWebKit.QWebView):
         def generic_filter(key):
             self.entries = [x for x in self.entries if payload in x[key].lower()]
 
-        def tags_match(tags, oldtags):
-            for t in tags:
-                negative = t.startswith('-')
-                t = t.lstrip('-')
-                if '*' in t:
-                    rx = re.compile(t.replace('*', '.+')+'$')
-                    for tag in oldtags:
-                        if rx.match(tag):
-                            if negative:
-                                return False
-                            else:
-                                break
-                    else:
-                        if not negative:
-                            return False
-                else:
-                    if (negative and t in oldtags) or (not negative and t not in oldtags):
-                        return False
-            return True
-
         # Filter on title (name)
         if cmd == 'n':
             generic_filter('title')
@@ -125,9 +107,20 @@ class IndexFrame(QtWebKit.QWebView):
 
         # Filter on tags
         elif cmd == 't':
-            tags = re.split(r'\s*,\s*', payload)
-            self.entries = [x for x in self.entries
-                            if tags_match(tags, x['tags'])]
+            try:
+                tag_filter = compile_tag_filter(payload)
+            except SyntaxError as e:
+                self.error.emit(str(e))
+                return
+            try:
+                entries = [x for x in self.entries
+                           if parse_tag_filter(tag_filter, x['tags'])]
+            except SyntaxError as e:
+                self.error.emit(str(e))
+                return
+            else:
+                self.entries = entries
+
         # Filter on length
         elif cmd == 'l':
             from operator import lt,gt,le,ge

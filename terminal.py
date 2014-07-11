@@ -62,9 +62,9 @@ class Terminal(GenericTerminal):
         def get_interval(t, pos):
             start, end = 0, len(t)
             for n,i in enumerate(t):
-                if n < pos and i == ',':
+                if n < pos and i in '(),|':
                     start = n + 1
-                if n >= pos and i == ',':
+                if n >= pos and i in '(),|':
                     end = n
                     break
             return start, end

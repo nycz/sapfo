@@ -54,8 +54,20 @@ Tab-/autocompletion works for tag commands: `ft` and `et`.
 ####Filter####
 * `f` – reset filter
 * `f(n|d)<text>` – show entries where `<text>` is found in either name (`n`) or description (`d`) (Case-insensitive)
-* `ft[-]<tag>[, ...]` – show entries that are tagged with all `<tag>`s and not tagged with all `<tag>`s prepended with a `-`.  `*` in a `<tag>` will be treated as a wildcard (at least on character)
+* `ft – see *Filtering Tags*
 * `fl(<=|>=|<|>)<number>[...]` – show entries whose lengths match the expression(s). The letter 'k' in `<number>` is automagically converted into *1000 (`2k` = `2000`). The expressions can be stacked without delimiters, eg. `fl<10000>=1500`
+
+#####Filtering Tags#####
+In essence, it's a whole bunch of ORs (`|`) and ANDs (`,`) with parentheses to indicate precedence. Whitespace between tags is irrelevant. Prefix single tags with `-` to invert them (only show entries that don't include the prefixed tag).
+* `ft tag1, tag2, (tag3 | -tag4)` – Shows entries that has tag1 and tag2 and (tag3 or not tag4).
+* `ft tag1|(tag2,(tag3|tag4),tag5)|tag6` – Shows entries that has tag1 or (tag 2 and (tag3 or ta))
+Note that an OR and an AND can not exist together without parentheses. This will result in an error:
+* `ft tag1 | tag2, tag3`
+Parentheses can be nestled without limits. Yay.
+* `ft tag1 | (tag2, (tag3 | (tag4, (tag5 | (tag6, tag7)))))
+Asterisks `*` can be used as wildcards. This filter will match any entry with a tag starting with "foo" or a tag ending with "bar"
+* `ft foo* | *bar`
+
 
 ####Sort####
 * `s(n|l)[-]` – sort after name (`n`) or length (`l`). `-` sorts descendingly
