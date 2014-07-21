@@ -13,7 +13,7 @@ def _tokenize(string):
                 buf = ''
             else:
                 t = tokens[-1]
-                if t == '(' or (t == ')' and c == '(') or (t in ',|' and c != '('):
+                if (t == ')' and c == '(') or (t in '(,|' and c != '('):
                     raise SyntaxError('Invalid syntax')
             tokens.append(c)
         else:
