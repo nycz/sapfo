@@ -48,13 +48,13 @@ Tab-/autocompletion works for tag commands: `ft` and `et`.
 ####Edit####
 * `e(n|d|t)<number>[ (<text>|<tag>[, ...])]` – change name (`n`), description (`d`) or tags (`t`) for entry at `<number>` to `<text>` or `<tag>`s.
     * If `<text>` and `<tag>` are both omitted, the current value is inserted in the terminal for your convenience.
-* `et*[<oldtag>],<newtag>` – replace all **visible** instances of `<oldtag>` with `<newtag>`. Tags not visible due to filters are unchanged. Omitting `<oldtag>` adds `<newtag>` to all visible entries.
+* `et*[<oldtag>],[<newtag>]` – replace all **visible** instances of `<oldtag>` with `<newtag>`. Tags not visible due to filters are unchanged. Omitting `<oldtag>` adds `<newtag>` to all visible entries. Omitting `<newtag>` removes all instances of `<oldtag>`.
 * `eu` – undo last edit (there is no limit to how many undos can exist)
 
 ####Filter####
 * `f` – reset filter
 * `f(n|d)<text>` – show entries where `<text>` is found in either name (`n`) or description (`d`) (Case-insensitive)
-* `ft – see *Filtering Tags*
+* `ft` – see *Filtering Tags*
 * `fl(<=|>=|<|>)<number>[...]` – show entries whose lengths match the expression(s). The letter 'k' in `<number>` is automagically converted into *1000 (`2k` = `2000`). The expressions can be stacked without delimiters, eg. `fl<10000>=1500`
 
 #####Filtering Tags#####
