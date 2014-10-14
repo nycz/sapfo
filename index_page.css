@@ -1,57 +1,75 @@
-body {
-    background-color: #233;
-    color: #cdd;
-    font-family: "Serif";
-}
-div.list_entry {
+body {{
+    background-color: {index background};
+    font-family: "{index font}";
+}}
+div.list_entry {{
 /*    background-color: #322;*/
-}
-span.id {
-    color: #677;
-    font-size: 0.7em;
-    font-style: italic;
+}}
+span.id {{
+    color: {index entry id color};
+    font-size: {index entry id font size};
+    font-style: {index entry id font style};
+    font-weight: {index entry id font weight};
     margin-right: 5px;
-}
-span.title {
-    font-size: 0.9em;
+}}
+span.title {{
+    color: {index entry title color};
+    font-size: {index entry title font size};
+    font-style: {index entry title font style};
+    font-weight: {index entry title font weight};
     margin-right: 5px;
-}
-div.description {
-    color: #899;
-    font-size: 0.8em;
+}}
+div.description {{
+    color: {index entry description color};
+    font-size: {index entry description font size};
+    font-style: {index entry description font style};
+    font-weight: {index entry description font weight};
     margin-left: 20px;
     margin-top: 5px;
-}
-span.empty_desc {
-    color: #d96;
-    font-style: italic;
-}
-span.tag {
-    background-color: #677;
-    border-radius: 0.25em;
-    color: #011;
-    font-family: monospace;
-    font-size: 0.9em;
+}}
+span.empty_desc {{
+    color: {index entry empty description color};
+    font-size: {index entry empty description font size};
+    font-style: {index entry empty description font style};
+    font-weight: {index entry empty description font weight};
+}}
+span.tag {{
+    background-color: {index entry tag default background};
+    border-radius: 3px;
+    color: {index entry tag color};
+    font-family: "{index entry tag font}";
+    font-size: {index entry tag font size};
+    font-style: {index entry tag font style};
+    font-weight: {index entry tag font weight};
     margin: 0px 5px;
-    padding: 0.2em;
-}
-span.length {
-    color: #677;
-    font-size: 0.8em;
-    font-style: italic;
+    padding: 2px;
+}}
+span.length {{
+    color: {index entry length color};
+    font-size: {index entry length font size};
+    font-style: {index entry length font style};
+    font-weight: {index entry length font weight};
     margin-left: 5px;
     margin-right: 5px;
-}
-a {
-    outline: none;
-    color: #dee;
-}
-a:active {
-    color: #eef;
-}
-hr {
-    background-color: black;
+}}
+hr {{
+    background-color: {index horizontal line color};
     border: none;
-    height: 1px;
+    height: {index horizontal line height};
     margin: 10px;
-}
+}}
+
+::-webkit-scrollbar {{
+    background-color: {index background};
+    height: {scrollbar width};
+    width: {scrollbar width};
+}}
+::-webkit-scrollbar-button {{
+    display: none;
+}}
+::-webkit-scrollbar-thumb {{
+    background-color: {scrollbar slider color};
+}}
+::-webkit-scrollbar-corner {{
+    background-color: {index background};
+}}

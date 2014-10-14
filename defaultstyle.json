@@ -1,0 +1,55 @@
+{
+  "index background": "#233",
+  "index font": "Serif",
+
+  "index entry title color": "#cdd",
+  "index entry title font size": "14px",
+  "index entry title font style": "normal",
+  "index entry title font weight": "normal",
+
+  "index entry id color": "#677",
+  "index entry id font size": "11px",
+  "index entry id font style": "italic",
+  "index entry id font weight": "normal",
+
+  "index entry description color": "#899",
+  "index entry description font size": "13px",
+  "index entry description font style": "normal",
+  "index entry description font weight": "normal",
+
+  "index entry empty description color": "#d96",
+  "index entry empty description font size": "13px",
+  "index entry empty description font style": "italic",
+  "index entry empty description font weight": "normal",
+
+  "index entry length color": "#677",
+  "index entry length font size": "13px",
+  "index entry length font style": "italic",
+  "index entry length font weight": "normal",
+
+  "index entry tag default background": "#667",
+  "index entry tag color": "#011",
+  "index entry tag font": "Monospace",
+  "index entry tag font size": "11px",
+  "index entry tag font style": "normal",
+  "index entry tag font weight": "normal",
+
+  "index horizontal line color": "black",
+  "index horizontal line height": "1px",
+
+  "infopanel background": "#222",
+  "infopanel text color": "#999",
+  "infopanel font": "Sans-serif",
+  "infopanel font size": "16px",
+
+  "terminal input background": "#222",
+  "terminal input text color": "#ddd",
+  "terminal output background": "#191919",
+  "terminal output text color": "#ddd",
+  "terminal font": "Monospace",
+  "terminal font size": "11pt",
+  "terminal border color": "#111",
+
+  "scrollbar slider color": "#111c1c",
+  "scrollbar width": "15px"
+}

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import collections
+import copy
 from os import getenv
 from os.path import join
 import sys
 
-from PyQt4 import QtGui
+from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import Qt
 
 from libsyntyche import common
@@ -15,9 +16,10 @@ from viewerframe import ViewerFrame
 
 
 class MainWindow(QtGui.QFrame):
-    def __init__(self, profile):
+    def __init__(self, profile, activation_event):
         super().__init__()
         self.setWindowTitle('Sapfo')
+        activation_event.connect(self.reload_settings)
 
         # Create layouts
         self.stack = QtGui.QStackedLayout(self)
@@ -43,12 +45,14 @@ class MainWindow(QtGui.QFrame):
         self.stack.addWidget(self.story_viewer)
 
         # Load profile
+        self.css_template = common.read_file(common.local_path('template.css'))
+        self.index_css_template = common.read_file(common.local_path('index_page.css'))
         self.profile = profile
+        self.settings, self.style = {}, {}
         self.reload_settings()
 
         # Misc
         self.connect_signals()
-        self.set_stylesheet()
         self.show()
 
     def connect_signals(self):
@@ -90,20 +94,36 @@ class MainWindow(QtGui.QFrame):
 
 
     def reload_settings(self):
-        settings = read_config()
-        if not self.profile:
-            self.profile = settings['default profile']
-        if self.profile not in settings['profiles']:
-            raise NameError('Profile not found')
-        profile_settings = update_dict(settings['default settings'],
-                                       settings['profiles'][self.profile])
-        self.index_viewer.update_settings(profile_settings)
-        self.story_viewer.set_hotkeys(profile_settings['hotkeys'])
+        settings, style = read_config()
+        # TODO: FIX THIS UGLY ASS SHIT
+        # Something somewhere fucks up and changes the settings dict,
+        # therefor the deepcopy(). Fix pls.
+        if settings != self.settings:
+            self.settings = copy.deepcopy(settings)
+            if not self.profile:
+                self.profile = settings['default profile']
+            if self.profile not in settings['profiles']:
+                raise NameError('Profile not found')
+            profile_settings = update_dict(settings['default settings'].copy(),
+                                           settings['profiles'][self.profile].copy())
+            self.index_viewer.update_settings(profile_settings)
+            self.story_viewer.set_hotkeys(profile_settings['hotkeys'])
+        if style != self.style:
+            self.style = copy.deepcopy(style)
+            self.update_style(style)
 
 
-    def set_stylesheet(self):
-        self.setStyleSheet(common.parse_stylesheet(\
-                           common.read_file(common.local_path('qt.css'))))
+    def update_style(self, style):
+        try:
+            css = self.css_template.format(**style)
+            indexcss = self.index_css_template.format(**style)
+        except KeyError as e:
+            print(e)
+            self.terminal.error('Invalid style config: key missing')
+            return
+        self.setStyleSheet(css)
+        self.index_viewer.css = indexcss
+        self.index_viewer.refresh_view(keep_position=True)
 
 
     # ===== Input overrides ===========================
@@ -135,9 +155,12 @@ class MainWindow(QtGui.QFrame):
 
 
 def read_config():
-    config_file = join(getenv('HOME'), '.config', 'sapfo', 'settings.json')
-    common.make_sure_config_exists(config_file, common.local_path('default_settings.json'))
-    return common.read_json(config_file)
+    configpath = join(getenv('HOME'), '.config', 'sapfo')
+    configfile = join(configpath, 'settings.json')
+    stylefile = join(configpath, 'style.json')
+    common.make_sure_config_exists(configfile, common.local_path('default_settings.json'))
+    common.make_sure_config_exists(stylefile, common.local_path('defaultstyle.json'))
+    return common.read_json(configfile), common.read_json(stylefile)
 
 
 def update_dict(basedict, newdict):
@@ -159,7 +182,17 @@ def main():
     args = parser.parse_args()
 
     app = QtGui.QApplication(sys.argv)
-    window = MainWindow(args.profile)
+
+    class AppEventFilter(QtCore.QObject):
+        activation_event = QtCore.pyqtSignal()
+        def eventFilter(self, object, event):
+            if event.type() == QtCore.QEvent.ApplicationActivate:
+                self.activation_event.emit()
+            return False
+    app.event_filter = AppEventFilter()
+    app.installEventFilter(app.event_filter)
+
+    window = MainWindow(args.profile, app.event_filter.activation_event)
     app.setActiveWindow(window)
     sys.exit(app.exec_())
 

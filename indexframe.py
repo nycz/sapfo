@@ -32,6 +32,8 @@ class IndexFrame(QtWebKit.QWebView):
         self.current_filters = []
         self.old_pos = None
 
+        self.css = None # Is set every time the config is reloaded
+
     def reload_view(self):
         self.all_entries = index_stories(self.settings)
         self.entries = self.all_entries.copy()
@@ -43,7 +45,7 @@ class IndexFrame(QtWebKit.QWebView):
     def refresh_view(self, keep_position=False):
         frame = self.page().mainFrame()
         pos = frame.scrollBarValue(Qt.Vertical)
-        self.setHtml(generate_index(self.entries, self.settings['tag colors']))
+        self.setHtml(generate_index(self.entries, self.settings['tag colors'], self.css))
         if keep_position:
             frame.setScrollBarValue(Qt.Vertical, pos)
 
@@ -68,9 +70,8 @@ class IndexFrame(QtWebKit.QWebView):
                                                tagname=tag, count=num)
                          for tag, num in sorted(self.get_tags(), key=itemgetter(sortarg), reverse=sortarg)]
             body = '<br>'.join(t_entries)
-            css = read_file(local_path('index_page.css'))# + '#taglist {-webkit-column-width: 5-em}'
             self.setHtml('<style type="text/css">{css}</style>\
-                          <body><div id="taglist">{body}</div></body>'.format(body=body, css=css))
+                          <body><div id="taglist">{body}</div></body>'.format(body=body, css=self.css))
             self.init_popup.emit()
 
     def close_popup(self):
@@ -325,7 +326,7 @@ def generate_word_count(files):
     return sum(map(count_words, files))
 
 
-def generate_index(raw_entries, tagcolors):
+def generate_index(raw_entries, tagcolors, css):
     """
     Return a generated html index page from the list of entries
     provided in raw_entries.
@@ -347,6 +348,5 @@ def generate_index(raw_entries, tagcolors):
                                length=s['length'])
                for n,s in enumerate(raw_entries)]
     body = '<hr />'.join(entries)
-    css = read_file(local_path('index_page.css'))
     return '<style type="text/css">{css}</style>\
             <body>{body}</body>'.format(body=body, css=css)
