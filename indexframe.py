@@ -204,9 +204,11 @@ class IndexFrame(QtWebKit.QWebView):
                     set_data(*self.undo_stack.pop())
             return
 
-        replace_tags = re.match(r't\*\s*(.*?)\s*,\s*(.+?)\s*$', arg)
+        replace_tags = re.match(r't\*\s*(.*?)\s*,\s*(.*?)\s*$', arg)
         if replace_tags:
             oldtag, newtag = replace_tags.groups()
+            if not oldtag and not newtag:
+                return
             selected_entries = {}
             for n,x in enumerate(self.entries):
                 if oldtag in x['tags'] or not oldtag:
@@ -214,7 +216,8 @@ class IndexFrame(QtWebKit.QWebView):
                     oldtags = metadata['tags'].copy()
                     if oldtag:
                         metadata['tags'].remove(oldtag)
-                    metadata['tags'] = list(set(metadata['tags'] + [newtag]))
+                    if newtag:
+                        metadata['tags'] = list(set(metadata['tags'] + [newtag]))
                     write_json(x['metadatafile'], metadata)
                     self.entries[n]['tags'] = metadata['tags']
                     selected_entries[x['metadatafile']] = (metadata['tags'], oldtags)
