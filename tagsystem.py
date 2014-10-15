@@ -1,6 +1,10 @@
 import re
 
 def _tokenize(string):
+    """
+    Create a list of tokens from the string of a command.
+    The tokens are single chars such as (),| or tags.
+    """
     nospace = re.sub(r'\s*([(),|])\s*', r'\1', string)
     tokens = ['(']
     buf = ''
@@ -8,13 +12,13 @@ def _tokenize(string):
         if c in '(),|':
             if buf:
                 if c == '(':
-                    raise SyntaxError('Invalid syntax')
+                    raise SyntaxError('Invalid syntax: invalid starting parenthesis')
                 tokens.append(buf)
                 buf = ''
             else:
                 t = tokens[-1]
                 if (t == ')' and c == '(') or (t in '(,|' and c != '('):
-                    raise SyntaxError('Invalid syntax')
+                    raise SyntaxError('Invalid syntax: invalid parentheses')
             tokens.append(c)
         else:
             buf += c
@@ -23,6 +27,9 @@ def _tokenize(string):
     return tokens + [')']
 
 def _read_from(tokens):
+    """
+    Parse the tokens and return a nested list of ANDs and ORs and tags.
+    """
     if not tokens:
         raise SyntaxError('No tokens')
     mode = None
@@ -45,29 +52,10 @@ def _read_from(tokens):
     else:
         return token
 
-def _parse(exp, oldtags):
-
-    def handle(x):
-        """ Match x if it's a tag, otherwise parse it as an expression """
-        return (_match if isinstance(x, str) else _parse)(x, oldtags)
-
-    if exp[0] is None and len(exp) == 2:
-        return handle(exp[1])
-    elif exp[0] == 'AND':
-        for e in exp[1:]:
-            if not handle(e):
-                return False
-        return True
-    elif exp[0] == 'OR':
-        for e in exp[1:]:
-            if handle(e):
-                return True
-        return False
-    else:
-        raise SyntaxError('Invalid expression')
-
 def _match(tag, oldtags):
-    # for t in tags:
+    """
+    See if the tag exists in oldtags.
+    """
     negative = tag.startswith('-')
     tag = tag.lstrip('-')
     if '*' in tag:
@@ -93,6 +81,30 @@ def _match(tag, oldtags):
 
 def compile_tag_filter(string):
     return _read_from(_tokenize(string))
+
+def _parse(exp, oldtags):
+    """
+    Parse the actual command to see if it matches the tags.
+    """
+    def handle(x):
+        """ Match x if it's a tag, otherwise parse it as an expression """
+        return (_match if isinstance(x, str) else _parse)(x, oldtags)
+
+    if exp[0] is None and len(exp) == 2:
+        return handle(exp[1])
+    elif exp[0] == 'AND':
+        for e in exp[1:]:
+            if not handle(e):
+                return False
+        return True
+    elif exp[0] == 'OR':
+        for e in exp[1:]:
+            if handle(e):
+                return True
+        return False
+    else:
+        raise SyntaxError('Invalid expression')
+
 
 def parse_tag_filter(tag_filter, oldtags):
     return _parse(tag_filter, oldtags)
