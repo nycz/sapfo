@@ -32,10 +32,6 @@ class ViewerFrame(QtGui.QFrame):
         layout.addWidget(self.info_panel)
         layout.setStretchFactor(self.info_panel, 0)
 
-        # Signals
-        self.webview.page().setLinkDelegationPolicy(QtWebKit.QWebPage.DelegateAllLinks)
-        self.webview.linkClicked.connect(self.link_clicked)
-
     def set_hotkeys(self, hotkeys):
         if self.hotkeys_set:
             return
@@ -55,13 +51,6 @@ class ViewerFrame(QtGui.QFrame):
         self.fullscreen = not self.fullscreen
         self.info_panel.set_fullscreen(self.fullscreen)
 
-    def wheel_event(self, delta):
-        # Negative delta means scrolling towards you
-        if delta < 0:
-            self.next()
-        elif delta > 0:
-            self.previous()
-
     def zoom_in(self):
         self.webview.setZoomFactor(self.webview.zoomFactor()+0.1)
 
@@ -70,11 +59,6 @@ class ViewerFrame(QtGui.QFrame):
 
     def zoom_reset(self):
         self.webview.setZoomFactor(1)
-
-    def link_clicked(self, url):
-        if not url.isLocalFile():
-            import webbrowser
-            webbrowser.open_new_tab(url.toString())
 
     def view_page(self, data):
         self.info_panel.set_data(data)
