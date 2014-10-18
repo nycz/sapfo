@@ -145,7 +145,9 @@ class IndexFrame(QtWebKit.QWebView):
         if cmd in 'ndtl' and not reapply:
             self.current_filters.append(cmd + ' ' + payload)
             self.refresh_view()
-            self.print_.emit('Filter applied')
+            filtered = len(self.entries)
+            total = len(self.all_entries)
+            self.print_.emit('Filtered: {}/{} entries visible'.format(filtered, total))
 
 
     def sort_entries(self, arg):
