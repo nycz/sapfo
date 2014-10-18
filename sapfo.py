@@ -3,7 +3,7 @@
 import collections
 import copy
 from os import getenv
-from os.path import join
+from os.path import isdir, join
 import sys
 
 from PyQt4 import QtGui, QtCore
@@ -16,9 +16,10 @@ from viewerframe import ViewerFrame
 
 
 class MainWindow(QtGui.QFrame):
-    def __init__(self, profile, activation_event):
+    def __init__(self, configdir, profile, activation_event):
         super().__init__()
         self.setWindowTitle('Sapfo')
+        self.configdir = configdir
         activation_event.connect(self.reload_settings)
 
         # Create layouts
@@ -94,7 +95,7 @@ class MainWindow(QtGui.QFrame):
 
 
     def reload_settings(self):
-        settings, style = read_config()
+        settings, style = read_config(self.configdir)
         # TODO: FIX THIS UGLY ASS SHIT
         # Something somewhere fucks up and changes the settings dict,
         # therefor the deepcopy(). Fix pls.
@@ -154,8 +155,11 @@ class MainWindow(QtGui.QFrame):
 
 
 
-def read_config():
-    configpath = join(getenv('HOME'), '.config', 'sapfo')
+def read_config(configdir):
+    if configdir:
+        configpath = configdir
+    else:
+        configpath = join(getenv('HOME'), '.config', 'sapfo')
     configfile = join(configpath, 'settings.json')
     stylefile = join(configpath, 'style.json')
     common.make_sure_config_exists(configfile, common.local_path('default_settings.json'))
@@ -178,6 +182,11 @@ def update_dict(basedict, newdict):
 def main():
     import argparse
     parser = argparse.ArgumentParser()
+    def valid_dir(dirname):
+        if isdir(dirname):
+            return dirname
+        parser.error('Directory does not exist: {}'.format(dirname))
+    parser.add_argument('-c', '--config-directory', type=valid_dir)
     parser.add_argument('profile', nargs='?')
     args = parser.parse_args()
 
@@ -192,7 +201,7 @@ def main():
     app.event_filter = AppEventFilter()
     app.installEventFilter(app.event_filter)
 
-    window = MainWindow(args.profile, app.event_filter.activation_event)
+    window = MainWindow(args.config_directory, args.profile, app.event_filter.activation_event)
     app.setActiveWindow(window)
     sys.exit(app.exec_())
 
