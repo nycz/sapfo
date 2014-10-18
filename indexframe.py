@@ -280,8 +280,6 @@ def index_stories(data):
     Find all files that match the filter, and return a sorted list
     of them with wordcount, paths and all data from the metadata file.
     """
-    path = data['path']
-    fname_rx = re.compile(data['name filter'], re.IGNORECASE)
     wordcount_rx = re.compile(r'\S+')
     entries = []
 
@@ -294,15 +292,14 @@ def index_stories(data):
                          'metadatafile': metadatafile})
         entries.append(metadata)
 
-    md = lambda x: '.'+x+'.metadata'
-    files = [(join(p,f), join(p,md(f)))
-             for p,_,fs in os.walk(path) for f in fs
-             if fname_rx.search(f) and os.path.exists(join(p, md(f)))]
+    metaname = lambda x: '.'+x+'.metadata'
+    files = [(join(dirpath, fname), join(dirpath, metaname(fname)))
+             for dirpath, _, filenames in os.walk(data['path'])
+             for fname in filenames
+             if os.path.exists(join(dirpath, metaname(fname)))]
     for file, metadatafile in files:
         add_entry(metadatafile, file)
     return sorted(entries, key=itemgetter('title'))
-
-
 
 
 def generate_index(raw_entries, tagcolors, css):
