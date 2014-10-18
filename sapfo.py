@@ -16,7 +16,7 @@ from viewerframe import ViewerFrame
 
 
 class MainWindow(QtGui.QFrame):
-    def __init__(self, configdir, profile, activation_event):
+    def __init__(self, configdir, activation_event):
         super().__init__()
         self.setWindowTitle('Sapfo')
         self.configdir = configdir
@@ -45,10 +45,9 @@ class MainWindow(QtGui.QFrame):
         self.story_viewer = ViewerFrame(self)
         self.stack.addWidget(self.story_viewer)
 
-        # Load profile
+        # Load settings
         self.css_template = common.read_file(common.local_path('template.css'))
         self.index_css_template = common.read_file(common.local_path('index_page.css'))
-        self.profile = profile
         self.settings, self.style = {}, {}
         self.reload_settings()
 
@@ -101,14 +100,8 @@ class MainWindow(QtGui.QFrame):
         # therefor the deepcopy(). Fix pls.
         if settings != self.settings:
             self.settings = copy.deepcopy(settings)
-            if not self.profile:
-                self.profile = settings['default profile']
-            if self.profile not in settings['profiles']:
-                raise NameError('Profile not found')
-            profile_settings = update_dict(settings['default settings'].copy(),
-                                           settings['profiles'][self.profile].copy())
-            self.index_viewer.update_settings(profile_settings)
-            self.story_viewer.set_hotkeys(profile_settings['hotkeys'])
+            self.index_viewer.update_settings(settings)
+            self.story_viewer.set_hotkeys(settings['hotkeys'])
         if style != self.style:
             self.style = copy.deepcopy(style)
             self.update_style(style)
@@ -154,7 +147,6 @@ class MainWindow(QtGui.QFrame):
     # =================================================
 
 
-
 def read_config(configdir):
     if configdir:
         configpath = configdir
@@ -167,18 +159,6 @@ def read_config(configdir):
     return common.read_json(configfile), common.read_json(stylefile)
 
 
-def update_dict(basedict, newdict):
-    for key, value in newdict.items():
-        if isinstance(value, collections.Mapping):
-            subdict = update_dict(basedict.get(key, {}), value)
-            basedict[key] = subdict
-        elif isinstance(value, type([])):
-            basedict[key] = list(set(value + basedict.get(key, [])))
-        else:
-            basedict[key] = value
-    return basedict
-
-
 def main():
     import argparse
     parser = argparse.ArgumentParser()
@@ -187,7 +167,6 @@ def main():
             return dirname
         parser.error('Directory does not exist: {}'.format(dirname))
     parser.add_argument('-c', '--config-directory', type=valid_dir)
-    parser.add_argument('profile', nargs='?')
     args = parser.parse_args()
 
     app = QtGui.QApplication(sys.argv)
@@ -201,7 +180,7 @@ def main():
     app.event_filter = AppEventFilter()
     app.installEventFilter(app.event_filter)
 
-    window = MainWindow(args.config_directory, args.profile, app.event_filter.activation_event)
+    window = MainWindow(args.config_directory, app.event_filter.activation_event)
     app.setActiveWindow(window)
     sys.exit(app.exec_())
 

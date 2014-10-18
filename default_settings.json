@@ -1,22 +1,14 @@
 {
-  "default settings": {
-    "blacklist": [],
-    "hotkeys": {
-      "home": ["Home"],
-      "toggle fullscreen": ["Ctrl+Space"],
-      "zoom in": ["Ctrl++"],
-      "zoom out": ["Ctrl+-"],
-      "reset zoom": ["Ctrl+0"]
-    },
-    "tag colors": {},
-    "editor": ""
+  "hotkeys": {
+    "home": ["Home"],
+    "toggle fullscreen": ["Ctrl+Space"],
+    "zoom in": ["Ctrl++"],
+    "zoom out": ["Ctrl+-"],
+    "reset zoom": ["Ctrl+0"]
   },
-  "default profile": "example",
-  "profiles": {
-    "example": {
-      "path": "<PATH>",
-      "name filter": "<REGEX>",
-      "tag colors": {}
-    }
-  }
+  "path": "",
+  "editor": "",
+  "tag colors": {},
+  "name filter": "",
+  "blacklist": []
 }
