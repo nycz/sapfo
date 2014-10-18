@@ -2,7 +2,7 @@
 
 import collections
 from os import getenv
-from os.path import join
+from os.path import isdir, join
 import sys
 
 from PyQt4 import QtGui
@@ -15,9 +15,10 @@ from viewerframe import ViewerFrame
 
 
 class MainWindow(QtGui.QFrame):
-    def __init__(self, profile):
+    def __init__(self, configdir, profile):
         super().__init__()
         self.setWindowTitle('Sapfo')
+        self.configdir = configdir
 
         # Create layouts
         self.stack = QtGui.QStackedLayout(self)
@@ -90,7 +91,7 @@ class MainWindow(QtGui.QFrame):
 
 
     def reload_settings(self):
-        settings = read_config()
+        settings = read_config(self.configdir)
         if not self.profile:
             self.profile = settings['default profile']
         if self.profile not in settings['profiles']:
@@ -134,8 +135,11 @@ class MainWindow(QtGui.QFrame):
 
 
 
-def read_config():
-    config_file = join(getenv('HOME'), '.config', 'sapfo', 'settings.json')
+def read_config(configdir):
+    if configdir:
+        config_file = join(configdir, 'settings.json')
+    else:
+        config_file = join(getenv('HOME'), '.config', 'sapfo', 'settings.json')
     common.make_sure_config_exists(config_file, common.local_path('default_settings.json'))
     return common.read_json(config_file)
 
@@ -155,11 +159,16 @@ def update_dict(basedict, newdict):
 def main():
     import argparse
     parser = argparse.ArgumentParser()
+    def valid_dir(dirname):
+        if isdir(dirname):
+            return dirname
+        parser.error('Directory does not exist: {}'.format(dirname))
+    parser.add_argument('-c', '--config-directory', type=valid_dir)
     parser.add_argument('profile', nargs='?')
     args = parser.parse_args()
 
     app = QtGui.QApplication(sys.argv)
-    window = MainWindow(args.profile)
+    window = MainWindow(args.config_directory, args.profile)
     app.setActiveWindow(window)
     sys.exit(app.exec_())
 
