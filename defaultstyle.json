@@ -42,12 +42,15 @@
   "viewer body border color": "black",
   "viewer body padding": "40px",
   "viewer body width": "800px",
+  "viewer line height": "130%",
   "viewer text color": "#ddd",
   "viewer font": "Serif",
   "viewer font size": "12px",
 
   "viewer horizontal line color": "#888",
   "viewer horizontal line height": "2px",
+  "viewer horizontal line width": "40%",
+  "viewer horizontal line margin": "40px",
 
   "infopanel background": "#333",
   "infopanel text color": "#aaa",

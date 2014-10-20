@@ -2,7 +2,6 @@ html, body {{
     margin: 0px;
     height: 100%;
 }}
-
 body {{
     background-color: {viewer margin background};
     font-family: "{viewer font}"!important;
@@ -22,6 +21,13 @@ body {{
 }}
 hr {{
     border: 0;
+    margin-top: {viewer horizontal line margin};
+    margin-bottom: {viewer horizontal line margin};
     background: {viewer horizontal line color};
     height: {viewer horizontal line height};
+    width: {viewer horizontal line width}
+}}
+hr#header {{
+    width: 100%;
+    margin: 0px;
 }}
