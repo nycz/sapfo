@@ -102,8 +102,7 @@ class MainWindow(QtGui.QFrame):
         if settings != self.settings:
             self.settings = copy.deepcopy(settings)
             self.index_viewer.update_settings(settings)
-            self.story_viewer.set_hotkeys(settings['hotkeys'])
-            self.story_viewer.formatconverters = settings['formatting converters']
+            self.story_viewer.update_settings(settings)
         if style != self.style:
             self.style = copy.deepcopy(style)
             self.update_style(style)

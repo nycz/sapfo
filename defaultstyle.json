@@ -47,6 +47,11 @@
   "viewer font": "Serif",
   "viewer font size": "12px",
 
+  "viewer chapter header margin top": "40px",
+  "viewer chapter header margin bottom": "20px",
+  "viewer chapter header font": "Sans-serif",
+  "viewer chapter header font size": "18px",
+
   "viewer horizontal line color": "#888",
   "viewer horizontal line height": "2px",
   "viewer horizontal line width": "40%",

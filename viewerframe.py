@@ -23,6 +23,7 @@ class ViewerFrame(QtGui.QFrame):
         self.css = "" # Is set every time the config is reloaded
         self.rawtext = ""
         self.formatconverters = []
+        self.chapterstrings = []
 
         # Layout
         layout = QtGui.QVBoxLayout(self)
@@ -36,6 +37,11 @@ class ViewerFrame(QtGui.QFrame):
         self.info_panel = infopanel.InfoPanel(self)
         layout.addWidget(self.info_panel)
         layout.setStretchFactor(self.info_panel, 0)
+
+    def update_settings(self, settings):
+        self.set_hotkeys(settings['hotkeys'])
+        self.formatconverters = settings['formatting converters']
+        self.chapterstrings = settings['chapter strings']
 
     def set_hotkeys(self, hotkeys):
         if self.hotkeys_set:
@@ -73,7 +79,8 @@ class ViewerFrame(QtGui.QFrame):
         self.setEnabled(True)
         self.data = data
         self.info_panel.set_data(data)
-        self.rawtext = format_rawtext(read_file(data['page']), self.formatconverters)
+        self.rawtext = format_rawtext(read_file(data['page']), self.formatconverters,
+                                      self.chapterstrings)
         self.set_html()
 
     def update_css(self):
@@ -87,13 +94,42 @@ class ViewerFrame(QtGui.QFrame):
         self.webview.setHtml(html)
 
 
-def format_rawtext(text, formatconverters):
-    for x in formatconverters:
-        if len(x) == 2:
-            text = re.sub(x[0], x[1], text)
-        elif len(x) == 3:
-            text = replace_in_selection(x[0], x[1], x[2], text)
-    return text
+def format_rawtext(text, formatconverters, chapterstrings):
+    """
+    Format the text according to the format and chapter regexes.
+    Make sure that the chapter lines aren't touched by the generic formatting.
+    """
+    def format_chunk(chunklines):
+        """ Apply the formatting regexes on a chunk of the text. """
+        chunk = '\n'.join(chunklines)
+        for x in formatconverters:
+            if len(x) == 2:
+                chunk = re.sub(x[0], x[1], chunk)
+            elif len(x) == 3:
+                chunk = replace_in_selection(x[0], x[1], x[2], chunk)
+        return chunk
+    lines = text.splitlines()
+    def get_parts():
+        """
+        Return an iterator that yields each relevant chunk, either a chapter
+        line or a chunk of formatted text, in the correct order.
+        """
+        oldn = 0
+        for n, line in enumerate(lines):
+            for rx_str, template in chapterstrings:
+                match = re.match(rx_str, line)
+                if match:
+                    # If there's any text to format, yield it
+                    if n > oldn:
+                        yield format_chunk(lines[oldn:n])
+                    # Yield the formatted chapter line
+                    yield '<h2>'+template.format(**match.groupdict()).strip()+'</h2>'
+                    oldn = n+1
+                    break
+        # If there's any text left, format and yield it
+        if oldn < len(lines)-1:
+            yield format_chunk(lines[oldn:])
+    return '\n'.join(get_parts())
 
 def replace_in_selection(rx, rep, selrx, text):
     chunks = []

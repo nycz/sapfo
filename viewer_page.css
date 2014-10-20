@@ -19,6 +19,12 @@ body {{
     padding: {viewer body padding};
     width: {viewer body width};
 }}
+h2 {{
+    margin-top: {viewer chapter header margin top};
+    margin-bottom: {viewer chapter header margin bottom};
+    font-size: {viewer chapter header font size};
+    font-family: "{viewer chapter header font}";
+}}
 hr {{
     border: 0;
     margin-top: {viewer horizontal line margin};
