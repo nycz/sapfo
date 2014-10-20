@@ -1,0 +1,27 @@
+html, body {{
+    margin: 0px;
+    height: 100%;
+}}
+
+body {{
+    background-color: {viewer margin background};
+    font-family: "{viewer font}"!important;
+    font-size: {viewer font size};
+    color: {viewer text color};
+    line-height: {viewer line height};
+}}
+#main {{
+    background-color: {viewer body background};
+    border-left: 2px solid {viewer body border color};
+    border-right: 2px solid {viewer body border color};
+    margin-left: auto;
+    margin-right: auto;
+    min-height: 100%;
+    padding: {viewer body padding};
+    width: {viewer body width};
+}}
+hr {{
+    border: 0;
+    background: {viewer horizontal line color};
+    height: {viewer horizontal line height};
+}}

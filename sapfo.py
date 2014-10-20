@@ -48,6 +48,7 @@ class MainWindow(QtGui.QFrame):
         # Load settings
         self.css_template = common.read_file(common.local_path('template.css'))
         self.index_css_template = common.read_file(common.local_path('index_page.css'))
+        self.viewer_css_template = common.read_file(common.local_path('viewer_page.css'))
         self.settings, self.style = {}, {}
         self.reload_settings()
 
@@ -111,13 +112,17 @@ class MainWindow(QtGui.QFrame):
         try:
             css = self.css_template.format(**style)
             indexcss = self.index_css_template.format(**style)
+            viewercss = self.viewer_css_template.format(**style)
         except KeyError as e:
             print(e)
             self.terminal.error('Invalid style config: key missing')
             return
         self.setStyleSheet(css)
         self.index_viewer.css = indexcss
+        self.story_viewer.css = viewercss
         self.index_viewer.refresh_view(keep_position=True)
+        if self.story_viewer.isEnabled():
+            self.story_viewer.update_css()
 
 
     # ===== Input overrides ===========================

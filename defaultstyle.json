@@ -37,8 +37,20 @@
   "index horizontal line color": "black",
   "index horizontal line height": "1px",
 
-  "infopanel background": "#222",
-  "infopanel text color": "#999",
+  "viewer margin background": "#181818",
+  "viewer body background": "#222",
+  "viewer body border color": "black",
+  "viewer body padding": "40px",
+  "viewer body width": "800px",
+  "viewer text color": "#ddd",
+  "viewer font": "Serif",
+  "viewer font size": "12px",
+
+  "viewer horizontal line color": "#888",
+  "viewer horizontal line height": "2px",
+
+  "infopanel background": "#333",
+  "infopanel text color": "#aaa",
   "infopanel font": "Sans-serif",
   "infopanel font size": "16px",
 

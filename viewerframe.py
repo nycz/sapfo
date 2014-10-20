@@ -17,7 +17,9 @@ class ViewerFrame(QtGui.QFrame):
 
         self.hotkeys_set = False
 
-        self.rawtext_wrapper = read_file(local_path('rawtext_wrapper.html'))
+        self.template = read_file(local_path('viewer_page_template.html'))
+        self.css = "" # Is set every time the config is reloaded
+        self.rawtext = ""
 
         # Layout
         layout = QtGui.QVBoxLayout(self)
@@ -61,10 +63,20 @@ class ViewerFrame(QtGui.QFrame):
         self.webview.setZoomFactor(1)
 
     def view_page(self, data):
-        self.info_panel.set_data(data)
         self.setEnabled(True)
-        rawtext = read_file(data['page']).replace('\n', '<br>')
-        html = self.rawtext_wrapper.format(title=data['title'], body=rawtext)
+        self.data = data
+        self.info_panel.set_data(data)
+        self.rawtext = read_file(data['page']).replace('\n', '<br>')
+        self.set_html()
+
+    def update_css(self):
+        frame = self.webview.page().mainFrame()
+        pos = frame.scrollBarValue(Qt.Vertical)
+        self.set_html()
+        frame.setScrollBarValue(Qt.Vertical, pos)
+
+    def set_html(self):
+        html = self.template.format(title=self.data['title'], body=self.rawtext, css=self.css)
         self.webview.setHtml(html)
 
     def goto_index(self):
