@@ -1,3 +1,5 @@
+import re
+
 from PyQt4.QtCore import pyqtSignal, Qt, QUrl
 from PyQt4 import QtGui, QtWebKit
 
@@ -20,6 +22,7 @@ class ViewerFrame(QtGui.QFrame):
         self.template = read_file(local_path('viewer_page_template.html'))
         self.css = "" # Is set every time the config is reloaded
         self.rawtext = ""
+        self.formatconverters = []
 
         # Layout
         layout = QtGui.QVBoxLayout(self)
@@ -62,11 +65,15 @@ class ViewerFrame(QtGui.QFrame):
     def zoom_reset(self):
         self.webview.setZoomFactor(1)
 
+    def goto_index(self):
+        self.setDisabled(True)
+        self.show_index.emit()
+
     def view_page(self, data):
         self.setEnabled(True)
         self.data = data
         self.info_panel.set_data(data)
-        self.rawtext = read_file(data['page']).replace('\n', '<br>')
+        self.rawtext = format_rawtext(read_file(data['page']), self.formatconverters)
         self.set_html()
 
     def update_css(self):
@@ -79,6 +86,22 @@ class ViewerFrame(QtGui.QFrame):
         html = self.template.format(title=self.data['title'], body=self.rawtext, css=self.css)
         self.webview.setHtml(html)
 
-    def goto_index(self):
-        self.setDisabled(True)
-        self.show_index.emit()
+
+def format_rawtext(text, formatconverters):
+    for x in formatconverters:
+        if len(x) == 2:
+            text = re.sub(x[0], x[1], text)
+        elif len(x) == 3:
+            text = replace_in_selection(x[0], x[1], x[2], text)
+    return text
+
+def replace_in_selection(rx, rep, selrx, text):
+    chunks = []
+    selections = re.finditer(selrx, text)
+    for sel in selections:
+        x = re.sub(rx, rep, sel.group(0))
+        chunks.append((sel.start(), sel.end(), x))
+    # Do this backwards to avoid messing up the positions of the chunks
+    for start, end, payload in chunks[::-1]:
+        text = text[:start] + payload + text[end:]
+    return text
