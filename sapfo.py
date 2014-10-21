@@ -101,6 +101,10 @@ class MainWindow(QtGui.QFrame):
         # Something somewhere fucks up and changes the settings dict,
         # therefor the deepcopy(). Fix pls.
         if settings != self.settings:
+            if settings['title']:
+                self.setWindowTitle(settings['title'])
+            else:
+                self.setWindowTitle('Sapfo')
             self.settings = copy.deepcopy(settings)
             self.index_viewer.update_settings(settings)
             self.story_viewer.update_settings(settings)
