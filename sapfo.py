@@ -46,6 +46,7 @@ class MainWindow(QtGui.QFrame):
         self.stack.addWidget(self.story_viewer)
 
         # Load settings
+        self.defaultstyle = common.read_json(common.local_path('defaultstyle.json'))
         self.css_template = common.read_file(common.local_path('template.css'))
         self.index_css_template = common.read_file(common.local_path('index_page.css'))
         self.viewer_css_template = common.read_file(common.local_path('viewer_page.css'))
@@ -95,7 +96,7 @@ class MainWindow(QtGui.QFrame):
 
 
     def reload_settings(self):
-        settings, style = read_config(self.configdir)
+        settings, style, stylepath = read_config(self.configdir, self.defaultstyle)
         # TODO: FIX THIS UGLY ASS SHIT
         # Something somewhere fucks up and changes the settings dict,
         # therefor the deepcopy(). Fix pls.
@@ -104,8 +105,9 @@ class MainWindow(QtGui.QFrame):
             self.index_viewer.update_settings(settings)
             self.story_viewer.update_settings(settings)
         if style != self.style:
-            self.style = copy.deepcopy(style)
+            self.style = style.copy()
             self.update_style(style)
+            common.write_json(stylepath, style)
 
 
     def update_style(self, style):
@@ -152,7 +154,7 @@ class MainWindow(QtGui.QFrame):
     # =================================================
 
 
-def read_config(configdir):
+def read_config(configdir, defaultstyle):
     if configdir:
         configpath = configdir
     else:
@@ -161,7 +163,11 @@ def read_config(configdir):
     stylefile = join(configpath, 'style.json')
     common.make_sure_config_exists(configfile, common.local_path('default_settings.json'))
     common.make_sure_config_exists(stylefile, common.local_path('defaultstyle.json'))
-    return common.read_json(configfile), common.read_json(stylefile)
+    # Make sure to update the style with the defaultstyle's values
+    newstyle = common.read_json(stylefile)
+    style = defaultstyle.copy()
+    style.update({k:v for k,v in newstyle.items() if k in defaultstyle})
+    return common.read_json(configfile), style, stylefile
 
 
 def main():
