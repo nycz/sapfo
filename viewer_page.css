@@ -17,7 +17,7 @@ body {{
     margin-right: auto;
     min-height: 100%;
     padding: {viewer body padding};
-    width: {viewer body width};
+    max-width: {viewer body width};
 }}
 h2 {{
     margin-top: {viewer chapter header margin top};
