@@ -68,7 +68,7 @@ hr {{
     display: none;
 }}
 ::-webkit-scrollbar-thumb {{
-    background-color: {scrollbar slider color};
+    background-color: {scrollbar index slider color};
 }}
 ::-webkit-scrollbar-corner {{
     background-color: {index background};

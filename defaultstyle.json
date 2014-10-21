@@ -70,6 +70,7 @@
   "terminal font size": "11pt",
   "terminal border color": "#111",
 
-  "scrollbar slider color": "#111c1c",
+  "scrollbar index slider color": "#111c1c",
+  "scrollbar viewer slider color": "black",
   "scrollbar width": "15px"
 }

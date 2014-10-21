@@ -37,3 +37,17 @@ hr#header {{
     width: 100%;
     margin: 0px;
 }}
+::-webkit-scrollbar {{
+    background-color: {viewer margin background};
+    height: {scrollbar width};
+    width: {scrollbar width};
+}}
+::-webkit-scrollbar-button {{
+    display: none;
+}}
+::-webkit-scrollbar-thumb {{
+    background-color: {scrollbar viewer slider color};
+}}
+::-webkit-scrollbar-corner {{
+    background-color: {index background};
+}}
