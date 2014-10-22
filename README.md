@@ -17,6 +17,8 @@ Example:
         Hamlet and the Unicorn.txt
         .Hamlet and the Unicorn.txt.metadata
 
+The first time you start Sapfo, it will copy its default config to `~/.config/sapfo/settings.json` and then immediately crash. To make Sapfo work correctly, you have to set the config's `path` option to a directory where you want your files to be stored, preferably one only meant for this purpose. With that set, Sapfo should work.
+
 
 Metadata files
 --------------
@@ -27,21 +29,87 @@ All of them can be empty but at least with `title` it is not recommended.
 
 Example:
 
-    {
-        "title": "Hamlet and the Unicorn",
-        "description": "The riveting tale about Hamlet and his amazing unicorn."
-        "tags": [
-            "adventure",
-            "romance",
-            "drama"
-        ]
-    }
+```json
+{
+    "title": "Hamlet and the Unicorn",
+    "description": "The riveting tale about Hamlet and his amazing unicorn."
+    "tags": [
+        "adventure",
+        "romance",
+        "drama"
+    ]
+}
+```
+
+
+The config
+----------
+####path####
+The path to the root directory where Sapfo store all its files. **Sapfo will not work without a valid path.**
+
+####title####
+The text to show in the titlebar. If not set, "Sapfo" will be shown in the titlebar.
+
+####hotkeys####
+The hotkeys are for the viewer (when you have opened an entry inside sapfo) and should be rather self-explanatory. All hotkey options can have multiple hotkeys set. **Note that leaving "home" empty means you have no way to get back to the index when viewing an entry.**
+
+####editor####
+A command that will be invoked with the chosen entry's file path when using the `x` command. For example, if the editor is `vim`, the result would be `vim /path/to/entrys/file.txt`.
+
+####tag colors####
+A dict where the keys are tags and the values are colors. The tags' boxes in the index view will use this color. Note that the tags' text color is set in the style config and isn't touched by this setting, so try to avoid unreadable color pairs (eg. black on dark gray).
+
+**Example:**
+
+```json
+"tag colors": {
+    "tragedy": "black",
+    "happy times": "#9c8",
+    "non-fiction": "#ccddaa"
+}
+```
+
+####formatting converters####
+This option is here to convert one kind of formatting to html, so files are pretty and formatted in the viewer. The option is a list of lists, where the sublists are either two or three items long. The first item is what is to be searched for, the second is what it will be replaced with, and the third (and optional) item is where the search will take place. All items are python regexes. Remember to escape backslashes!
+
+**Example 1** (Replacing all `* * *` with horizontal lines (`<hr>`))
+
+`["\\* \\* \\*", "<hr />"],`
+
+**Example 2** (Wrapping lines with `<p>`)
+
+`["(?m)^(.+?)$", "<p>\\1</p>"],`
+
+**Example 3** (Replace asterisks around words with `<strong>` but only inside `<em>` tags. Don't ask me why.)
+
+`["\\*(.+?)\\*", "<strong>\\1</strong>", "<em>.+?</em>"]`
+
+####chapter strings####
+This option is here to let sapfo find (and format) chapters in your stories. It is a list of lists (pairs). The first item is a regex to match/find all lines with chapter titles and the second item is a simple string with how the result will be formatted. All groups (specified with `(?P<name>[...])`) in the regex will be attempted to be matched with the format strings groups. Eg. `(?P<name>.+?)` would be matched with `{name}`.
+
+**Example 1** (the result will be "Chapter 1")
+
+```json
+[
+  "CHAPTER (?P<num>\\d+)\\s*$",
+  "Chapter {num}"
+]
+```
+
+**Example 2** (the result will be "Chapter 1 - Chapter Title")
+
+```json
+[
+  "CHAPTER (?P<num>\\d+) ?[:-] (?P<name>.+)",
+  "Chapter {num} - {name}"
+]
+```
 
 
 Usage
 -----
 Everything is done in the *Terminal*. Love it, be one with it.
-Commands are entered with (surprise) Enter, and a history of previous commands is accessible with Up/Down arrow keys.
+Commands are executed with (surprise) Enter, and a history of previous commands is accessible with Up/Down arrow keys.
 
 All commands are one character, but some may have one or more arguments.
 
@@ -72,14 +140,13 @@ Tab-/autocompletion works for tag commands: `ft` and `et`.
 #####Filtering Tags#####
 In essence, it's a whole bunch of ORs (`|`) and ANDs (`,`) with parentheses to indicate precedence. Whitespace between tags is irrelevant. Prefix single tags with `-` to invert them (only show entries that don't include the prefixed tag).
 
-Examples:
+**Examples:**
 
 * `ft tag1, tag2, (tag3 | -tag4)` – Shows entries that has tag1 and tag2 and (tag3 or not tag4).
 * `ft tag1|(tag2,(tag3|tag4),tag5)|tag6` – Shows entries that has tag1 or (tag 2 and (tag3 or ta))
 * `ft tag1 | tag2, tag3` – This will give an error since OR and AND can't coexist without parentheses.
 * `ft tag1 | (tag2, (tag3 | (tag4, (tag5 | (tag6, tag7)))))` – Parentheses can be nestled without limits. Yay.
 * `ft foo* | *bar` – Asterisks can be used as wildcards. This filter will match any entry with a tag starting with "foo" or a tag ending with "bar"
-
 
 ####Sort####
 * `s(n|l)[-]` – sort after name (`n`) or length (`l`). `-` sorts descendingly
@@ -89,13 +156,11 @@ Examples:
     * The popup screen shown from `lt[a]` is closed by pressing enter, with or without a command entered in the terminal (a command will be executed if present).
 
 
-By the way
-----------
-The config is good stuff, and sapfo will explode in your face the first time you start it, on purpose!
-Sapfo helpfully copies the default config to the config path and then explodes.
-You have to edit the config before it will work.
+The style config
+----------------
+While the actual stylesheets aren't configurable directly, Sapfo provides a simple json file to config certain values. The file is called `style.json` and is copied to Sapfo's config directory if it isn't present.
 
-Path to the config's directory is `~/.config/sapfo/`
+Most settings should be obvious but if not, check the files `index_page.css`, `viewer_page.css` and `template.css` in the sapfo directory (not the config directory) to see what the values actually changes. The values should always be CSS-compatible. Check `defaultstyle.json` or read up on CSS to learn more.
 
 
 Note to self
