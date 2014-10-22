@@ -71,14 +71,14 @@ Tab-/autocompletion works for tag commands: `ft` and `et`.
 
 #####Filtering Tags#####
 In essence, it's a whole bunch of ORs (`|`) and ANDs (`,`) with parentheses to indicate precedence. Whitespace between tags is irrelevant. Prefix single tags with `-` to invert them (only show entries that don't include the prefixed tag).
+
+Examples:
+
 * `ft tag1, tag2, (tag3 | -tag4)` – Shows entries that has tag1 and tag2 and (tag3 or not tag4).
 * `ft tag1|(tag2,(tag3|tag4),tag5)|tag6` – Shows entries that has tag1 or (tag 2 and (tag3 or ta))
-Note that an OR and an AND can not exist together without parentheses. This will result in an error:
-* `ft tag1 | tag2, tag3`
-Parentheses can be nestled without limits. Yay.
-* `ft tag1 | (tag2, (tag3 | (tag4, (tag5 | (tag6, tag7)))))
-Asterisks `*` can be used as wildcards. This filter will match any entry with a tag starting with "foo" or a tag ending with "bar"
-* `ft foo* | *bar`
+* `ft tag1 | tag2, tag3` – This will give an error since OR and AND can't coexist without parentheses.
+* `ft tag1 | (tag2, (tag3 | (tag4, (tag5 | (tag6, tag7)))))` – Parentheses can be nestled without limits. Yay.
+* `ft foo* | *bar` – Asterisks can be used as wildcards. This filter will match any entry with a tag starting with "foo" or a tag ending with "bar"
 
 
 ####Sort####
