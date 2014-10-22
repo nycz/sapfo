@@ -31,7 +31,6 @@ class Terminal(GenericTerminal):
     open_ = pyqtSignal(int)
     quit = pyqtSignal(str)
     edit = pyqtSignal(str)
-    reload_settings = pyqtSignal(str)
     external_edit = pyqtSignal(str)
     list_ = pyqtSignal(str)
     count_length = pyqtSignal(str)
@@ -49,8 +48,7 @@ class Terminal(GenericTerminal):
             '?': (self.cmd_help, 'List commands or help for [command]'),
             'x': (self.external_edit, 'Open in external program/editor'),
             'l': (self.list_, 'List'),
-            'c': (self.count_length, 'Count total length'),
-            'r': (self.reload_settings, 'Reload settings')
+            'c': (self.count_length, 'Count total length')
         }
 
     def command_parsing_injection(self, arg):
