@@ -37,8 +37,8 @@ class Terminal(GenericTerminal):
 
     def __init__(self, parent, get_tags):
         super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox)
-
         self.get_tags = get_tags
+        self.autocomplete_type = '' # 'path' or 'tag'
 
         self.commands = {
             'f': (self.filter_, 'Filter'),
@@ -57,31 +57,41 @@ class Terminal(GenericTerminal):
             return True
 
     def autocomplete(self):
-        def get_interval(t, pos):
+
+        def get_interval(t, pos, separators):
+            """ Return the interval of the string that is going to be autocompleted """
             start, end = 0, len(t)
             for n,i in enumerate(t):
-                if n < pos and i in '(),|':
+                if n < pos and i in separators:
                     start = n + 1
-                if n >= pos and i in '(),|':
+                if n >= pos and i in separators:
                     end = n
                     break
             return start, end
+
+        def autocomplete_tags(text, pos, separators, prefix=''):
+            self.autocomplete_type = 'tag'
+            start, end = get_interval(text, pos, separators)
+            ws_prefix, dash, target_text = re.match(r'(\s*)(-?)(.*)',text[start:end]).groups()
+            new_text = self.run_autocompletion(target_text)
+            output = prefix + text[:start] + ws_prefix + dash + new_text + text[end:]
+            self.prompt(output)
+            self.input_term.setCursorPosition(len(output) - len(text[end:]))
+
         text = self.input_term.text()
+        pos = self.input_term.cursorPosition()
+
+        # Auto complete the ft and the et command
         tabsep_rx = re.match(r'(ft|et\*|et\d+\s*)(.*)', text)
-        if not tabsep_rx:
-            return
-        prefix, payload = tabsep_rx.groups()
-        pos = self.input_term.cursorPosition() - len(prefix)
-        if pos < 0:
-            return
-        start, end = get_interval(payload, pos)
-        ws_prefix, dash, target_text = re.match(r'(\s*)(-?)(.*)',payload[start:end]).groups()
-        new_text = self.run_autocompletion(target_text)
-        output = prefix + payload[:start] + ws_prefix + dash + new_text + payload[end:]
-        self.prompt(output)
-        self.input_term.setCursorPosition(len(output) - len(payload[end:]))
+        if tabsep_rx:
+            prefix, payload = tabsep_rx.groups()
+            if pos < len(prefix):
+                return
+            separators = {'f': '(),|', 'e': ','}
+            autocomplete_tags(payload, pos - len(prefix), separators[prefix[0]], prefix=prefix)
 
 
     def get_ac_suggestions(self, prefix):
-        tags = list(zip(*sorted(self.get_tags(), key=itemgetter(1), reverse=True)))[0]
-        return [x for x in tags if x.startswith(prefix)]
+        if self.autocomplete_type == 'tag':
+            tags = list(zip(*sorted(self.get_tags(), key=itemgetter(1), reverse=True)))[0]
+            return [x for x in tags if x.startswith(prefix)]
