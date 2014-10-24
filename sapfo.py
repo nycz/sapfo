@@ -3,7 +3,8 @@
 import collections
 import copy
 from os import getenv
-from os.path import isdir, join
+from os.path import exists, expanduser, isdir, join, split, splitext
+import re
 import sys
 
 from PyQt4 import QtGui, QtCore
@@ -68,6 +69,7 @@ class MainWindow(QtGui.QFrame):
             (t.list_,                   iv.list_),
             (t.count_length,            iv.count_length),
             (t.external_edit,           iv.external_run_entry),
+            (t.new_entry,               self.new_entry),
             (self.story_viewer.show_index, self.show_index),
             (t.quit,                    self.close),
             (iv.view_entry,             self.view_entry),
@@ -78,6 +80,44 @@ class MainWindow(QtGui.QFrame):
         )
         for signal, slot in connects:
             signal.connect(slot)
+
+
+    def new_entry(self, arg):
+        def metadatafile(path):
+            dirname, fname = split(path)
+            return join(dirname, '.' + fname + '.metadata')
+        file_exists = False
+        tags = []
+        new_entry_rx = re.match(r'\s*\(([^\(]*?)\)\s*(.+)\s*', arg)
+        if not new_entry_rx:
+            self.terminal.error('Invalid new entry command')
+            return
+        tagstr, path = new_entry_rx.groups()
+        fullpath = expanduser(join(self.settings['path'], path))
+        dirname, fname = split(fullpath)
+        metadatafile = join(dirname, '.' + fname + '.metadata')
+        if tagstr:
+            tags = list({tag.strip() for tag in tagstr.split(',')})
+        if exists(metadatafile):
+            self.terminal.error('Metadata already exists for that file')
+            return
+        if exists(fullpath):
+            file_exists = True
+        # Fix the capitalization
+        title = re.sub(r"[A-Za-z]+('[A-Za-z]+)?",
+                       lambda mo: mo.group(0)[0].upper() + mo.group(0)[1:].lower(),
+                       splitext(fname)[0].replace('-', ' '))
+        try:
+            open(fullpath, 'a').close()
+            common.write_json(metadatafile, {'title': title, 'description': '', 'tags': tags})
+        except Exception as e:
+            self.terminal.error('Couldn\'t create the files: {}'.format(str(e)))
+        else:
+            self.index_viewer.reload_view()
+            if file_exists:
+                self.terminal.print_('New entry created, metadatafile added to existing file')
+            else:
+                self.terminal.print_('New entry created')
 
 
     def show_index(self):
@@ -107,6 +147,7 @@ class MainWindow(QtGui.QFrame):
             self.settings = copy.deepcopy(settings)
             self.index_viewer.update_settings(settings)
             self.story_viewer.update_settings(settings)
+            self.terminal.rootpath = settings['path']
         if style != self.style:
             self.style = style.copy()
             self.update_style(style)
