@@ -19,6 +19,11 @@ body {{
     padding: {viewer body padding};
     max-width: {viewer body width};
 }}
+p {{
+    margin-top: {viewer paragraph margin top};
+    margin-bottom: {viewer paragraph margin bottom};
+    text-indent: {viewer paragraph first line indentation};
+}}
 h2 {{
     margin-top: {viewer chapter header margin top};
     margin-bottom: {viewer chapter header margin bottom};

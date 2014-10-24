@@ -47,6 +47,10 @@
   "viewer font": "Serif",
   "viewer font size": "12px",
 
+  "viewer paragraph margin top": "10px",
+  "viewer paragraph margin bottom": "10px",
+  "viewer paragraph first line indentation": "0px",
+
   "viewer chapter header margin top": "40px",
   "viewer chapter header margin bottom": "20px",
   "viewer chapter header font": "Sans-serif",
