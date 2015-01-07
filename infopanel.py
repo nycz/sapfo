@@ -28,13 +28,13 @@ class InfoPanel(QtGui.QFrame):
 
 
     def set_data(self, data):
-        wc = "<em>({:,})</em>".format(data['length'])
+        wc = "<em>({:,})</em>".format(data.length)
         s = "<strong>{fname}</strong>\t&nbsp;\t{wordcount}"
         self.label.setText(s.format(
-            fname=data['title'],
+            fname=data.title,
             wordcount=wc
         ))
-        self.fname_label.setText(basename(data['page']))
+        self.fname_label.setText(basename(data.file))
 
     def set_fullscreen(self, fullscreen):
         self.setHidden(fullscreen)

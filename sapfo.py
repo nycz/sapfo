@@ -17,7 +17,7 @@ from viewerframe import ViewerFrame
 
 
 class MainWindow(QtGui.QFrame):
-    def __init__(self, configdir, activation_event):
+    def __init__(self, configdir, activation_event, dry_run):
         super().__init__()
         self.setWindowTitle('Sapfo')
         self.configdir = configdir
@@ -31,7 +31,7 @@ class MainWindow(QtGui.QFrame):
         common.kill_theming(layout)
 
         # Index viewer
-        self.index_viewer = IndexFrame(self.index_widget)
+        self.index_viewer = IndexFrame(self.index_widget, dry_run)
         layout.addWidget(self.index_viewer, stretch=1)
         self.popup = False
 
@@ -49,7 +49,7 @@ class MainWindow(QtGui.QFrame):
         # Load settings
         self.defaultstyle = common.read_json(common.local_path('defaultstyle.json'))
         self.css_template = common.read_file(common.local_path('template.css'))
-        self.index_css_template = common.read_file(common.local_path('index_page.css'))
+        self.index_css_template = common.read_file(common.local_path(join('templates','index_page.css')))
         self.viewer_css_template = common.read_file(common.local_path('viewer_page.css'))
         self.settings, self.style = {}, {}
         self.reload_settings()
@@ -222,6 +222,8 @@ def main():
             return dirname
         parser.error('Directory does not exist: {}'.format(dirname))
     parser.add_argument('-c', '--config-directory', type=valid_dir)
+    parser.add_argument('-d', '--dry-run', action='store_true',
+                        help='don\'t write anything to disk')
     args = parser.parse_args()
 
     app = QtGui.QApplication(sys.argv)
@@ -235,7 +237,9 @@ def main():
     app.event_filter = AppEventFilter()
     app.installEventFilter(app.event_filter)
 
-    window = MainWindow(args.config_directory, app.event_filter.activation_event)
+    window = MainWindow(args.config_directory,
+                        app.event_filter.activation_event,
+                        args.dry_run)
     app.setActiveWindow(window)
     sys.exit(app.exec_())
 

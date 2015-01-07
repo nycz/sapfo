@@ -1,328 +1,368 @@
-from operator import itemgetter
+from collections import namedtuple, defaultdict
 import os
-import os.path
-from os.path import join
+from os.path import exists, join
 import re
 import subprocess
 
-from PyQt4 import QtCore, QtGui, QtWebKit
+from PyQt4 import QtWebKit
 from PyQt4.QtCore import pyqtSignal, Qt
 
 from libsyntyche.common import local_path, read_file, read_json, set_hotkey, write_json
+from libsyntyche import taggedlist
 
-from tagsystem import compile_tag_filter, parse_tag_filter
 
 class IndexFrame(QtWebKit.QWebView):
 
-    view_entry = pyqtSignal(dict)
+    view_entry = pyqtSignal(tuple)
     error = pyqtSignal(str)
     print_ = pyqtSignal(str)
     set_terminal_text = pyqtSignal(str)
     init_popup = pyqtSignal()
 
-    def __init__(self, parent):
+    def __init__(self, parent, dry_run):
         super().__init__(parent)
         self.setDisabled(True)
-        self.current_filters = []
+        self.dry_run = dry_run
+        self.htmltemplates = load_html_templates()
+        self.css = None # Is set every time the config is reloaded
 
         set_hotkey("Ctrl+R", parent, self.reload_view)
         set_hotkey("F5", parent, self.reload_view)
 
-        self.undo_stack = []
-        self.current_filters = []
-        self.old_pos = None
-
-        self.css = None # Is set every time the config is reloaded
-
-    def reload_view(self):
-        self.all_entries = index_stories(self.settings)
-        self.entries = self.all_entries.copy()
-        for x in self.current_filters:
-            self.filter_entries(x, reapply=True)
-        self.refresh_view(keep_position=True)
-        self.print_.emit('Reloaded')
-
-    def refresh_view(self, keep_position=False):
-        frame = self.page().mainFrame()
-        pos = frame.scrollBarValue(Qt.Vertical)
-        self.setHtml(generate_index(self.entries, self.settings['tag colors'], self.css))
-        if keep_position:
-            frame.setScrollBarValue(Qt.Vertical, pos)
+        self.entries = ()
+        self.visible_entries = ()
+        self.active_filters = ()
+        self.sorted_by = ('title', False)
+        self.undostack = ()
 
     def update_settings(self, new_settings):
         self.settings = new_settings
         self.reload_view()
 
-    def list_(self, arg):
-        if arg.startswith('f'):
-            if self.current_filters:
-                self.print_.emit(', '.join(self.current_filters))
-            else:
-                self.error.emit('No active filters')
-        elif arg.startswith('t'):
-            # Sort alphabetically or after uses
-            sortarg = 1
-            if len(arg) == 2 and arg[1] == 'a':
-                sortarg = 0
-            self.old_pos = self.page().mainFrame().scrollBarValue(Qt.Vertical)
-            entry_template = '<div class="list_entry"><span class="tag" style="background-color:{color};">{tagname}</span><span class="length">({count:,})</span></div>'
-            t_entries = [entry_template.format(color=self.settings['tag colors'].get(tag, '#677'),
-                                               tagname=tag, count=num)
-                         for tag, num in sorted(self.get_tags(), key=itemgetter(sortarg), reverse=sortarg)]
-            body = '<br>'.join(t_entries)
-            self.setHtml('<style type="text/css">{css}</style>\
-                          <body><div id="taglist">{body}</div></body>'.format(body=body, css=self.css))
-            self.init_popup.emit()
+    def reload_view(self):
+        """
+        Reload the entrylist by scanning the metadata files and then refresh
+        the view with the updated entrylist.
 
-    def close_popup(self):
-        self.refresh_view()
-        self.page().mainFrame().setScrollBarValue(Qt.Vertical, self.old_pos)
+        Is also the method that generates the entrylist the first time.
+        So don't look for a init_everything method/function or anything, kay?
+        """
+        self.attributedata, self.entries = index_stories(self.settings['path'])
+        self.visible_entries = self.regenerate_visible_entries()
+        print('reloaded')
+        self.refresh_view(keep_position=True)
+
+    def refresh_view(self, keep_position=False):
+        """
+        Refresh the view with the filtered entries and the current css.
+        The full entrylist is not touched by this.
+        """
+        frame = self.page().mainFrame()
+        pos = frame.scrollBarValue(Qt.Vertical)
+        body = generate_html_body(self.visible_entries,
+                                  self.htmltemplates.tags,
+                                  self.htmltemplates.entry,
+                                  self.settings['tag colors'])
+        self.setHtml(self.htmltemplates.index_page.format(body=body, css=self.css))
+        if keep_position:
+            frame.setScrollBarValue(Qt.Vertical, pos)
+        print('refreshed')
 
     def get_tags(self):
-        tags = {}
-        for e in self.all_entries:
-            for t in e['tags']:
-                tags[t] = tags.get(t, 0) + 1
+        """
+        Return all tags and how many times they appear among the entries.
+        Called by the terminal for the tab completion.
+        """
+        tags = defaultdict(int)
+        for e in self.entries:
+            for t in e.tags:
+                tags[t] += 1
         return list(tags.items())
 
+    def list_(self, arg):
+        pass
 
-    # ==== Manage entries ====================================================
+    def close_popup(self):
+        pass
 
-    def filter_entries(self, arg, reapply=False):
-        # Reset filter if no argument
+    def regenerate_visible_entries(self, entries=None, active_filters=None,
+                                   attributedata=None, sort_by=None, reverse=None):
+        """
+        Convenience method to regenerate all the visible entries from scratch
+        using the active filters, the full entries list (not the
+        visible_entries) and the sort order.
+
+        Each of the variables can be overriden by their appropriate keyword
+        argument if needed.
+
+        NOTE: This should return stuff b/c of clarity, despite the fact that
+        it should always return it into the self.visible_entries variable.
+        """
+        return taggedlist.generate_visible_entries(
+            self.entries if entries is None else entries,
+            self.active_filters if active_filters is None else active_filters,
+            self.attributedata if attributedata is None else attributedata,
+            self.sorted_by[0] if sort_by is None else sort_by,
+            self.sorted_by[1] if reverse is None else reverse
+        )
+
+    def filter_entries(self, arg):
+        """
+        The main filter method, called by terminal command.
+
+        If arg is not present, reset the filters.
+        If arg is a - (dash), remove the last applied filter and regenerate
+        all the visible entries.
+        """
         if not arg:
-            self.current_filters = []
-            self.entries = self.all_entries.copy()
-            self.refresh_view()
-            return
-        if len(arg) == 1:
-            return #TODO
-
-        cmd, payload = arg[0].lower(), arg[1:].strip().lower()
-        def generic_filter(key):
-            self.entries = [x for x in self.entries if payload in x[key].lower()]
-
-        # Filter on title (name)
-        if cmd == 'n':
-            generic_filter('title')
-
-        # Filter on description
-        elif cmd == 'd':
-            generic_filter('description')
-
-        # Filter on tags
-        elif cmd == 't':
-            try:
-                tag_filter = compile_tag_filter(payload)
-            except SyntaxError as e:
-                self.error.emit(str(e))
-                return
-            try:
-                entries = [x for x in self.entries
-                           if parse_tag_filter(tag_filter, x['tags'])]
-            except SyntaxError as e:
-                self.error.emit(str(e))
+            self.active_filters = ()
+            visible_entries = self.regenerate_visible_entries()
+            resultstr = 'Filters reset'
+        # Remove last filter
+        elif arg.strip() == '-':
+            if self.active_filters == ():
+                self.error.emit('No filter to remove')
                 return
             else:
-                self.entries = entries
-
-        # Filter on length
-        elif cmd == 'l':
-            from operator import lt,gt,le,ge
-            def tonum(num):
-                return int(num[:-1])*1000 if num.endswith('k') else int(num)
-            compfuncs = {'<':lt, '>':gt, '<=':le, '>=':ge}
-            rx = re.compile(r'([<>][=]?)(\d+k?)')
-            expressions = [(compfuncs[match.group(1)], tonum(match.group(2)))
-                           for match in rx.finditer(payload)]
-            def matches(x):
-                for f, num in expressions:
-                    if not f(x['length'], num):
-                        return False
-                return True
-            self.entries = list(filter(matches, self.entries))
-
-        if cmd in 'ndtl' and not reapply:
-            self.current_filters.append(cmd + ' ' + payload)
+                self.active_filters = self.active_filters[:-1]
+                visible_entries = self.regenerate_visible_entries()
+                resultstr = 'Last filter removed: {}/{} entries visible'
+        # Invalid filter command
+        elif len(arg.strip()) == 1:
+            self.error.emit('No filter argument specified')
+            return
+        # Main filter function stuff below
+        else:
+            cmd, payload = arg[0].lower(), arg[1:].strip().lower()
+            filters = {'n': 'title',
+                       'd': 'description',
+                       't': 'tags',
+                       'l': 'length'}
+            if cmd not in filters:
+                self.error.emit('Unknown attribute to filter on: "{}"'.format(cmd))
+                return
+            self.active_filters = self.active_filters + ((filters[cmd], payload),)
+            try:
+                visible_entries = taggedlist.filter_entries(self.visible_entries,
+                                                            self.active_filters[-1:],
+                                                            self.attributedata)
+            except SyntaxError as e:
+                # This should be an error from the tag parser
+                self.error.emit('[Tag parsing] {}'.format(e))
+                return
+            resultstr = 'Filtered: {}/{} entries visible'
+        # Only actually update stuff if the entries have changed
+        if visible_entries != self.visible_entries:
+            self.visible_entries = visible_entries
             self.refresh_view()
-            filtered = len(self.entries)
-            total = len(self.all_entries)
-            self.print_.emit('Filtered: {}/{} entries visible'.format(filtered, total))
-
+        # Print the output
+        filtered, total = len(self.visible_entries), len(self.entries)
+        self.print_.emit(resultstr.format(filtered, total))
 
     def sort_entries(self, arg):
+        """
+        The main sort method, called by terminal command.
+
+        If arg is not specified, print the current sort order.
+        """
         acronyms = {'n': 'title', 'l': 'length'}
-        if not arg or arg[0] not in acronyms:
-            return #TODO
-        reverse = False
-        if len(arg) > 1 and arg[1] == '-':
-            reverse = True
-        self.entries.sort(key=itemgetter(acronyms[arg[0]]), reverse=reverse)
-        self.refresh_view()
-
-
-    def open_entry(self, num):
-        if not isinstance(num, int):
+        if not arg:
+            attr = self.sorted_by[0]
+            order = ('ascending', 'descending')[self.sorted_by[1]]
+            self.print_.emit('Sorted by {}, {}'.format(attr, order))
             return
-        if num not in range(len(self.entries)) or not self.entries[num]['page']:
+        if arg[0] not in acronyms:
+            self.error.emit('Unknown attribute to sort by: "{}"'.format(arg[0]))
             return
-        self.view_entry.emit(self.entries[num])
-
+        if not re.fullmatch(r'[nl]-?\s*', arg):
+            self.error.emit('Incorrect sort command')
+            return
+        reverse = arg.strip().endswith('-')
+        self.sorted_by = (acronyms[arg[0]], reverse)
+        sorted_entries = taggedlist.sort_entries(self.visible_entries,
+                                                 acronyms[arg[0]],
+                                                 self.attributedata,
+                                                 reverse)
+        if sorted_entries != self.visible_entries:
+            self.visible_entries = sorted_entries
+            self.refresh_view()
 
     def edit_entry(self, arg):
-        def find_entry_id(metadatafile, entries):
-            for n,e in enumerate(entries):
-                if metadatafile == e['metadatafile']:
-                    return n
+        """
+        The main edit method, called by terminal command.
 
-        def set_data(metadatafile, category, payload):
-            metadata = read_json(metadatafile)
-            metadata[category] = payload
-            write_json(metadatafile, metadata)
-            entry_id = find_entry_id(metadatafile, self.entries)
-            if entry_id is not None:
-                self.entries[entry_id][category] = payload
-            self.all_entries[find_entry_id(metadatafile, self.all_entries)][category] = payload
-            self.refresh_view(keep_position=True)
-
-        def update_entry_list(selected_entries, entries, revert):
-            for n,entry in enumerate(entries):
-                if entry['metadatafile'] in selected_entries:
-                    entries[n]['tags'] = selected_entries[entry['metadatafile']][revert]
-
-        if arg.strip().lower() == 'u':
-            if not self.undo_stack:
+        If arg is "u", undo the last edit.
+        Otherwise, either replace/add/remove tags from the visible entries
+        or edit attributes of a single entry.
+        """
+        if arg.strip() == 'u':
+            if not self.undostack:
                 self.error.emit('Nothing to undo')
-            else:
-                if isinstance(self.undo_stack[-1], dict):
-                    selected_entries = self.undo_stack.pop()
-                    update_entry_list(selected_entries, self.all_entries, True)
-                    update_entry_list(selected_entries, self.entries, True)
-                    for metadatafile, entry in selected_entries.items():
-                        metadata = read_json(metadatafile)
-                        metadata['tags'] = entry[1]
-                        write_json(metadatafile, metadata)
-                    self.refresh_view(keep_position=True)
-                else:
-                    set_data(*self.undo_stack.pop())
+                return
+            undoitem = self.undostack[-1]
+            self.undostack = self.undostack[:-1]
+            self.entries = taggedlist.undo(self.entries, undoitem)
+            self.visible_entries = self.regenerate_visible_entries()
+            self.refresh_view(keep_position=True)
+            if not self.dry_run:
+                write_metadata(undoitem)
+            self.print_.emit('{} edits reverted'.format(len(undoitem)))
             return
-
-        replace_tags = re.match(r't\*\s*(.*?)\s*,\s*(.*?)\s*$', arg)
+        replace_tags = re.fullmatch(r't\*\s*(.*?)\s*,\s*(.*?)\s*', arg)
+        main_data = re.fullmatch(r'[dtn](\d+)(.*)', arg)
+        # Replace/add/remove a bunch of tags
         if replace_tags:
             oldtag, newtag = replace_tags.groups()
             if not oldtag and not newtag:
+                self.error.emit('No tags specified, nothing to do')
                 return
-            selected_entries = {}
-            for n,x in enumerate(self.entries):
-                if oldtag in x['tags'] or not oldtag:
-                    metadata = read_json(x['metadatafile'])
-                    oldtags = metadata['tags'].copy()
-                    if oldtag:
-                        metadata['tags'].remove(oldtag)
-                    if newtag:
-                        metadata['tags'] = list(set(metadata['tags'] + [newtag]))
-                    write_json(x['metadatafile'], metadata)
-                    self.entries[n]['tags'] = metadata['tags']
-                    selected_entries[x['metadatafile']] = (metadata['tags'], oldtags)
-            self.undo_stack.append(selected_entries)
-            update_entry_list(selected_entries, self.all_entries, False)
-            self.refresh_view(keep_position=True)
+            entries = taggedlist.replace_tags(oldtag,
+                                              newtag,
+                                              self.entries,
+                                              self.visible_entries,
+                                              'tags')
+            if entries != self.entries:
+                old, changed = taggedlist.get_diff(self.entries, entries)
+                self.undostack = self.undostack + (old,)
+                self.entries = entries
+                self.visible_entries = self.regenerate_visible_entries()
+                self.refresh_view(keep_position=True)
+                if not self.dry_run:
+                    write_metadata(changed)
+                self.print_.emit('Edited tags in {} entries'.format(len(changed)))
+            else:
+                self.error.emit('No tags edited')
+        # Edit a single entry
+        elif main_data:
+            entry_id = int(main_data.group(1))
+            if entry_id >= len(self.visible_entries):
+                self.error.emit('Index out of range')
+                return
+            payload = main_data.group(2).strip()
+            category = {'d': 'description', 'n': 'title', 't': 'tags'}[arg[0]]
+            # No data specified, so the current is provided instead
+            if not payload:
+                data = getattr(self.visible_entries[entry_id], category)
+                new = ', '.join(sorted(data)) if arg[0] == 't' else data
+                self.set_terminal_text.emit('e' + arg.strip() + ' ' + new)
+            else:
+                index = self.visible_entries[entry_id][0]
+                entries = taggedlist.edit_entry(index,
+                                                self.entries,
+                                                category,
+                                                payload,
+                                                self.attributedata)
+                if entries != self.entries:
+                    self.undostack = self.undostack + ((self.visible_entries[entry_id],),)
+                    self.entries = entries
+                    self.visible_entries = self.regenerate_visible_entries()
+                    self.refresh_view(keep_position=True)
+                    if not self.dry_run:
+                        write_metadata((self.entries[index],))
+                    self.print_.emit('Entry edited')
+        else:
+            self.error.emit('Invalid edit command')
 
 
-        main_data = re.match(r'[dtn](\d+)(.*)$', arg)
-        if not main_data:
-            return
-        entry_id, payload = main_data.groups()
-        entry_id = int(entry_id)
-        if entry_id >= len(self.entries):
+    def open_entry(self, arg):
+        """
+        Main open entry method, called by the terminal.
+
+        arg should be the index of the entry to be viewed.
+        """
+        if not isinstance(arg, int):
+            raise AssertionError('BAD CODE: the open entry arg should be an int')
+        if arg not in range(len(self.visible_entries)):
             self.error.emit('Index out of range')
             return
-        payload = payload.strip()
-        category = {'d': 'description', 'n': 'title', 't': 'tags'}[arg[0]]
-
-        # No data specified, so the current is provided instead
-        if not payload:
-            data = self.entries[entry_id][category]
-            new = ', '.join(data) if arg[0] == 't' else data
-            self.set_terminal_text.emit('e' + arg + ' ' + new)
-        # Update the chosen data with new stuff
-        else:
-            # Convert the string to a list if tags
-            if arg[0] == 't':
-                payload = list(set(re.split(r'\s*,\s*', payload)))
-            metadatafile = self.entries[entry_id]['metadatafile']
-            self.undo_stack.append((metadatafile, category, self.entries[entry_id][category]))
-            set_data(metadatafile, category, payload)
+        self.view_entry.emit(self.visible_entries[arg])
 
 
     def count_length(self, arg):
-        total_length = sum(x['length'] for x in self.entries)
-        self.print_.emit(str(total_length))
+        """
+        Main count length method, called by terminal command.
+        """
+        self.print_.emit(str(sum(x.length for x in self.visible_entries)))
 
 
     def external_run_entry(self, arg):
+        """
+        Main external run method, called by terminal command.
+        """
         if not arg.isdigit():
+            self.error.emit('Invalid entry specified, has to be a number')
             return
-        if not int(arg) in range(len(self.entries)):
+        if not int(arg) in range(len(self.visible_entries)):
             self.error.emit('Index out of range')
             return
         if not self.settings.get('editor', None):
             self.error.emit('No editor command defined')
             return
-        subprocess.Popen([self.settings['editor'], self.entries[int(arg)]['page']])
+        subprocess.Popen([self.settings['editor'],
+                          self.visible_entries[int(arg)].file])
+        self.print_.emit('Opening entry with {}'.format(self.settings['editor']))
 
 
+def load_html_templates():
+    html = namedtuple('HTMLTemplates', 'entry index_page tags')
+    path = lambda fname: local_path(join('templates', fname))
+    return html(read_file(path('entry_template.html')),
+                read_file(path('index_page_template.html')),
+                read_file(path('tags_template.html')))
 
-# ==== Generating functions =======================================
-
-def index_stories(data):
+@taggedlist.generate_entrylist
+def index_stories(path):
     """
     Find all files that match the filter, and return a sorted list
     of them with wordcount, paths and all data from the metadata file.
     """
-    wordcount_rx = re.compile(r'\S+')
-    entries = []
-
-    def add_entry(metadatafile, file):
-        metadata = read_json(metadatafile)
-        with open(file) as f:
-            length = len(wordcount_rx.findall(f.read()))
-        metadata.update({'length': length,
-                         'page': file,
-                         'metadatafile': metadatafile})
-        entries.append(metadata)
-
-    metaname = lambda x: '.'+x+'.metadata'
-    files = [(join(dirpath, fname), join(dirpath, metaname(fname)))
-             for dirpath, _, filenames in os.walk(data['path'])
+    attributes = (
+        ('title', {'filter': 'text', 'parser': 'text'}),
+        ('tags', {'filter': 'tags', 'parser': 'tags'}),
+        ('description', {'filter': 'text', 'parser': 'text'}),
+        ('length', {'filter': 'number'}),
+        ('file', {}),
+        ('metadatafile', {}),
+    )
+    metafile = lambda dirpath, fname: join(dirpath, '.'+fname+'.metadata')
+    files = ((read_json(metafile(dirpath, fname)),
+             join(dirpath, fname), metafile(dirpath, fname))
+             for dirpath, _, filenames in os.walk(path)
              for fname in filenames
-             if os.path.exists(join(dirpath, metaname(fname)))]
-    for file, metadatafile in files:
-        add_entry(metadatafile, file)
-    return sorted(entries, key=itemgetter('title'))
+             if exists(metafile(dirpath, fname)))
+    entries = ((metadata['title'],
+                frozenset(metadata['tags']),
+                metadata['description'],
+                len(re.findall(r'\S+', read_file(fname))),
+                fname,
+                metadatafile)
+               for metadata, fname, metadatafile in files)
+    return attributes, entries
 
 
-def generate_index(raw_entries, tagcolors, css):
+def generate_html_body(visible_entries, tagstemplate, entrytemplate, tagcolors):
     """
-    Return a generated html index page from the list of entries
-    provided in raw_entries.
+    Return html generated from the visible entries.
     """
     def format_tags(tags):
-        tag_template = '<span class="tag" style="background-color:{color};">{tag}</span>'
-        return '<wbr>'.join([
-            tag_template.format(tag=x.replace(' ', '&nbsp;').replace('-', '&#8209;'),
-                                color=tagcolors.get(x, '#677'))
-            for x in sorted(tags)
-        ])
+        return '<wbr>'.join(
+            tagstemplate.format(tag=t.replace(' ', '&nbsp;').replace('-', '&#8209;'),
+                                color=tagcolors.get(t, '#677'))
+            for t in sorted(tags))
     def format_desc(desc):
         return desc if desc else '<span class="empty_desc">[no desc]</span>'
+    entries = (entrytemplate.format(title=entry.title, id=n,
+                               tags=format_tags(entry.tags),
+                               desc=format_desc(entry.description),
+                               length=entry.length)
+               for n,entry in enumerate(visible_entries))
+    return '<hr />'.join(entries)
 
-    entrystr = read_file(local_path('entry_template.html'))
-    entries = [entrystr.format(title=s['title'], id=n,
-                               tags=format_tags(s['tags']),
-                               desc=format_desc(s['description']),
-                               length=s['length'])
-               for n,s in enumerate(raw_entries)]
-    body = '<hr />'.join(entries)
-    return '<style type="text/css">{css}</style>\
-            <body>{body}</body>'.format(body=body, css=css)
+def write_metadata(entries):
+    for entry in entries:
+        metadata = {
+            'title': entry.title,
+            'description': entry.description,
+            'tags': list(entry.tags)
+        }
+        write_json(entry.metadatafile, metadata)

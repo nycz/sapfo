@@ -79,7 +79,7 @@ class ViewerFrame(QtGui.QFrame):
         self.setEnabled(True)
         self.data = data
         self.info_panel.set_data(data)
-        self.rawtext = format_rawtext(read_file(data['page']), self.formatconverters,
+        self.rawtext = format_rawtext(read_file(data.file), self.formatconverters,
                                       self.chapterstrings)
         self.set_html()
 
@@ -90,7 +90,7 @@ class ViewerFrame(QtGui.QFrame):
         frame.setScrollBarValue(Qt.Vertical, pos)
 
     def set_html(self):
-        html = self.template.format(title=self.data['title'], body=self.rawtext, css=self.css)
+        html = self.template.format(title=self.data.title, body=self.rawtext, css=self.css)
         self.webview.setHtml(html)
 
 
