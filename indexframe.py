@@ -1,4 +1,5 @@
 from collections import namedtuple, defaultdict
+from operator import itemgetter
 import os
 from os.path import exists, join
 import re
@@ -80,10 +81,30 @@ class IndexFrame(QtWebKit.QWebView):
         return list(tags.items())
 
     def list_(self, arg):
-        pass
+        if arg.startswith('f'):
+            filters = ('{} {}'.format(cmd, payload) for cmd, payload in self.active_filters)
+            if self.active_filters:
+                self.print_.emit(', '.join(filters))
+            else:
+                self.error.emit('No active filters')
+        elif arg.startswith('t'):
+            # Sort alphabetically or after uses
+            sortarg = 1
+            if len(arg) == 2 and arg[1] == 'a':
+                sortarg = 0
+            self.old_pos = self.page().mainFrame().scrollBarValue(Qt.Vertical)
+            entry_template = '<div class="list_entry"><span class="tag" style="background-color:{color};">{tagname}</span><span class="length">({count:,})</span></div>'
+            t_entries = (entry_template.format(color=self.settings['tag colors'].get(tag, '#677'),
+                                               tagname=tag, count=num)
+                         for tag, num in sorted(self.get_tags(), key=itemgetter(sortarg), reverse=sortarg))
+            body = '<br>'.join(t_entries)
+            self.setHtml('<style type="text/css">{css}</style>\
+                          <body><div id="taglist">{body}</div></body>'.format(body=body, css=self.css))
+            self.init_popup.emit()
 
     def close_popup(self):
-        pass
+        self.refresh_view()
+        self.page().mainFrame().setScrollBarValue(Qt.Vertical, self.old_pos)
 
     def regenerate_visible_entries(self, entries=None, active_filters=None,
                                    attributedata=None, sort_by=None, reverse=None):
