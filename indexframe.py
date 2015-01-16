@@ -290,9 +290,17 @@ class IndexFrame(QtWebKit.QWebView):
         Main external run method, called by terminal command.
         """
         if not arg.isdigit():
-            self.error.emit('Invalid entry specified, has to be a number')
-            return
-        if not int(arg) in range(len(self.visible_entries)):
+            partialnames = [n for n, entry in enumerate(self.visible_entries)
+                            if arg.lower() in entry.title.lower()]
+            if not partialnames:
+                self.error.emit('Entry not found: "{}"'.format(arg))
+                return
+            elif len(partialnames) > 1:
+                self.error.emit('Ambiguous name, matches {} entries'.format(len(partialnames)))
+                return
+            elif len(partialnames) == 1:
+                arg = partialnames[0]
+        elif not int(arg) in range(len(self.visible_entries)):
             self.error.emit('Index out of range')
             return
         if not self.settings.get('editor', None):
@@ -338,7 +346,6 @@ def index_stories(path):
                 metadatafile)
                for metadata, fname, metadatafile in files)
     return attributes, entries
-
 
 def generate_html_body(visible_entries, tagstemplate, entrytemplate, tagcolors):
     """

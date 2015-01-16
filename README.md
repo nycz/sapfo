@@ -127,6 +127,8 @@ Tab-/autocompletion works for tag commands: `ft` and `et`.
 * `<number>` – open the entry with the corresponding number
 * `x<number>` – open the entry with the chosen program/command
     * Make sure you set the `editor` value in config to the program to open the entry with.
+* `x<text> – open the entry with `<text>` in the title with the chosen program/command
+    * If multiple entries match, nothing will be opened.
 * `q` – quit
 
 #####New entry#####
