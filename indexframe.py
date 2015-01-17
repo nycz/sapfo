@@ -149,7 +149,7 @@ class IndexFrame(QtWebKit.QWebView):
                 visible_entries = self.regenerate_visible_entries()
                 resultstr = 'Last filter removed: {}/{} entries visible'
         # Invalid filter command
-        elif len(arg.strip()) == 1:
+        elif len(arg.strip()) == 1 and arg[0] == 'l':
             self.error.emit('No filter argument specified')
             return
         # Main filter function stuff below
