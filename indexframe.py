@@ -40,6 +40,15 @@ class IndexFrame(QtWebKit.QWebView):
         self.settings = new_settings
         self.reload_view()
 
+    def zoom(self, arg):
+        if arg == 'in':
+            self.setZoomFactor(self.zoomFactor()+0.1)
+        elif arg == 'out':
+            self.setZoomFactor(self.zoomFactor()-0.1)
+        elif arg == 'reset':
+            self.setZoomFactor(1)
+
+
     def reload_view(self):
         """
         Reload the entrylist by scanning the metadata files and then refresh
@@ -202,7 +211,6 @@ class IndexFrame(QtWebKit.QWebView):
         self.sorted_by = (acronyms[arg[0]], reverse)
         sorted_entries = taggedlist.sort_entries(self.visible_entries,
                                                  acronyms[arg[0]],
-                                                 self.attributedata,
                                                  reverse)
         if sorted_entries != self.visible_entries:
             self.visible_entries = sorted_entries

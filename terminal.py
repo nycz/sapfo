@@ -5,6 +5,7 @@ import re
 from PyQt4 import QtGui
 from PyQt4.QtCore import pyqtSignal, Qt, QEvent
 
+from libsyntyche.common import set_hotkey
 from libsyntyche.terminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
 
 
@@ -36,12 +37,14 @@ class Terminal(GenericTerminal):
     list_ = pyqtSignal(str)
     new_entry = pyqtSignal(str)
     count_length = pyqtSignal(str)
+    zoom = pyqtSignal(str)
 
     def __init__(self, parent, get_tags):
         super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox)
         self.get_tags = get_tags
         self.rootpath = ''
         self.autocomplete_type = '' # 'path' or 'tag'
+        self.hotkeys_set = False
 
         self.commands = {
             'f': (self.filter_, 'Filter'),
@@ -54,6 +57,17 @@ class Terminal(GenericTerminal):
             'n': (self.new_entry, 'New entry'),
             'c': (self.count_length, 'Count total length')
         }
+
+    def set_hotkeys(self, hotkeys):
+        if self.hotkeys_set:
+            return
+        self.hotkeys_set = True
+        for key in hotkeys['zoom in']:
+            set_hotkey(key, self, lambda: self.zoom.emit('in'))
+        for key in hotkeys['zoom out']:
+            set_hotkey(key, self, lambda: self.zoom.emit('out'))
+        for key in hotkeys['reset zoom']:
+            set_hotkey(key, self, lambda: self.zoom.emit('reset'))
 
     def command_parsing_injection(self, arg):
         if arg.isdigit():

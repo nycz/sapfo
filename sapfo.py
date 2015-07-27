@@ -70,6 +70,7 @@ class MainWindow(QtGui.QFrame):
             (t.count_length,            iv.count_length),
             (t.external_edit,           iv.external_run_entry),
             (t.new_entry,               self.new_entry),
+            (t.zoom,                    iv.zoom),
             (self.story_viewer.show_index, self.show_index),
             (t.quit,                    self.close),
             (iv.view_entry,             self.view_entry),
@@ -148,6 +149,7 @@ class MainWindow(QtGui.QFrame):
             self.index_viewer.update_settings(settings)
             self.story_viewer.update_settings(settings)
             self.terminal.rootpath = settings['path']
+            self.terminal.set_hotkeys(settings['hotkeys'])
         if style != self.style:
             self.style = style.copy()
             self.update_style(style)
