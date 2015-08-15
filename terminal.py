@@ -34,6 +34,7 @@ class Terminal(GenericTerminal):
     quit = pyqtSignal(str)
     edit = pyqtSignal(str)
     external_edit = pyqtSignal(str)
+    open_meta = pyqtSignal(str)
     list_ = pyqtSignal(str)
     new_entry = pyqtSignal(str)
     count_length = pyqtSignal(str)
@@ -53,6 +54,7 @@ class Terminal(GenericTerminal):
             'q': (self.quit, 'Quit'),
             '?': (self.cmd_help, 'List commands or help for [command]'),
             'x': (self.external_edit, 'Open in external program/editor'),
+            'm': (self.open_meta, 'Open in meta viewer'),
             'l': (self.list_, 'List'),
             'n': (self.new_entry, 'New entry'),
             'c': (self.count_length, 'Count total length')

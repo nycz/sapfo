@@ -14,6 +14,7 @@ from libsyntyche import common
 from terminal import Terminal
 from indexframe import IndexFrame
 from viewerframe import ViewerFrame
+from metaframe import MetaFrame
 
 
 class MainWindow(QtGui.QFrame):
@@ -46,6 +47,10 @@ class MainWindow(QtGui.QFrame):
         self.story_viewer = ViewerFrame(self)
         self.stack.addWidget(self.story_viewer)
 
+        # Meta viewer
+        self.meta_viewer = MetaFrame(self)
+        self.stack.addWidget(self.meta_viewer)
+
         # Load settings
         self.defaultstyle = common.read_json(common.local_path('defaultstyle.json'))
         self.css_template = common.read_file(common.local_path('template.css'))
@@ -69,11 +74,15 @@ class MainWindow(QtGui.QFrame):
             (t.list_,                   iv.list_),
             (t.count_length,            iv.count_length),
             (t.external_edit,           iv.external_run_entry),
+            (t.open_meta,               iv.open_meta),
             (t.new_entry,               self.new_entry),
             (t.zoom,                    iv.zoom),
             (self.story_viewer.show_index, self.show_index),
+            (self.meta_viewer.show_index, self.show_index),
             (t.quit,                    self.close),
+            (self.meta_viewer.quit,     self.close),
             (iv.view_entry,             self.view_entry),
+            (iv.view_meta,              self.view_meta),
             (iv.error,                  t.error),
             (iv.print_,                 t.print_),
             (iv.init_popup,             self.popup_mode),
@@ -131,6 +140,11 @@ class MainWindow(QtGui.QFrame):
         self.stack.setCurrentWidget(self.story_viewer)
 
 
+    def view_meta(self, entry):
+        self.meta_viewer.set_entry(entry)
+        self.stack.setCurrentWidget(self.meta_viewer)
+
+
     def popup_mode(self):
         self.popup = 2
 
@@ -148,6 +162,7 @@ class MainWindow(QtGui.QFrame):
             self.settings = copy.deepcopy(settings)
             self.index_viewer.update_settings(settings)
             self.story_viewer.update_settings(settings)
+            self.meta_viewer.update_settings(settings)
             self.terminal.rootpath = settings['path']
             self.terminal.set_hotkeys(settings['hotkeys'])
         if style != self.style:

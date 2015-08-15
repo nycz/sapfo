@@ -76,5 +76,24 @@
 
   "scrollbar index slider color": "#111c1c",
   "scrollbar viewer slider color": "black",
-  "scrollbar width": "15px"
+  "scrollbar width": "15px",
+
+  "metaframe background": "#222",
+  "metaframe margin background": "#080808",
+  "metaframe page border color": "black",
+  "metaframe page width": "1000px",
+  "metaframe font": "Serif",
+  "metaframe font size": "11px",
+  "metaframe text color": "#ddd",
+  "metaframe title font": "Sans-serif",
+  "metaframe title font size": "24px",
+  "metaframe tab bar background": "#181818",
+  "metaframe tab background": "#181818",
+  "metaframe tab color": "#ddd",
+  "metaframe tab font": "Sans-serif",
+  "metaframe tab font size": "12px",
+  "metaframe selected tab background": "#333",
+  "metaframe selected tab color": "#ddd",
+  "metaframe scrollbar width": "15px",
+  "metaframe scrollbar slider color": "#111"
 }

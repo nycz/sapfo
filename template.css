@@ -28,3 +28,82 @@ GenericTerminalOutputBox {{
     color: {terminal output text color};
     background: {terminal output background};
 }}
+
+/* METAFRAME */
+MetaFrame {{
+    background: {metaframe margin background};
+}}
+MetaTextEdit {{
+    background: {metaframe background};
+    color: {metaframe text color};
+    font-family: "{metaframe font}";
+    font-size: {metaframe font size};
+    border: 0px;
+    border-left: 2px solid {metaframe page border color};
+    border-right: 2px solid {metaframe page border color};
+    max-width: {metaframe page width};
+}}
+MetaTitle {{
+    color: {metaframe tab color};
+    background: {metaframe tab bar background};
+    font-family: "{metaframe title font}";
+    font-size: {metaframe title font size};
+    font-weight: bold;
+    text-decoration: underline;
+    padding: 10px;
+}}
+MetaTabCounter {{
+    color: {metaframe tab color};
+    background: {metaframe tab bar background};
+    border-bottom: 2px solid {metaframe page border color};
+    font-family: "{metaframe tab font}";
+    font-size: {metaframe tab font size};
+    font-style: italic;
+    font-weight: bold;
+    padding: 4px;
+}}
+QTabBar {{
+    alignment: center;
+    border-bottom: 2px solid {metaframe page border color};
+    background: {metaframe tab bar background};
+    font-family: "{metaframe tab font}";
+    font-size: {metaframe tab font size};
+    outline: 0;
+}}
+QTabBar::tab {{
+    color: {metaframe tab color};
+    background: {metaframe tab background};
+    padding: 8px 10px;
+    margin-bottom: 2px;
+}}
+QTabBar::tab::selected {{
+    color: {metaframe selected tab color};
+    background: {metaframe selected tab background};
+}}
+QTabBar::tear {{
+    image: none;
+}}
+QTabBar::scroller {{
+    width: 0px;
+}}
+
+
+/* VERTICAL SCROLLBAR */
+QScrollBar:vertical {{
+    background: {metaframe background};
+    width: {metaframe scrollbar width};
+}}
+QScrollBar::handle:vertical {{
+    background: {metaframe scrollbar slider color};
+    min-height: 20px;
+}}
+QScrollBar::sub-line:vertical {{
+    height: 0px;
+}}
+QScrollBar::add-line:vertical {{
+    height: 0px;
+}}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+    background: none;
+}}

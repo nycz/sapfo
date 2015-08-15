@@ -11,5 +11,13 @@
   "editor": "",
   "tag colors": {},
   "formatting converters": [],
-  "chapter strings": []
+  "chapter strings": [],
+  "meta editor formats": {
+    "^#.+": "18,bold",
+    "^=.+": "16,bold",
+    "^\\+.+": "14,bold",
+    "\\*.+?\\*": "bold",
+    "_.+?_": "italic",
+    "~.+?~": "strikethrough"
+  }
 }

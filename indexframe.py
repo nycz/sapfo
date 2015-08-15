@@ -15,6 +15,7 @@ from libsyntyche import taggedlist
 class IndexFrame(QtWebKit.QWebView):
 
     view_entry = pyqtSignal(tuple)
+    view_meta = pyqtSignal(tuple)
     error = pyqtSignal(str)
     print_ = pyqtSignal(str)
     set_terminal_text = pyqtSignal(str)
@@ -305,6 +306,29 @@ class IndexFrame(QtWebKit.QWebView):
             self.error.emit('Index out of range')
             return
         self.view_entry.emit(self.visible_entries[arg])
+
+
+    def open_meta(self, arg):
+        """
+        Main open meta method, called by the terminal.
+
+        arg should be the index of the entry to be viewed in the meta viewer.
+        """
+        if not arg.isdigit():
+            partialnames = [n for n, entry in enumerate(self.visible_entries)
+                            if arg.lower() in entry.title.lower()]
+            if not partialnames:
+                self.error.emit('Entry not found: "{}"'.format(arg))
+                return
+            elif len(partialnames) > 1:
+                self.error.emit('Ambiguous name, matches {} entries'.format(len(partialnames)))
+                return
+            elif len(partialnames) == 1:
+                arg = partialnames[0]
+        elif not int(arg) in range(len(self.visible_entries)):
+            self.error.emit('Index out of range')
+            return
+        self.view_meta.emit(self.visible_entries[int(arg)])
 
 
     def count_length(self, arg):
