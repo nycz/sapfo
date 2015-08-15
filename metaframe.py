@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import os
 import os.path
@@ -170,7 +171,7 @@ class MetaFrame(QtGui.QFrame):
     def make_sure_metadir_exists(self, root):
         if not os.path.exists(root):
             os.mkdir(root)
-            data = json.dumps({'title': 'about.txt'})
+            data = json.dumps({'title': 'about.txt', 'created': datetime.now().isoformat()})
             write_file(join(root, 'about.txt'), data + '\n')
 
     def new_page(self, fname):
@@ -178,7 +179,7 @@ class MetaFrame(QtGui.QFrame):
         if os.path.exists(f):
             self.terminal.error('File already exists: "{}"'.format(fname))
             return
-        write_file(f, json.dumps({'title': fname}) + '\n')
+        write_file(f, json.dumps({'title': fname, 'created': datetime.now().isoformat()}) + '\n')
         self.files = sorted(self.files + [fname])
         i = self.files.index(fname)
         self.tabbar.insertTab(i, fname)
@@ -215,9 +216,14 @@ class MetaFrame(QtGui.QFrame):
         data = self.textarea.toPlainText()
         write_file(join(self.root, self.files[tabnum]), firstline + '\n' + data)
 
-    def print_filename(self, _):
+    def print_filename(self, arg):
         tabnum = self.tabbar.currentIndex()
-        self.terminal.print_(self.files[tabnum])
+        if arg == 'c':
+            firstline, _ = read_file(join(self.root, self.files[tabnum])).split('\n', 1)
+            date = json.loads(firstline)['created']
+            self.terminal.print_('File created at ' + date)
+        else:
+            self.terminal.print_(self.files[tabnum])
 
 # Testing formatting yo
 
