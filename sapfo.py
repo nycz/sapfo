@@ -11,6 +11,7 @@ from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import Qt
 
 from libsyntyche import common
+from libsyntyche.fileviewer import FileViewer
 from terminal import Terminal
 from indexframe import IndexFrame
 from viewerframe import ViewerFrame
@@ -34,7 +35,6 @@ class MainWindow(QtGui.QFrame):
         # Index viewer
         self.index_viewer = IndexFrame(self.index_widget, dry_run)
         layout.addWidget(self.index_viewer, stretch=1)
-        self.popup = False
 
         # Terminal
         self.terminal = Terminal(self.index_widget, self.index_viewer.get_tags)
@@ -50,6 +50,11 @@ class MainWindow(QtGui.QFrame):
         # Meta viewer
         self.meta_viewer = MetaFrame(self)
         self.stack.addWidget(self.meta_viewer)
+
+        # Popup viewer
+        self.popup_viewer = FileViewer(self)
+        self.stack.addWidget(self.popup_viewer)
+        common.set_hotkey('Home', self.popup_viewer, self.show_index)
 
         # Load settings
         self.defaultstyle = common.read_json(common.local_path('defaultstyle.json'))
@@ -85,7 +90,8 @@ class MainWindow(QtGui.QFrame):
             (iv.view_meta,              self.view_meta),
             (iv.error,                  t.error),
             (iv.print_,                 t.print_),
-            (iv.init_popup,             self.popup_mode),
+            (iv.show_popup,             self.show_popup),
+            (t.show_readme,             self.show_popup),
             (iv.set_terminal_text,      t.prompt)
         )
         for signal, slot in connects:
@@ -144,9 +150,9 @@ class MainWindow(QtGui.QFrame):
         self.meta_viewer.set_entry(entry)
         self.stack.setCurrentWidget(self.meta_viewer)
 
-
-    def popup_mode(self):
-        self.popup = 2
+    def show_popup(self, *args):
+        self.popup_viewer.set_page(*args)
+        self.stack.setCurrentWidget(self.popup_viewer)
 
 
     def reload_settings(self):
@@ -196,22 +202,13 @@ class MainWindow(QtGui.QFrame):
         if self.stack.currentWidget() == self.index_widget and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
             self.index_viewer.keyPressEvent(ev)
         else:
-            if self.popup:
-                if ev.key() == Qt.Key_Return:
-                    if self.popup > 1:
-                        self.popup -= 1
-                    else:
-                        self.index_viewer.close_popup()
-                        self.popup = False
-            else:
-                return super().keyPressEvent(ev)
+            return super().keyPressEvent(ev)
 
     def keyReleaseEvent(self, ev):
         if self.stack.currentWidget() == self.index_widget and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
             self.index_viewer.keyReleaseEvent(ev)
         else:
-            if not self.popup:
-                return super().keyReleaseEvent(ev)
+            return super().keyReleaseEvent(ev)
     # =================================================
 
 

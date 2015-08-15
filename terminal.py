@@ -5,7 +5,7 @@ import re
 from PyQt4 import QtGui
 from PyQt4.QtCore import pyqtSignal, Qt, QEvent
 
-from libsyntyche.common import set_hotkey
+from libsyntyche.common import set_hotkey, read_file, local_path
 from libsyntyche.terminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
 
 
@@ -39,6 +39,7 @@ class Terminal(GenericTerminal):
     new_entry = pyqtSignal(str)
     count_length = pyqtSignal(str)
     zoom = pyqtSignal(str)
+    show_readme = pyqtSignal(str, str, str, str)
 
     def __init__(self, parent, get_tags):
         super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox)
@@ -57,8 +58,12 @@ class Terminal(GenericTerminal):
             'm': (self.open_meta, 'Open in meta viewer'),
             'l': (self.list_, 'List'),
             'n': (self.new_entry, 'New entry'),
-            'c': (self.count_length, 'Count total length')
+            'c': (self.count_length, 'Count total length'),
+            'h': (self.cmd_show_readme, 'Show readme')
         }
+
+    def cmd_show_readme(self, arg):
+        self.show_readme.emit('', local_path('README.md'), None, 'markdown')
 
     def set_hotkeys(self, hotkeys):
         if self.hotkeys_set:

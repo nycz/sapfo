@@ -19,7 +19,7 @@ class IndexFrame(QtWebKit.QWebView):
     error = pyqtSignal(str)
     print_ = pyqtSignal(str)
     set_terminal_text = pyqtSignal(str)
-    init_popup = pyqtSignal()
+    show_popup = pyqtSignal(str, str, str, str)
 
     def __init__(self, parent, dry_run):
         super().__init__(parent)
@@ -108,13 +108,9 @@ class IndexFrame(QtWebKit.QWebView):
                                                tagname=tag, count=num)
                          for tag, num in sorted(self.get_tags(), key=itemgetter(sortarg), reverse=sortarg))
             body = '<br>'.join(t_entries)
-            self.setHtml('<style type="text/css">{css}</style>\
-                          <body><div id="taglist">{body}</div></body>'.format(body=body, css=self.css))
-            self.init_popup.emit()
-
-    def close_popup(self):
-        self.refresh_view()
-        self.page().mainFrame().setScrollBarValue(Qt.Vertical, self.old_pos)
+            html = '<style type="text/css">{css}</style>\
+                    <body><div id="taglist">{body}</div></body>'.format(body=body, css=self.css)
+            self.show_popup.emit(html, '', '', 'html')
 
     def regenerate_visible_entries(self, entries=None, active_filters=None,
                                    attributedata=None, sort_by=None, reverse=None):
