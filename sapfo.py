@@ -68,6 +68,12 @@ class MainWindow(QtGui.QFrame):
         self.connect_signals()
         self.show()
 
+    def closeEvent(self, event):
+        if self.stack.currentWidget() == self.meta_viewer:
+            if self.meta_viewer.textarea.document().isModified():
+                self.meta_viewer.cmd_save_current_page(None)
+        event.accept()
+
     def connect_signals(self):
         t, iv = self.terminal, self.index_viewer
         connects = (

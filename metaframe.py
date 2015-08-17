@@ -112,7 +112,6 @@ class TabBar(QtGui.QTabBar):
         self.pages.sort()
         i = next(zip(*self.pages)).index(fname)
         self.insertTab(i, fname)
-        # self.setCurrentIndex(i)
         return i
 
     def remove_page(self):
@@ -173,6 +172,9 @@ class MetaFrame(QtGui.QFrame):
 
         self.formatter = Formatter(self.textarea)
 
+        self.prevtab = 0
+        self.skipautosave = False
+
         set_hotkey('Ctrl+PgUp', self, lambda: self.tabbar.change_tab(-1))
         set_hotkey('Ctrl+PgDown', self, lambda: self.tabbar.change_tab(+1))
         set_hotkey('Ctrl+S', self, self.save_page)
@@ -205,11 +207,11 @@ class MetaFrame(QtGui.QFrame):
         connects = (
             (t.go_back,         self.show_index.emit),
             (t.quit,            self.quit.emit),
-            (t.new_page,        self.new_page),
-            (t.delete_page,     self.delete_page),
-            (t.rename_page,     self.rename_page),
-            (t.save_page,       self.save_page),
-            (t.print_filename,  self.print_filename),
+            (t.new_page,        self.cmd_new_page),
+            (t.delete_page,     self.cmd_delete_current_page),
+            (t.rename_page,     self.cmd_rename_current_page),
+            (t.save_page,       self.cmd_save_current_page),
+            (t.print_filename,  self.cmd_print_filename),
         )
         for signal, slot in connects:
             signal.connect(slot)
@@ -236,10 +238,18 @@ class MetaFrame(QtGui.QFrame):
         (eg. by mousewheel over the tab bar) or programmatically whenever the
         next/prev tab hotkeys are pressed.
         """
+        # Autosave
+        if not self.skipautosave:
+            if self.textarea.document().isModified():
+                self.save_page(self.prevtab)
+        self.skipautosave = False
+        self.prevtab = tabnum
+        # Update for the new page
         self.update_tabcounter()
         fname = self.current_page_path()
         firstline, data = read_file(fname).split('\n', 1)
         self.textarea.setPlainText(data)
+        self.textarea.document().setModified(False)
 
     def set_entry(self, entry):
         """
@@ -267,9 +277,15 @@ class MetaFrame(QtGui.QFrame):
         """ Return the current page's full path, including root dir """
         return join(self.root, self.tabbar.current_page_fname())
 
+    def save_page(self, page):
+        fname = join(self.root, self.tabbar.get_page_fname(page))
+        firstline, _ = read_file(fname).split('\n', 1)
+        data = self.textarea.toPlainText()
+        write_file(fname, firstline + '\n' + data)
+
     # ======= COMMANDS ========================================================
 
-    def new_page(self, fname):
+    def cmd_new_page(self, fname):
         f = join(self.root, fname)
         if os.path.exists(f):
             self.terminal.error('File already exists')
@@ -283,18 +299,20 @@ class MetaFrame(QtGui.QFrame):
             # Do this afterwards to have something to load into textarea
             self.tabbar.setCurrentIndex(newtab)
 
-    def delete_page(self, arg):
+    def cmd_delete_current_page(self, arg):
         if arg != '!':
             self.terminal.error('Use d! to confirm deletion')
             return
         try:
+            self.skipautosave = True
             fname = self.tabbar.remove_page()
         except IndexError as e:
             self.terminal.error(e.args[0])
+            self.skipautosave = False
         else:
             os.remove(join(self.root, fname))
 
-    def rename_page(self, title):
+    def cmd_rename_current_page(self, title):
         try:
             self.tabbar.rename_page(title)
         except KeyError as e:
@@ -306,13 +324,15 @@ class MetaFrame(QtGui.QFrame):
             jsondata['title'] = title
             write_file(fname, json.dumps(jsondata) + '\n' + data)
 
-    def save_page(self, _):
-        fname = self.current_page_path()
-        firstline, _ = read_file(fname).split('\n', 1)
-        data = self.textarea.toPlainText()
-        write_file(fname, firstline + '\n' + data)
+    def cmd_save_current_page(self, _):
+        self.save_page(self.tabbar.currentIndex())
+        # fname = self.current_page_path()
+        # firstline, _ = read_file(fname).split('\n', 1)
+        # data = self.textarea.toPlainText()
+        # write_file(fname, firstline + '\n' + data)
+        self.textarea.document().setModified(False)
 
-    def print_filename(self, arg):
+    def cmd_print_filename(self, arg):
         fname = self.current_page_path()
         if arg == 'c':
             firstline, _ = read_file(fname).split('\n', 1)
