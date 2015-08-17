@@ -148,7 +148,7 @@ class MetaFrame(QtGui.QFrame):
                 jsondata = json.loads(firstline)
             except ValueError:
                 self.terminal.print_('Bad/no properties found on page {}, fixing...'.format(f))
-                jsondata = json.dumps({'title': f})
+                jsondata = json.dumps({'title': f, 'created': datetime.now().isoformat()})
                 write_file(join(self.root, f), jsondata + '\n' + firstline + '\n' + data)
                 title = f
             else:
