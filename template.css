@@ -36,6 +36,8 @@ MetaFrame {{
 MetaTextEdit {{
     background: {metaframe background};
     color: {metaframe text color};
+    selection-color: {metaframe background};
+    selection-background-color: {metaframe text color};
     font-family: "{metaframe font}";
     font-size: {metaframe font size};
     border: 0px;
