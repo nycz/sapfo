@@ -253,16 +253,20 @@ class MetaFrame(QtGui.QFrame):
     def update_tabcounter(self):
         self.tabcounter.setText('{}/{}'.format(self.tabbar.currentIndex()+1, self.tabbar.count()))
 
-
     def save_tab(self):
+        """
+        Attempt to save the active tab, both the text and the scrollbar/cursor
+        position.
+
+        Return True if it succeeds, return False if it fails.
+        """
         currenttab = self.tabbar.currentIndex()
         if self.textarea.document().isModified():
             try:
-                fname = join(self.root, self.tabbar.get_page_fname(currenttab))
+                fname = join(self.root, self.tabbar.current_page_fname())
                 firstline, _ = read_file(fname).split('\n', 1)
                 data = self.textarea.toPlainText()
                 write_file(fname, firstline + '\n' + data)
-                # self.save_page(currenttab)
             except Exception as e:
                 print(str(e))
                 self.terminal.error('Something went wrong when saving! (Use q! or b! to force)')
@@ -274,6 +278,11 @@ class MetaFrame(QtGui.QFrame):
         return True
 
     def load_tab(self, newtab):
+        """
+        Load a new tab with the correct data and scrollbar/cursor position.
+
+        Note that this does not in any way save existing data.
+        """
         self.tabbar.setCurrentIndex(newtab)
         self.update_tabcounter()
         fname = self.current_page_path()
@@ -288,6 +297,13 @@ class MetaFrame(QtGui.QFrame):
         self.textarea.verticalScrollBar().setSliderPosition(scrollpos)
 
     def set_tab_index(self, newtab):
+        """
+        This is called whenever the tab is changed, i.e. when either of these
+        things happen:
+        * left mouse press on tab
+        * mouse wheel scroll event on tab
+        * ctrl pgup/pgdn
+        """
         # Save the old tab if needed
         success = self.save_tab()
         if success:
@@ -295,51 +311,18 @@ class MetaFrame(QtGui.QFrame):
             self.load_tab(newtab)
 
 
-    # def tab_changed(self, tabnum, doclean=False):
-    #     """
-    #     This is called every time the tab is changed, either "automatically"
-    #     (eg. by mousewheel over the tab bar) or programmatically whenever the
-    #     next/prev tab hotkeys are pressed.
-    #     """
-    #     print('tab change slot')
-    #     # Autosave
-    #     if not self.skipautosave and not doclean:
-    #         if self.textarea.document().isModified():
-    #             self.save_page(self.prevtab)
-    #         cursorpos = self.textarea.textCursor().position()
-    #         scrollpos = self.textarea.verticalScrollBar().sliderPosition()
-    #         self.tabbar.set_page_position(self.prevtab, cursorpos, scrollpos)
-    #     self.skipautosave = False
-    #     self.prevtab = tabnum
-    #     # Update for the new page
-    #     self.update_tabcounter()
-    #     fname = self.current_page_path()
-    #     firstline, data = read_file(fname).split('\n', 1)
-    #     self.textarea.setPlainText(data)
-    #     self.textarea.document().setModified(False)
-    #     # Set the scrollbar/cursor positions
-    #     cursorpos, scrollpos = self.tabbar.get_page_position(tabnum)
-    #     tc = self.textarea.textCursor()
-    #     tc.setPosition(cursorpos)
-    #     self.textarea.setTextCursor(tc)
-    #     self.textarea.verticalScrollBar().setSliderPosition(scrollpos)
-
     def set_entry(self, entry):
         """
         Load an entry, filling the tab bar with all pages etc.
 
         This is the first thing that's called whenever the metaviewer is booted up.
         """
-        # self.tabbar.currentChanged.disconnect(self.tab_changed)
         self.terminal.clear()
         self.root = entry.file + '.metadir'
         self.skipautosave = False
         self.prevtab = 0
         self.make_sure_metadir_exists(self.root)
         self.tabbar.open_entry(self.root)
-        # self.tabbar.currentChanged.connect(self.tab_changed)
-        # self.tab_changed(0, doclean=True)
-        # self.update_tabcounter()
         self.load_tab(0)
         self.titlelabel.setText(entry.title)
         self.textarea.setFocus()
@@ -357,12 +340,6 @@ class MetaFrame(QtGui.QFrame):
         """ Return the current page's full path, including root dir """
         return join(self.root, self.tabbar.current_page_fname())
 
-    # def save_page(self, page):
-    #     fname = join(self.root, self.tabbar.get_page_fname(page))
-    #     firstline, _ = read_file(fname).split('\n', 1)
-    #     data = self.textarea.toPlainText()
-    #     write_file(fname, firstline + '\n' + data)
-
     # ======= COMMANDS ========================================================
 
     def cmd_new_page(self, fname):
@@ -377,19 +354,18 @@ class MetaFrame(QtGui.QFrame):
         else:
             write_file(f, json.dumps({'title': fname, 'created': datetime.now().isoformat()}) + '\n')
             # Do this afterwards to have something to load into textarea
-            self.tabbar.setCurrentIndex(newtab)
+            self.set_tab_index(newtab)
 
     def cmd_delete_current_page(self, arg):
         if arg != '!':
             self.terminal.error('Use d! to confirm deletion')
             return
         try:
-            self.skipautosave = True
             fname = self.tabbar.remove_page()
         except IndexError as e:
             self.terminal.error(e.args[0])
-            self.skipautosave = False
         else:
+            self.load_tab(self.tabbar.currentIndex())
             os.remove(join(self.root, fname))
 
     def cmd_rename_current_page(self, title):
@@ -405,12 +381,7 @@ class MetaFrame(QtGui.QFrame):
             write_file(fname, json.dumps(jsondata) + '\n' + data)
 
     def cmd_save_current_page(self, _):
-        self.save_tab()#self.tabbar.currentIndex())
-        # fname = self.current_page_path()
-        # firstline, _ = read_file(fname).split('\n', 1)
-        # data = self.textarea.toPlainText()
-        # write_file(fname, firstline + '\n' + data)
-        # self.textarea.document().setModified(False)
+        self.save_tab()
 
     def cmd_go_to_index(self, arg):
         success = self.save_tab()
@@ -447,8 +418,8 @@ class MetaTerminal(GenericTerminal):
             's': (self.save_page, 'Save page'),
             'f': (self.print_filename, 'Print name of the active file'),
             '?': (self.cmd_help, 'List commands or help for [command]'),
-            'q': (self.quit, 'Quit'),
-            'b': (self.go_back, 'Go back to index')
+            'q': (self.quit, 'Quit (q! to force)'),
+            'b': (self.go_back, 'Go back to index (b! to force)')
         }
 
         self.hide()
