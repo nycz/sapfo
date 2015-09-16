@@ -227,7 +227,6 @@ class MetaFrame(QtGui.QFrame):
     def connect_signals(self):
         t = self.terminal
         connects = (
-            # (t.go_back,         self.show_index.emit),
             (t.go_back,         self.cmd_go_to_index),
             (t.quit,            lambda arg: self.quit.emit(arg == '!')),
             (t.new_page,        self.cmd_new_page),
@@ -235,6 +234,7 @@ class MetaFrame(QtGui.QFrame):
             (t.rename_page,     self.cmd_rename_current_page),
             (t.save_page,       self.cmd_save_current_page),
             (t.print_filename,  self.cmd_print_filename),
+            (t.count_words,     self.cmd_count_words),
         )
         for signal, slot in connects:
             signal.connect(slot)
@@ -399,7 +399,9 @@ class MetaFrame(QtGui.QFrame):
         else:
             self.terminal.print_(self.tabbar.current_page_fname())
 
-
+    def cmd_count_words(self, arg):
+        wc = len(re.findall(r'\S+', self.textarea.document().toPlainText()))
+        self.terminal.print_('Words: {}'.format(wc))
 
 class MetaTerminal(GenericTerminal):
     new_page = pyqtSignal(str)
@@ -407,6 +409,7 @@ class MetaTerminal(GenericTerminal):
     rename_page = pyqtSignal(str)
     save_page = pyqtSignal(str)
     print_filename = pyqtSignal(str)
+    count_words = pyqtSignal(str)
     quit = pyqtSignal(str)
     go_back = pyqtSignal(str)
 
@@ -419,6 +422,7 @@ class MetaTerminal(GenericTerminal):
             'r': (self.rename_page, 'Rename page'),
             's': (self.save_page, 'Save page'),
             'f': (self.print_filename, 'Print name of the active file'),
+            'c': (self.count_words, 'Print the page\'s wordcount'),
             '?': (self.cmd_help, 'List commands or help for [command]'),
             'q': (self.quit, 'Quit (q! to force)'),
             'b': (self.go_back, 'Go back to index (b! to force)')
