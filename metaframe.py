@@ -26,6 +26,8 @@ class Formatter(QtGui.QSyntaxHighlighter):
                 f.setFontWeight(font.Bold)
             if 'italic' in items:
                 f.setFontItalic(True)
+            if 'underline' in items:
+                f.setFontUnderline(True)
             if 'strikethrough' in items:
                 f.setFontStrikeOut(True)
             for x in items:
