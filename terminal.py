@@ -81,7 +81,7 @@ class Terminal(GenericTerminal):
             self.open_.emit(int(arg))
             return True
 
-    def autocomplete(self):
+    def autocomplete(self, reverse):
 
         def get_interval(t, pos, separators):
             """ Return the interval of the string that is going to be autocompleted """
@@ -98,7 +98,7 @@ class Terminal(GenericTerminal):
             self.autocomplete_type = 'tag'
             start, end = get_interval(text, pos, separators)
             ws_prefix, dash, target_text = re.match(r'(\s*)(-?)(.*)',text[start:end]).groups()
-            new_text = self.run_autocompletion(target_text)
+            new_text = self.run_autocompletion(target_text, reverse)
             output = prefix + text[:start] + ws_prefix + dash + new_text + text[end:]
             self.prompt(output)
             self.input_term.setCursorPosition(len(output) - len(text[end:]))
@@ -124,7 +124,7 @@ class Terminal(GenericTerminal):
             if pos > taggroup_pos_end:
                 self.autocomplete_type = 'path'
                 start = taggroup_pos_end + 1
-                new_text = self.run_autocompletion(text[start:].lstrip())
+                new_text = self.run_autocompletion(text[start:].lstrip(), reverse)
                 self.prompt(text[:start] + ' ' + new_text)
             # If the cursor is within the tags' parentheses, autocomplete it as a tag
             else:
