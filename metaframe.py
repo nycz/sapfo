@@ -45,10 +45,20 @@ class Formatter(QtGui.QSyntaxHighlighter):
 
 
 class TabBar(QtGui.QTabBar):
-    def __init__(self, parent, print_):
+    def __init__(self, parent, print_, set_tab_index):
         super().__init__(parent)
         self.print_ = print_
         self.pages = []
+        self.set_tab_index = set_tab_index
+
+    def mousePressEvent(self, ev):
+        if ev.button() == Qt.LeftButton:
+            tab = self.tabAt(ev.pos())
+            if tab != -1:
+                self.set_tab_index(tab)
+
+    def wheelEvent(self, ev):
+        self.change_tab(-ev.delta())
 
     def change_tab(self, direction):
         currenttab = self.currentIndex()
@@ -57,12 +67,16 @@ class TabBar(QtGui.QTabBar):
         elif direction < 0 and currenttab == 0:
             newtab = self.count() - 1
         else:
-            newtab = currenttab + direction
-        self.setCurrentIndex(newtab)
+            newtab = currenttab + int(direction/abs(direction))
+        self.set_tab_index(newtab)
 
     def clear(self):
-        while self.count() > 0:
-            self.removeTab(0)
+        while self.count() > 1:
+            if self.currentIndex() == 0:
+                self.removeTab(1)
+            else:
+                self.removeTab(0)
+        self.removeTab(0)
 
     def current_page_fname(self):
         i = self.currentIndex()
@@ -70,6 +84,13 @@ class TabBar(QtGui.QTabBar):
 
     def get_page_fname(self, i):
         return self.pages[i][1]
+
+    def set_page_position(self, page, cursorpos, scrollpos):
+        self.pages[page][2] = cursorpos
+        self.pages[page][3] = scrollpos
+
+    def get_page_position(self, page):
+        return self.pages[page][2:4]
 
     def load_pages(self, root):
         """
@@ -84,19 +105,18 @@ class TabBar(QtGui.QTabBar):
                 self.print_('Bad/no properties found on page {}, fixing...'.format(f))
                 jsondata = json.dumps({'title': f, 'created': datetime.now().isoformat()})
                 write_file(join(root, f), '\n'.join(jsondata, firstline, data))
-                yield [f, f]
+                yield [f, f, 0, 0]
             else:
-                yield [jsondata['title'], f]
+                yield [jsondata['title'], f, 0, 0]
 
     def open_entry(self, root):
         """
         Ready the tab bar for a new entry.
         """
-        self.pages = []
         self.clear()
         fnames = os.listdir(root)
         self.pages = sorted(self.load_pages(root))
-        for title, _ in self.pages:
+        for title, _, _, _ in self.pages:
             self.addTab(title)
 
     def add_page(self, fname):
@@ -106,9 +126,9 @@ class TabBar(QtGui.QTabBar):
 
         Raise KeyError if the title already exists.
         """
-        if fname in (title for title, fname in self.pages):
+        if fname in (title for title, fname, cursorpos, scrollpos in self.pages):
             raise KeyError('Page name already exists')
-        self.pages.append([fname, fname])
+        self.pages.append([fname, fname, 0, 0])
         self.pages.sort()
         i = next(zip(*self.pages)).index(fname)
         self.insertTab(i, fname)
@@ -135,7 +155,7 @@ class TabBar(QtGui.QTabBar):
 
         Raise KeyError if the title already exists.
         """
-        if newtitle in (title for title, fname in self.pages):
+        if newtitle in (title for title, fname, cursorpos, scrollpos in self.pages):
             raise KeyError('Page name already exists')
         i = self.currentIndex()
         self.pages[i][0] = newtitle
@@ -146,7 +166,7 @@ class TabBar(QtGui.QTabBar):
 
 class MetaFrame(QtGui.QFrame):
     show_index = pyqtSignal()
-    quit = pyqtSignal()
+    quit = pyqtSignal(bool)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -163,8 +183,8 @@ class MetaFrame(QtGui.QFrame):
             pass
         self.tabcounter = MetaTabCounter(self)
         self.terminal = MetaTerminal(self)
-        self.tabbar = TabBar(self, self.terminal.print_)
-        self.tabbar.currentChanged.connect(self.tab_changed)
+        self.tabbar = TabBar(self, self.terminal.print_, self.set_tab_index)
+        # self.tabbar.currentChanged.connect(self.tab_changed)
 
         self.create_layout(self.titlelabel, self.tabbar, self.tabcounter,
                            self.textarea, self.terminal)
@@ -177,7 +197,7 @@ class MetaFrame(QtGui.QFrame):
 
         set_hotkey('Ctrl+PgUp', self, lambda: self.tabbar.change_tab(-1))
         set_hotkey('Ctrl+PgDown', self, lambda: self.tabbar.change_tab(+1))
-        set_hotkey('Ctrl+S', self, self.save_page)
+        set_hotkey('Ctrl+S', self, self.save_tab)
         set_hotkey('Escape', self, self.toggle_terminal)
 
 
@@ -205,8 +225,9 @@ class MetaFrame(QtGui.QFrame):
     def connect_signals(self):
         t = self.terminal
         connects = (
-            (t.go_back,         self.show_index.emit),
-            (t.quit,            self.quit.emit),
+            # (t.go_back,         self.show_index.emit),
+            (t.go_back,         self.cmd_go_to_index),
+            (t.quit,            lambda arg: self.quit.emit(arg == '!')),
             (t.new_page,        self.cmd_new_page),
             (t.delete_page,     self.cmd_delete_current_page),
             (t.rename_page,     self.cmd_rename_current_page),
@@ -232,24 +253,76 @@ class MetaFrame(QtGui.QFrame):
     def update_tabcounter(self):
         self.tabcounter.setText('{}/{}'.format(self.tabbar.currentIndex()+1, self.tabbar.count()))
 
-    def tab_changed(self, tabnum):
-        """
-        This is called every time the tab is changed, either "automatically"
-        (eg. by mousewheel over the tab bar) or programmatically whenever the
-        next/prev tab hotkeys are pressed.
-        """
-        # Autosave
-        if not self.skipautosave:
-            if self.textarea.document().isModified():
-                self.save_page(self.prevtab)
-        self.skipautosave = False
-        self.prevtab = tabnum
-        # Update for the new page
+
+    def save_tab(self):
+        currenttab = self.tabbar.currentIndex()
+        if self.textarea.document().isModified():
+            try:
+                fname = join(self.root, self.tabbar.get_page_fname(currenttab))
+                firstline, _ = read_file(fname).split('\n', 1)
+                data = self.textarea.toPlainText()
+                write_file(fname, firstline + '\n' + data)
+                # self.save_page(currenttab)
+            except Exception as e:
+                print(str(e))
+                self.terminal.error('Something went wrong when saving! (Use q! or b! to force)')
+                return False
+        cursorpos = self.textarea.textCursor().position()
+        scrollpos = self.textarea.verticalScrollBar().sliderPosition()
+        self.tabbar.set_page_position(currenttab, cursorpos, scrollpos)
+        self.textarea.document().setModified(False)
+        return True
+
+    def load_tab(self, newtab):
+        self.tabbar.setCurrentIndex(newtab)
         self.update_tabcounter()
         fname = self.current_page_path()
-        firstline, data = read_file(fname).split('\n', 1)
+        _, data = read_file(fname).split('\n', 1)
         self.textarea.setPlainText(data)
         self.textarea.document().setModified(False)
+        # Set the scrollbar/cursor positions
+        cursorpos, scrollpos = self.tabbar.get_page_position(newtab)
+        tc = self.textarea.textCursor()
+        tc.setPosition(min(cursorpos, self.textarea.document().characterCount()-1))
+        self.textarea.setTextCursor(tc)
+        self.textarea.verticalScrollBar().setSliderPosition(scrollpos)
+
+    def set_tab_index(self, newtab):
+        # Save the old tab if needed
+        success = self.save_tab()
+        if success:
+            # Load the new tab
+            self.load_tab(newtab)
+
+
+    # def tab_changed(self, tabnum, doclean=False):
+    #     """
+    #     This is called every time the tab is changed, either "automatically"
+    #     (eg. by mousewheel over the tab bar) or programmatically whenever the
+    #     next/prev tab hotkeys are pressed.
+    #     """
+    #     print('tab change slot')
+    #     # Autosave
+    #     if not self.skipautosave and not doclean:
+    #         if self.textarea.document().isModified():
+    #             self.save_page(self.prevtab)
+    #         cursorpos = self.textarea.textCursor().position()
+    #         scrollpos = self.textarea.verticalScrollBar().sliderPosition()
+    #         self.tabbar.set_page_position(self.prevtab, cursorpos, scrollpos)
+    #     self.skipautosave = False
+    #     self.prevtab = tabnum
+    #     # Update for the new page
+    #     self.update_tabcounter()
+    #     fname = self.current_page_path()
+    #     firstline, data = read_file(fname).split('\n', 1)
+    #     self.textarea.setPlainText(data)
+    #     self.textarea.document().setModified(False)
+    #     # Set the scrollbar/cursor positions
+    #     cursorpos, scrollpos = self.tabbar.get_page_position(tabnum)
+    #     tc = self.textarea.textCursor()
+    #     tc.setPosition(cursorpos)
+    #     self.textarea.setTextCursor(tc)
+    #     self.textarea.verticalScrollBar().setSliderPosition(scrollpos)
 
     def set_entry(self, entry):
         """
@@ -257,10 +330,17 @@ class MetaFrame(QtGui.QFrame):
 
         This is the first thing that's called whenever the metaviewer is booted up.
         """
+        # self.tabbar.currentChanged.disconnect(self.tab_changed)
+        self.terminal.clear()
         self.root = entry.file + '.metadir'
+        self.skipautosave = False
+        self.prevtab = 0
         self.make_sure_metadir_exists(self.root)
         self.tabbar.open_entry(self.root)
-        self.update_tabcounter()
+        # self.tabbar.currentChanged.connect(self.tab_changed)
+        # self.tab_changed(0, doclean=True)
+        # self.update_tabcounter()
+        self.load_tab(0)
         self.titlelabel.setText(entry.title)
         self.textarea.setFocus()
 
@@ -277,11 +357,11 @@ class MetaFrame(QtGui.QFrame):
         """ Return the current page's full path, including root dir """
         return join(self.root, self.tabbar.current_page_fname())
 
-    def save_page(self, page):
-        fname = join(self.root, self.tabbar.get_page_fname(page))
-        firstline, _ = read_file(fname).split('\n', 1)
-        data = self.textarea.toPlainText()
-        write_file(fname, firstline + '\n' + data)
+    # def save_page(self, page):
+    #     fname = join(self.root, self.tabbar.get_page_fname(page))
+    #     firstline, _ = read_file(fname).split('\n', 1)
+    #     data = self.textarea.toPlainText()
+    #     write_file(fname, firstline + '\n' + data)
 
     # ======= COMMANDS ========================================================
 
@@ -325,12 +405,17 @@ class MetaFrame(QtGui.QFrame):
             write_file(fname, json.dumps(jsondata) + '\n' + data)
 
     def cmd_save_current_page(self, _):
-        self.save_page(self.tabbar.currentIndex())
+        self.save_tab()#self.tabbar.currentIndex())
         # fname = self.current_page_path()
         # firstline, _ = read_file(fname).split('\n', 1)
         # data = self.textarea.toPlainText()
         # write_file(fname, firstline + '\n' + data)
-        self.textarea.document().setModified(False)
+        # self.textarea.document().setModified(False)
+
+    def cmd_go_to_index(self, arg):
+        success = self.save_tab()
+        if success or arg == '!':
+            self.show_index.emit()
 
     def cmd_print_filename(self, arg):
         fname = self.current_page_path()

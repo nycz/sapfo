@@ -24,6 +24,7 @@ class MainWindow(QtGui.QFrame):
         self.setWindowTitle('Sapfo')
         self.configdir = configdir
         activation_event.connect(self.reload_settings)
+        self.force_quit_flag = False
 
         # Create layouts
         self.stack = QtGui.QStackedLayout(self)
@@ -70,9 +71,17 @@ class MainWindow(QtGui.QFrame):
 
     def closeEvent(self, event):
         if self.stack.currentWidget() == self.meta_viewer:
-            if self.meta_viewer.textarea.document().isModified():
-                self.meta_viewer.cmd_save_current_page(None)
-        event.accept()
+            success = self.meta_viewer.save_tab()
+            if success or self.force_quit_flag:
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.accept()
+
+    def quit(self, force):
+        self.force_quit_flag = force
+        self.close()
 
     def connect_signals(self):
         t, iv = self.terminal, self.index_viewer
@@ -91,7 +100,7 @@ class MainWindow(QtGui.QFrame):
             (self.story_viewer.show_index, self.show_index),
             (self.meta_viewer.show_index, self.show_index),
             (t.quit,                    self.close),
-            (self.meta_viewer.quit,     self.close),
+            (self.meta_viewer.quit,     self.quit),
             (iv.view_entry,             self.view_entry),
             (iv.view_meta,              self.view_meta),
             (iv.error,                  t.error),
