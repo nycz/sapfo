@@ -1,3 +1,4 @@
+from itertools import chain
 from operator import itemgetter
 import os.path
 import re
@@ -44,9 +45,11 @@ class Terminal(GenericTerminal):
     def __init__(self, parent, get_tags):
         super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox)
         self.get_tags = get_tags
-        self.rootpath = ''
         self.autocomplete_type = '' # 'path' or 'tag'
         self.hotkeys_set = False
+        # These two are set in reload_settings() in sapfo.py
+        self.rootpath = ''
+        self.tagmacros = {}
 
         self.commands = {
             'f': (self.filter_, 'Filter'),
@@ -133,8 +136,9 @@ class Terminal(GenericTerminal):
 
     def get_ac_suggestions(self, prefix):
         if self.autocomplete_type == 'tag':
-            tags = list(zip(*sorted(self.get_tags(), key=itemgetter(1), reverse=True)))[0]
-            return [x for x in tags if x.startswith(prefix)]
+            tags = next(zip(*sorted(self.get_tags(), key=itemgetter(1), reverse=True)))
+            macros = ('@' + x for x in sorted(self.tagmacros.keys()))
+            return [x for x in chain(tags, macros) if x.startswith(prefix)]
         elif self.autocomplete_type == 'path':
             root = os.path.expanduser(self.rootpath)
             dirpath, namepart = os.path.split(os.path.join(root, prefix))

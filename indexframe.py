@@ -113,7 +113,8 @@ class IndexFrame(QtWebKit.QWebView):
             self.show_popup.emit(html, '', '', 'html')
 
     def regenerate_visible_entries(self, entries=None, active_filters=None,
-                                   attributedata=None, sort_by=None, reverse=None):
+                                   attributedata=None, sort_by=None, reverse=None,
+                                   tagmacros=None):
         """
         Convenience method to regenerate all the visible entries from scratch
         using the active filters, the full entries list (not the
@@ -130,7 +131,8 @@ class IndexFrame(QtWebKit.QWebView):
             self.active_filters if active_filters is None else active_filters,
             self.attributedata if attributedata is None else attributedata,
             self.sorted_by[0] if sort_by is None else sort_by,
-            self.sorted_by[1] if reverse is None else reverse
+            self.sorted_by[1] if reverse is None else reverse,
+            self.settings['tag macros'] if tagmacros is None else tagmacros,
         )
 
     def filter_entries(self, arg):
@@ -172,7 +174,8 @@ class IndexFrame(QtWebKit.QWebView):
             try:
                 visible_entries = taggedlist.filter_entries(self.visible_entries,
                                                             self.active_filters[-1:],
-                                                            self.attributedata)
+                                                            self.attributedata,
+                                                            self.settings['tag macros'])
             except SyntaxError as e:
                 # This should be an error from the tag parser
                 self.error.emit('[Tag parsing] {}'.format(e))

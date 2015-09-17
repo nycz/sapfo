@@ -185,6 +185,7 @@ class MainWindow(QtGui.QFrame):
             self.story_viewer.update_settings(settings)
             self.meta_viewer.update_settings(settings)
             self.terminal.rootpath = settings['path']
+            self.terminal.tagmacros = settings['tag macros']
             self.terminal.set_hotkeys(settings['hotkeys'])
         if style != self.style:
             self.style = style.copy()
