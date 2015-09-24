@@ -20,7 +20,6 @@ class Formatter(QtGui.QSyntaxHighlighter):
         self.formats = []
         font = QtGui.QFont
         for s, items in formatstrings.items():
-            items = items.split(',')
             f = QtGui.QTextCharFormat()
             if 'bold' in items:
                 f.setFontWeight(font.Bold)
@@ -31,9 +30,9 @@ class Formatter(QtGui.QSyntaxHighlighter):
             if 'strikethrough' in items:
                 f.setFontStrikeOut(True)
             for x in items:
-                if x.isdigit():
-                    f.setFontPointSize(int(x))
-                if re.fullmatch(r'#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?', x):
+                if isinstance(x, int):
+                    f.setFontPointSize(x)
+                elif re.fullmatch(r'#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?', x):
                     f.setForeground(QtGui.QColor(x))
             self.formats.append((s, f))
         self.rehighlight()

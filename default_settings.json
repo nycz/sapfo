@@ -13,12 +13,12 @@
   "tag macros": {},
   "formatting converters": [],
   "chapter strings": [],
-  "meta editor formats": {
-    "^#.+": "18,bold",
-    "^=.+": "16,bold",
-    "^\\+.+": "14,bold",
-    "\\*.+?\\*": "bold",
-    "_.+?_": "italic",
-    "~.+?~": "strikethrough"
+  "backstory viewer formats": {
+    "^#.+": [18, "bold"],
+    "^=.+": [16, "bold"],
+    "^\\+.+": [14, "bold"],
+    "\\*.+?\\*": ["bold"],
+    "_.+?_": ["italic"],
+    "~.+?~": ["strikethrough"]
   }
 }
