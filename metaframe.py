@@ -4,12 +4,49 @@ import os
 import os.path
 from os.path import join
 import re
+import shutil
 
 from PyQt4.QtCore import pyqtSignal, Qt
 from PyQt4 import QtGui, QtCore
 
 from libsyntyche.common import kill_theming, set_hotkey, read_file, write_file, local_path
 from libsyntyche.terminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
+
+def generate_page_metadata(title, created=None, revision=None, revcreated=None, asdict=False):
+    """
+    Return a JSON string with the default metadata for a single backstory page.
+    """
+    now = datetime.now().isoformat()
+    d = {
+        'title': title,
+        'created': now if created is None else created,
+        'revision': 0 if revision is None else revision,
+        'revision created': now if revcreated is None else revcreated,
+    }
+    if asdict:
+        return d
+    else:
+        return json.dumps(d)
+
+def check_and_fix_page_metadata(jsondata, payload, fname):
+    """
+    Make sure that the page's metadata has all required keys. Fix and add
+    them if some of them are missing.
+    """
+    fixed = False
+    defaultvalues = generate_page_metadata(os.path.basename(fname), asdict=True)
+    # Special case if date exists and revision date doesn't:
+    if 'revision created' not in jsondata and 'date' in jsondata:
+        jsondata['revision created'] = jsondata['date']
+        fixed = True
+    # Generic fix
+    for key, value in defaultvalues.items():
+        if key not in jsondata:
+            jsondata[key] = value
+            fixed = True
+    if fixed:
+        write_file(fname, json.dumps(jsondata) + '\n' + payload)
+    return jsondata
 
 class Formatter(QtGui.QSyntaxHighlighter):
     def __init__(self, *args):
@@ -99,16 +136,19 @@ class TabBar(QtGui.QTabBar):
         """
         fnames = os.listdir(root)
         for f in fnames:
+            if re.search(r'\.rev\d+$', f) is not None:
+                continue
             firstline, data = read_file(join(root, f)).split('\n', 1)
             try:
                 jsondata = json.loads(firstline)
             except ValueError:
                 self.print_('Bad/no properties found on page {}, fixing...'.format(f))
-                jsondata = json.dumps({'title': f, 'created': datetime.now().isoformat()})
+                jsondata = generate_page_metadata(f)
                 write_file(join(root, f), '\n'.join(jsondata, firstline, data))
                 yield [f, f, 0, 0]
             else:
-                yield [jsondata['title'], f, 0, 0]
+                fixedjsondata = check_and_fix_page_metadata(jsondata, data, join(root, f))
+                yield [fixedjsondata['title'], f, 0, 0]
 
     def open_entry(self, root):
         """
@@ -185,7 +225,6 @@ class MetaFrame(QtGui.QFrame):
         self.tabcounter = MetaTabCounter(self)
         self.terminal = MetaTerminal(self)
         self.tabbar = TabBar(self, self.terminal.print_, self.set_tab_index)
-        # self.tabbar.currentChanged.connect(self.tab_changed)
 
         self.create_layout(self.titlelabel, self.tabbar, self.tabcounter,
                            self.textarea, self.terminal)
@@ -234,6 +273,7 @@ class MetaFrame(QtGui.QFrame):
             (t.save_page,       self.cmd_save_current_page),
             (t.print_filename,  self.cmd_print_filename),
             (t.count_words,     self.cmd_count_words),
+            (t.revision_control,self.cmd_revision_control),
         )
         for signal, slot in connects:
             signal.connect(slot)
@@ -334,8 +374,8 @@ class MetaFrame(QtGui.QFrame):
         """
         if not os.path.exists(root):
             os.mkdir(root)
-            data = json.dumps({'title': 'about.txt', 'created': datetime.now().isoformat()})
-            write_file(join(root, 'about.txt'), data + '\n')
+            jsondata = generate_page_metadata('about.txt')
+            write_file(join(root, 'about.txt'), jsondata + '\n')
 
     def current_page_path(self):
         """ Return the current page's full path, including root dir """
@@ -353,7 +393,7 @@ class MetaFrame(QtGui.QFrame):
         except KeyError as e:
             self.terminal.error(e.args[0])
         else:
-            write_file(f, json.dumps({'title': fname, 'created': datetime.now().isoformat()}) + '\n')
+            write_file(f, generate_page_metadata(fname) + '\n')
             # Do this afterwards to have something to load into textarea
             self.set_tab_index(newtab)
 
@@ -402,6 +442,29 @@ class MetaFrame(QtGui.QFrame):
         wc = len(re.findall(r'\S+', self.textarea.document().toPlainText()))
         self.terminal.print_('Words: {}'.format(wc))
 
+    def cmd_revision_control(self, arg):
+        fname = self.current_page_path()
+        firstline, _ = read_file(fname).split('\n', 1)
+        jsondata = json.loads(firstline)
+        if arg == '+':
+            saved = self.save_tab()
+            if saved:
+                # Do this again in case something got saved before
+                _, data = read_file(fname).split('\n', 1)
+                f = join(self.root, fname)
+                rev = jsondata['revision']
+                shutil.copy2(f, f + '.rev{}'.format(rev))
+                jsondata['revision'] += 1
+                jsondata['revision created'] = datetime.now().isoformat()
+                write_file(f, json.dumps(jsondata) + '\n' + data)
+                self.terminal.print_('Revision increased to {}'.format(rev + 1))
+        else:
+            self.terminal.print_('Current revision: {}'.format(jsondata['revision']))
+
+
+
+
+
 class MetaTerminal(GenericTerminal):
     new_page = pyqtSignal(str)
     delete_page = pyqtSignal(str)
@@ -411,6 +474,7 @@ class MetaTerminal(GenericTerminal):
     count_words = pyqtSignal(str)
     quit = pyqtSignal(str)
     go_back = pyqtSignal(str)
+    revision_control = pyqtSignal(str)
 
     def __init__(self, parent):
         super().__init__(parent, GenericTerminalInputBox, GenericTerminalOutputBox)
@@ -424,7 +488,8 @@ class MetaTerminal(GenericTerminal):
             'c': (self.count_words, 'Print the page\'s wordcount'),
             '?': (self.cmd_help, 'List commands or help for [command]'),
             'q': (self.quit, 'Quit (q! to force)'),
-            'b': (self.go_back, 'Go back to index (b! to force)')
+            '#': (self.revision_control, 'Revision control'),
+            'b': (self.go_back, 'Go back to index (b! to force)'),
         }
 
         self.hide()
