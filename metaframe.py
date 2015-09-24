@@ -239,7 +239,7 @@ class MetaFrame(QtGui.QFrame):
             signal.connect(slot)
 
     def update_settings(self, settings):
-        self.formatter.update_formats(settings['meta editor formats'])
+        self.formatter.update_formats(settings['backstory viewer formats'])
         self.formatconverters = settings['formatting converters']
         self.chapterstrings = settings['chapter strings']
 
