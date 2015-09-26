@@ -95,5 +95,9 @@
   "metaframe selected tab background": "#333",
   "metaframe selected tab color": "#ddd",
   "metaframe scrollbar width": "15px",
-  "metaframe scrollbar slider color": "#111"
+  "metaframe scrollbar slider color": "#111",
+  "metaframe revision notice color": "red",
+  "metaframe revision notice font": "Sans-serif",
+  "metaframe revision notice font size": "16px",
+  "metaframe revision notice background": "#333"
 }

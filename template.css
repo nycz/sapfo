@@ -64,6 +64,15 @@ MetaTabCounter {{
     font-weight: bold;
     padding: 4px;
 }}
+MetaRevisionNotice {{
+    color: {metaframe revision notice color};
+    background: {metaframe revision notice background};
+    border-bottom: 2px dashed {metaframe page border color};
+    font-family: "{metaframe revision notice font}";
+    font-size: {metaframe revision notice font size};
+    font-weight: bold;
+    padding: 10px;
+}}
 QTabBar {{
     alignment: center;
     border-bottom: 2px solid {metaframe page border color};

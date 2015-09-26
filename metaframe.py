@@ -223,17 +223,19 @@ class MetaFrame(QtGui.QFrame):
         class MetaTabCounter(QtGui.QLabel):
             pass
         self.tabcounter = MetaTabCounter(self)
+        class MetaRevisionNotice(QtGui.QLabel):
+            pass
+        self.revisionnotice = MetaRevisionNotice(self)
         self.terminal = MetaTerminal(self)
         self.tabbar = TabBar(self, self.terminal.print_, self.set_tab_index)
 
         self.create_layout(self.titlelabel, self.tabbar, self.tabcounter,
-                           self.textarea, self.terminal)
+                           self.revisionnotice, self.textarea, self.terminal)
         self.connect_signals()
 
         self.formatter = Formatter(self.textarea)
 
-        self.prevtab = 0
-        self.skipautosave = False
+        self.revisionactive = False
 
         set_hotkey('Ctrl+PgUp', self, lambda: self.tabbar.change_tab(-1))
         set_hotkey('Ctrl+PgDown', self, lambda: self.tabbar.change_tab(+1))
@@ -241,7 +243,8 @@ class MetaFrame(QtGui.QFrame):
         set_hotkey('Escape', self, self.toggle_terminal)
 
 
-    def create_layout(self, titlelabel, tabbar, tabcounter, textarea, terminal):
+    def create_layout(self, titlelabel, tabbar, tabcounter, revisionnotice,
+                      textarea, terminal):
         layout = QtGui.QVBoxLayout(self)
         kill_theming(layout)
         # Title label
@@ -253,6 +256,10 @@ class MetaFrame(QtGui.QFrame):
         tab_layout.addWidget(tabbar, stretch=1)
         tab_layout.addWidget(tabcounter, stretch=0)
         layout.addLayout(tab_layout)
+        # Revision notice label
+        revisionnotice.setAlignment(Qt.AlignCenter)
+        layout.addWidget(revisionnotice)
+        revisionnotice.hide()
         # Textarea
         textarea_layout = QtGui.QHBoxLayout()
         textarea_layout.addStretch()
@@ -301,6 +308,8 @@ class MetaFrame(QtGui.QFrame):
 
         Return True if it succeeds, return False if it fails.
         """
+        if self.revisionactive:
+            return True
         currenttab = self.tabbar.currentIndex()
         if self.textarea.document().isModified():
             try:
@@ -345,11 +354,16 @@ class MetaFrame(QtGui.QFrame):
         * mouse wheel scroll event on tab
         * ctrl pgup/pgdn
         """
-        # Save the old tab if needed
-        success = self.save_tab()
-        if success:
-            # Load the new tab
+        if self.revisionactive:
+            self.revisionactive = False
+            self.revisionnotice.hide()
             self.load_tab(newtab)
+        else:
+            # Save the old tab if needed
+            success = self.save_tab()
+            if success:
+                # Load the new tab
+                self.load_tab(newtab)
 
 
     def set_entry(self, entry):
@@ -358,10 +372,10 @@ class MetaFrame(QtGui.QFrame):
 
         This is the first thing that's called whenever the metaviewer is booted up.
         """
+        self.revisionactive = False
+        self.revisionnotice.hide()
         self.terminal.clear()
         self.root = entry.file + '.metadir'
-        self.skipautosave = False
-        self.prevtab = 0
         self.make_sure_metadir_exists(self.root)
         self.tabbar.open_entry(self.root)
         self.load_tab(0)
@@ -447,6 +461,9 @@ class MetaFrame(QtGui.QFrame):
         firstline, _ = read_file(fname).split('\n', 1)
         jsondata = json.loads(firstline)
         if arg == '+':
+            if self.revisionactive:
+                self.terminal.error('Can\'t create new revision when viewing an old one')
+                return
             saved = self.save_tab()
             if saved:
                 # Do this again in case something got saved before
@@ -458,9 +475,36 @@ class MetaFrame(QtGui.QFrame):
                 jsondata['revision created'] = datetime.now().isoformat()
                 write_file(f, json.dumps(jsondata) + '\n' + data)
                 self.terminal.print_('Revision increased to {}'.format(rev + 1))
-        else:
+        # Show a certain revision
+        elif arg.isdigit():
+            revfname = join(self.root, fname + '.rev{}'.format(arg))
+            if not os.path.exists(revfname):
+                self.terminal.error('Revision {} not found'.format(arg))
+                return
+            saved = self.save_tab()
+            if not saved:
+                return
+            try:
+                _, data = read_file(revfname).split('\n', 1)
+            except Exception as e:
+                print(str(e))
+                self.error('Something went wrong when loading the revision')
+            else:
+                self.textarea.setPlainText(data)
+                self.textarea.document().setModified(False)
+                self.revisionactive = True
+                self.revisionnotice.setText('Showing revision {}'.format(arg))
+                self.revisionnotice.show()
+        elif arg == '#':
             self.terminal.print_('Current revision: {}'.format(jsondata['revision']))
-
+        elif not arg:
+            if not self.revisionactive:
+                self.terminal.error('Already showing latest revision')
+            else:
+                currenttab = self.tabbar.currentIndex()
+                self.set_tab_index(currenttab)
+        else:
+            self.terminal.error('Unknown argument: "{}"'.format(arg))
 
 
 
