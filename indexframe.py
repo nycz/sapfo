@@ -381,7 +381,8 @@ def get_backstory_data(fname):
     for dirpath, _, filenames in os.walk(root):
         for f in filenames:
             try:
-                words = len(re.findall(r'\S+', read_file(join(dirpath, f))))
+                data = read_file(join(dirpath, f)).split('\n',1)[1]
+                words = len(re.findall(r'\S+', data))
             except:
                 # Just ignore the file if something went wrong
                 # TODO: add something here if being verbose?
