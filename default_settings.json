@@ -20,5 +20,6 @@
     "\\*.+?\\*": ["bold"],
     "_.+?_": ["italic"],
     "~.+?~": ["strikethrough"]
-  }
+  },
+  "entry length template": "({length:,}) – [{backstorylength:,}:{backstorypages:,}]"
 }

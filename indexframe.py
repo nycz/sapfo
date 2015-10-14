@@ -73,6 +73,7 @@ class IndexFrame(QtWebKit.QWebView):
         body = generate_html_body(self.visible_entries,
                                   self.htmltemplates.tags,
                                   self.htmltemplates.entry,
+                                  self.settings['entry length template'],
                                   self.settings['tag colors'])
         self.setHtml(self.htmltemplates.index_page.format(body=body, css=self.css))
         if keep_position:
@@ -166,7 +167,9 @@ class IndexFrame(QtWebKit.QWebView):
             filters = {'n': 'title',
                        'd': 'description',
                        't': 'tags',
-                       'l': 'length'}
+                       'l': 'length',
+                       'b': 'backstorylength',
+                       'p': 'backstorypages'}
             if cmd not in filters:
                 self.error.emit('Unknown attribute to filter on: "{}"'.format(cmd))
                 return
@@ -195,7 +198,7 @@ class IndexFrame(QtWebKit.QWebView):
 
         If arg is not specified, print the current sort order.
         """
-        acronyms = {'n': 'title', 'l': 'length'}
+        acronyms = {'n': 'title', 'l': 'length', 'b': 'backstorylength', 'p': 'backstorypages'}
         if not arg:
             attr = self.sorted_by[0]
             order = ('ascending', 'descending')[self.sorted_by[1]]
@@ -204,7 +207,7 @@ class IndexFrame(QtWebKit.QWebView):
         if arg[0] not in acronyms:
             self.error.emit('Unknown attribute to sort by: "{}"'.format(arg[0]))
             return
-        if not re.fullmatch(r'[nl]-?\s*', arg):
+        if not re.fullmatch(r'\w-?\s*', arg):
             self.error.emit('Incorrect sort command')
             return
         reverse = arg.strip().endswith('-')
@@ -370,6 +373,25 @@ def load_html_templates():
                 read_file(path('index_page_template.html')),
                 read_file(path('tags_template.html')))
 
+def get_backstory_data(fname):
+    out = {'length': 0, 'pages': 0}
+    root = fname + '.metadir'
+    if not os.path.isdir(root):
+        return out
+    for dirpath, _, filenames in os.walk(root):
+        for f in filenames:
+            try:
+                words = len(re.findall(r'\S+', read_file(join(dirpath, f))))
+            except:
+                # Just ignore the file if something went wrong
+                # TODO: add something here if being verbose?
+                pass
+            else:
+                out['length'] += words
+                out['pages'] += 1
+    return out
+
+
 @taggedlist.generate_entrylist
 def index_stories(path):
     """
@@ -381,12 +403,17 @@ def index_stories(path):
         ('tags', {'filter': 'tags', 'parser': 'tags'}),
         ('description', {'filter': 'text', 'parser': 'text'}),
         ('length', {'filter': 'number'}),
+        ('backstorylength', {'filter': 'number'}),
+        ('backstorypages', {'filter': 'number'}),
         ('file', {}),
         ('metadatafile', {}),
     )
     metafile = lambda dirpath, fname: join(dirpath, '.'+fname+'.metadata')
+    metadir = lambda dirpath, fname: join(dirpath, fname+'.metadir')
     files = ((read_json(metafile(dirpath, fname)),
-             join(dirpath, fname), metafile(dirpath, fname))
+             join(dirpath, fname),
+             metafile(dirpath, fname),
+             get_backstory_data(join(dirpath, fname)))
              for dirpath, _, filenames in os.walk(path)
              for fname in filenames
              if exists(metafile(dirpath, fname)))
@@ -394,12 +421,14 @@ def index_stories(path):
                 frozenset(metadata['tags']),
                 metadata['description'],
                 len(re.findall(r'\S+', read_file(fname))),
+                backstorydata['length'],
+                backstorydata['pages'],
                 fname,
                 metadatafile)
-               for metadata, fname, metadatafile in files)
+               for metadata, fname, metadatafile, backstorydata in files)
     return attributes, entries
 
-def generate_html_body(visible_entries, tagstemplate, entrytemplate, tagcolors):
+def generate_html_body(visible_entries, tagstemplate, entrytemplate, entrylengthtemplate, tagcolors):
     """
     Return html generated from the visible entries.
     """
@@ -410,10 +439,13 @@ def generate_html_body(visible_entries, tagstemplate, entrytemplate, tagcolors):
             for t in sorted(tags))
     def format_desc(desc):
         return desc if desc else '<span class="empty_desc">[no desc]</span>'
+    entrytemplate = entrytemplate.format(lengthformatstr=entrylengthtemplate)
     entries = (entrytemplate.format(title=entry.title, id=n,
-                               tags=format_tags(entry.tags),
-                               desc=format_desc(entry.description),
-                               length=entry.length)
+                                    tags=format_tags(entry.tags),
+                                    desc=format_desc(entry.description),
+                                    length=entry.length,
+                                    backstorylength=entry.backstorylength,
+                                    backstorypages=entry.backstorypages)
                for n,entry in enumerate(visible_entries))
     return '<hr />'.join(entries)
 
