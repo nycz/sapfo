@@ -236,6 +236,7 @@ class MetaFrame(QtGui.QFrame):
         self.formatter = Formatter(self.textarea)
 
         self.revisionactive = False
+        self.hotkeys_set = False
 
         set_hotkey('Ctrl+PgUp', self, lambda: self.tabbar.change_tab(-1))
         set_hotkey('Ctrl+PgDown', self, lambda: self.tabbar.change_tab(+1))
@@ -286,9 +287,17 @@ class MetaFrame(QtGui.QFrame):
             signal.connect(slot)
 
     def update_settings(self, settings):
+        self.set_hotkeys(settings['hotkeys'])
         self.formatter.update_formats(settings['backstory viewer formats'])
         self.formatconverters = settings['formatting converters']
         self.chapterstrings = settings['chapter strings']
+
+    def set_hotkeys(self, hotkeys):
+        if self.hotkeys_set:
+            return
+        self.hotkeys_set = True
+        for key in hotkeys['exit backstory']:
+            set_hotkey(key, self, self.cmd_go_to_index)
 
     def toggle_terminal(self):
         if self.textarea.hasFocus():
@@ -438,7 +447,7 @@ class MetaFrame(QtGui.QFrame):
     def cmd_save_current_page(self, _):
         self.save_tab()
 
-    def cmd_go_to_index(self, arg):
+    def cmd_go_to_index(self, arg=''):
         success = self.save_tab()
         if success or arg == '!':
             self.show_index.emit()

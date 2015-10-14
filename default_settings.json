@@ -2,6 +2,7 @@
   "title": "",
   "hotkeys": {
     "home": ["Home"],
+    "exit backstory": ["Ctrl+Escape"],
     "toggle fullscreen": ["Ctrl+Space"],
     "zoom in": ["Ctrl++"],
     "zoom out": ["Ctrl+-"],
