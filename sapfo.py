@@ -135,7 +135,7 @@ class MainWindow(QtGui.QFrame):
         if exists(fullpath):
             file_exists = True
         # Fix the capitalization
-        title = re.sub(r"[A-Za-z]+('[A-Za-z]+)?",
+        title = re.sub(r"\w[\w']*",
                        lambda mo: mo.group(0)[0].upper() + mo.group(0)[1:].lower(),
                        splitext(fname)[0].replace('-', ' '))
         try:
