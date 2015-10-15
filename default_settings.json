@@ -22,5 +22,8 @@
     "_.+?_": ["italic"],
     "~.+?~": ["strikethrough"]
   },
+  "backstory default pages": {
+    "about.txt": "About"
+  },
   "entry length template": "({wordcount:,}) – [{backstorywordcount:,}:{backstorypages:,}]"
 }

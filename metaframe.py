@@ -291,6 +291,7 @@ class MetaFrame(QtGui.QFrame):
         self.formatter.update_formats(settings['backstory viewer formats'])
         self.formatconverters = settings['formatting converters']
         self.chapterstrings = settings['chapter strings']
+        self.defaultpages = settings['backstory default pages']
 
     def set_hotkeys(self, hotkeys):
         if self.hotkeys_set:
@@ -397,8 +398,9 @@ class MetaFrame(QtGui.QFrame):
         """
         if not os.path.exists(root):
             os.mkdir(root)
-            jsondata = generate_page_metadata('about.txt')
-            write_file(join(root, 'about.txt'), jsondata + '\n')
+            for fname, title in self.defaultpages.items():
+                jsondata = generate_page_metadata(title)
+                write_file(join(root, fname), jsondata + '\n')
 
     def current_page_path(self):
         """ Return the current page's full path, including root dir """
