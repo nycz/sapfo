@@ -22,5 +22,5 @@
     "_.+?_": ["italic"],
     "~.+?~": ["strikethrough"]
   },
-  "entry length template": "({length:,}) – [{backstorylength:,}:{backstorypages:,}]"
+  "entry length template": "({wordcount:,}) – [{backstorywordcount:,}:{backstorypages:,}]"
 }

@@ -33,7 +33,7 @@ class IndexFrame(QtWebKit.QWebView):
 
         self.entries = ()
         self.visible_entries = ()
-        activefilters = namedtuple('activefilters', 'title description tags length backstorylength backstorypages')
+        activefilters = namedtuple('activefilters', 'title description tags wordcount backstorywordcount backstorypages')
         self.active_filters = activefilters(* 6 * (None,))
         self.sorted_by = ('title', False)
         self.undostack = ()
@@ -154,8 +154,8 @@ class IndexFrame(QtWebKit.QWebView):
         filters = {'n': 'title',
                    'd': 'description',
                    't': 'tags',
-                   'l': 'length',
-                   'b': 'backstorylength',
+                   'c': 'wordcount',
+                   'b': 'backstorywordcount',
                    'p': 'backstorypages'}
         filterchars = ''.join(filters)
         # Print active filters
@@ -222,7 +222,7 @@ class IndexFrame(QtWebKit.QWebView):
 
         If arg is not specified, print the current sort order.
         """
-        acronyms = {'n': 'title', 'l': 'length', 'b': 'backstorylength', 'p': 'backstorypages'}
+        acronyms = {'n': 'title', 'c': 'wordcount', 'b': 'backstorywordcount', 'p': 'backstorypages'}
         if not arg:
             attr = self.sorted_by[0]
             order = ('ascending', 'descending')[self.sorted_by[1]]
@@ -361,7 +361,7 @@ class IndexFrame(QtWebKit.QWebView):
         """
         Main count length method, called by terminal command.
         """
-        self.print_.emit(str(sum(x.length for x in self.visible_entries)))
+        self.print_.emit(str(sum(x.wordcount for x in self.visible_entries)))
 
 
     def external_run_entry(self, arg):
@@ -398,7 +398,7 @@ def load_html_templates():
                 read_file(path('tags_template.html')))
 
 def get_backstory_data(fname):
-    out = {'length': 0, 'pages': 0}
+    out = {'wordcount': 0, 'pages': 0}
     root = fname + '.metadir'
     if not os.path.isdir(root):
         return out
@@ -412,7 +412,7 @@ def get_backstory_data(fname):
                 # TODO: add something here if being verbose?
                 pass
             else:
-                out['length'] += words
+                out['wordcount'] += words
                 out['pages'] += 1
     return out
 
@@ -427,8 +427,8 @@ def index_stories(path):
         ('title', {'filter': 'text', 'parser': 'text'}),
         ('tags', {'filter': 'tags', 'parser': 'tags'}),
         ('description', {'filter': 'text', 'parser': 'text'}),
-        ('length', {'filter': 'number'}),
-        ('backstorylength', {'filter': 'number'}),
+        ('wordcount', {'filter': 'number'}),
+        ('backstorywordcount', {'filter': 'number'}),
         ('backstorypages', {'filter': 'number'}),
         ('file', {}),
         ('metadatafile', {}),
@@ -446,7 +446,7 @@ def index_stories(path):
                 frozenset(metadata['tags']),
                 metadata['description'],
                 len(re.findall(r'\S+', read_file(fname))),
-                backstorydata['length'],
+                backstorydata['wordcount'],
                 backstorydata['pages'],
                 fname,
                 metadatafile)
@@ -468,8 +468,8 @@ def generate_html_body(visible_entries, tagstemplate, entrytemplate, entrylength
     entries = (entrytemplate.format(title=entry.title, id=n,
                                     tags=format_tags(entry.tags),
                                     desc=format_desc(entry.description),
-                                    length=entry.length,
-                                    backstorylength=entry.backstorylength,
+                                    wordcount=entry.wordcount,
+                                    backstorywordcount=entry.backstorywordcount,
                                     backstorypages=entry.backstorypages)
                for n,entry in enumerate(visible_entries))
     return '<hr />'.join(entries)

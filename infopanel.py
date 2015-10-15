@@ -28,7 +28,7 @@ class InfoPanel(QtGui.QFrame):
 
 
     def set_data(self, data):
-        wc = "<em>({:,})</em>".format(data.length)
+        wc = "<em>({:,})</em>".format(data.wordcount)
         s = "<strong>{fname}</strong>\t&nbsp;\t{wordcount}"
         self.label.setText(s.format(
             fname=data.title,
