@@ -361,7 +361,18 @@ class IndexFrame(QtWebKit.QWebView):
         """
         Main count length method, called by terminal command.
         """
-        self.print_.emit(str(sum(x.wordcount for x in self.visible_entries)))
+        def print_length(targetstr, targetattr):
+            self.print_.emit('Total {}: {}'.format(targetstr,
+                    sum(getattr(x, targetattr) for x in self.visible_entries)))
+        cmd = arg.strip()
+        if cmd == 'c':
+            print_length('wordcount', 'wordcount')
+        elif cmd == 'b':
+            print_length('backstory wordcount', 'backstorywordcount')
+        elif cmd == 'p':
+            print_length('backstory pages', 'backstorypages')
+        else:
+            self.error.emit('Unknown argument')
 
 
     def external_run_entry(self, arg):
