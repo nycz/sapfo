@@ -33,7 +33,8 @@ class IndexFrame(QtWebKit.QWebView):
 
         self.entries = ()
         self.visible_entries = ()
-        self.active_filters = ()
+        activefilters = namedtuple('activefilters', 'title description tags length backstorylength backstorypages')
+        self.active_filters = activefilters(* 6 * (None,))
         self.sorted_by = ('title', False)
         self.undostack = ()
 
@@ -127,9 +128,12 @@ class IndexFrame(QtWebKit.QWebView):
         NOTE: This should return stuff b/c of clarity, despite the fact that
         it should always return it into the self.visible_entries variable.
         """
+        # Drop the empty posts in the active_filters named tuple
+        raw_active_filters = self.active_filters if active_filters is None else active_filters
+        filters = [(k,v) for k,v in raw_active_filters._asdict().items() if v is not None]
         return taggedlist.generate_visible_entries(
             self.entries if entries is None else entries,
-            self.active_filters if active_filters is None else active_filters,
+            filters,
             self.attributedata if attributedata is None else attributedata,
             self.sorted_by[0] if sort_by is None else sort_by,
             self.sorted_by[1] if reverse is None else reverse,
@@ -140,45 +144,65 @@ class IndexFrame(QtWebKit.QWebView):
         """
         The main filter method, called by terminal command.
 
-        If arg is not present, reset the filters.
-        If arg is a - (dash), remove the last applied filter and regenerate
-        all the visible entries.
+        If arg is not present, print active filters.
+        If arg is -, reset all filters.
+        If arg is a category followed by -, reset that filter.
+        If arg is a category (t or d) followed by _, show all entries with
+        nothing in that particular category (eg. empty description).
+        If arg is a category, prompt with the active filter (if any).
         """
+        filters = {'n': 'title',
+                   'd': 'description',
+                   't': 'tags',
+                   'l': 'length',
+                   'b': 'backstorylength',
+                   'p': 'backstorypages'}
+        filterchars = ''.join(filters)
+        # Print active filters
         if not arg:
-            self.active_filters = ()
-            visible_entries = self.regenerate_visible_entries()
-            resultstr = 'Filters reset'
-        # Remove last filter
-        elif arg.strip() == '-':
-            if self.active_filters == ():
-                self.error.emit('No filter to remove')
-                return
+            active_filters = ['{}: {}'.format(cmd, payload)
+                             for cmd, payload in self.active_filters._asdict().items()
+                             if payload is not None]
+            if active_filters:
+                self.print_.emit('; '.join(active_filters))
             else:
-                self.active_filters = self.active_filters[:-1]
-                visible_entries = self.regenerate_visible_entries()
-                resultstr = 'Last filter removed: {}/{} entries visible'
-        # Invalid filter command
-        elif len(arg.strip()) == 1 and arg[0] == 'l':
-            self.error.emit('No filter argument specified')
+                self.error.emit('No active filters')
             return
-        # Main filter function stuff below
+        # Reset all filters
+        elif arg.strip() == '-':
+            kwargs = dict(zip(filters.values(), len(filters)*(None,)))
+            self.active_filters = self.active_filters._replace(**kwargs)
+            visible_entries = self.regenerate_visible_entries()
+            resultstr = 'Filters reset: {}/{} entries visible'
+        # Reset specified filter
+        elif re.fullmatch(r'[{}]-\s*'.format(filterchars), arg):
+            self.active_filters = self.active_filters._replace(**{filters[arg[0]]:None})
+            visible_entries = self.regenerate_visible_entries()
+            resultstr = 'Filter on {} reset: {{}}/{{}} entries visible'.format(filters[arg[0]])
         else:
-            cmd, payload = arg[0].lower(), arg[1:].strip().lower()
-            filters = {'n': 'title',
-                       'd': 'description',
-                       't': 'tags',
-                       'l': 'length',
-                       'b': 'backstorylength',
-                       'p': 'backstorypages'}
-            if cmd not in filters:
-                self.error.emit('Unknown attribute to filter on: "{}"'.format(cmd))
+            # Prompt active filter
+            if arg.strip() in filters.keys():
+                payload = getattr(self.active_filters, filters[arg])
+                if payload is None:
+                    payload = ''
+                self.set_terminal_text.emit('f' + arg.strip() + ' ' + payload)
                 return
-            self.active_filters = self.active_filters + ((filters[cmd], payload),)
+            # Filter empty entries
+            if re.fullmatch(r'[dt]_\s*'.format(filterchars), arg):
+                cmd = arg[0]
+                payload = ''
+            # Regular filter command
+            elif re.fullmatch(r'[{}] +\S.*'.format(filterchars), arg):
+                cmd = arg[0]
+                payload = arg.split(None,1)[1].strip()
+            # Invalid filter command
+            else:
+                self.error.emit('Invalid filter command')
+                return
+            # Do the filtering
+            self.active_filters = self.active_filters._replace(**{filters[cmd]: payload})
             try:
-                visible_entries = taggedlist.filter_entries(self.visible_entries,
-                                                            self.active_filters[-1:],
-                                                            self.attributedata,
-                                                            self.settings['tag macros'])
+                visible_entries = self.regenerate_visible_entries()
             except SyntaxError as e:
                 # This should be an error from the tag parser
                 self.error.emit('[Tag parsing] {}'.format(e))
