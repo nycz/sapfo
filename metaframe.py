@@ -12,6 +12,11 @@ from PyQt4 import QtGui, QtCore
 from libsyntyche.common import kill_theming, set_hotkey, read_file, write_file, local_path
 from libsyntyche.terminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
 
+def fixtitle(fname):
+    return re.sub(r"\w[\w']*",
+                  lambda mo: mo.group(0)[0].upper() + mo.group(0)[1:].lower(),
+                  os.path.splitext(fname)[0].replace('-', ' '))
+
 def generate_page_metadata(title, created=None, revision=None, revcreated=None, asdict=False):
     """
     Return a JSON string with the default metadata for a single backstory page.
@@ -34,7 +39,7 @@ def check_and_fix_page_metadata(jsondata, payload, fname):
     them if some of them are missing.
     """
     fixed = False
-    defaultvalues = generate_page_metadata(os.path.basename(fname), asdict=True)
+    defaultvalues = generate_page_metadata(fixtitle(os.path.basename(fname)), asdict=True)
     # Special case if date exists and revision date doesn't:
     if 'revision created' not in jsondata and 'date' in jsondata:
         jsondata['revision created'] = jsondata['date']
@@ -143,9 +148,10 @@ class TabBar(QtGui.QTabBar):
                 jsondata = json.loads(firstline)
             except ValueError:
                 self.print_('Bad/no properties found on page {}, fixing...'.format(f))
-                jsondata = generate_page_metadata(f)
+                title = fixtitle(f)
+                jsondata = generate_page_metadata(title)
                 write_file(join(root, f), '\n'.join(jsondata, firstline, data))
-                yield [f, f, 0, 0]
+                yield [title, f, 0, 0]
             else:
                 fixedjsondata = check_and_fix_page_metadata(jsondata, data, join(root, f))
                 yield [fixedjsondata['title'], f, 0, 0]
@@ -160,19 +166,15 @@ class TabBar(QtGui.QTabBar):
         for title, _, _, _ in self.pages:
             self.addTab(title)
 
-    def add_page(self, fname):
+    def add_page(self, title, fname):
         """
         Add a new page to and then sort the tab bar. Return the index of the
         new tab.
-
-        Raise KeyError if the title already exists.
         """
-        if fname in (title for title, fname, cursorpos, scrollpos in self.pages):
-            raise KeyError('Page name already exists')
-        self.pages.append([fname, fname, 0, 0])
+        self.pages.append([title, fname, 0, 0])
         self.pages.sort()
-        i = next(zip(*self.pages)).index(fname)
-        self.insertTab(i, fname)
+        i = list(zip(*self.pages))[1].index(fname)
+        self.insertTab(i, title)
         return i
 
     def remove_page(self):
@@ -193,11 +195,7 @@ class TabBar(QtGui.QTabBar):
     def rename_page(self, newtitle):
         """
         Rename the active page and update the tab bar.
-
-        Raise KeyError if the title already exists.
         """
-        if newtitle in (title for title, fname, cursorpos, scrollpos in self.pages):
-            raise KeyError('Page name already exists')
         i = self.currentIndex()
         self.pages[i][0] = newtitle
         self.pages.sort()
@@ -413,12 +411,13 @@ class MetaFrame(QtGui.QFrame):
         if os.path.exists(f):
             self.terminal.error('File already exists')
             return
+        title = fixtitle(fname)
         try:
-            newtab = self.tabbar.add_page(fname)
+            newtab = self.tabbar.add_page(title, fname)
         except KeyError as e:
             self.terminal.error(e.args[0])
         else:
-            write_file(f, generate_page_metadata(fname) + '\n')
+            write_file(f, generate_page_metadata(title) + '\n')
             # Do this afterwards to have something to load into textarea
             self.set_tab_index(newtab)
 
