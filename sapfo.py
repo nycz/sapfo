@@ -10,7 +10,7 @@ import sys
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import Qt
 
-from libsyntyche import common
+from libsyntyche.common import read_json, read_file, write_json, kill_theming, local_path, set_hotkey, make_sure_config_exists
 from libsyntyche.fileviewer import FileViewer
 from terminal import Terminal
 from indexframe import IndexFrame
@@ -28,10 +28,10 @@ class MainWindow(QtGui.QFrame):
 
         # Create layouts
         self.stack = QtGui.QStackedLayout(self)
-        common.kill_theming(self.stack)
+        kill_theming(self.stack)
         self.index_widget = QtGui.QWidget(self)
         layout = QtGui.QVBoxLayout(self.index_widget)
-        common.kill_theming(layout)
+        kill_theming(layout)
 
         # Index viewer
         self.index_viewer = IndexFrame(self.index_widget, dry_run)
@@ -55,13 +55,13 @@ class MainWindow(QtGui.QFrame):
         # Popup viewer
         self.popup_viewer = FileViewer(self)
         self.stack.addWidget(self.popup_viewer)
-        common.set_hotkey('Home', self.popup_viewer, self.show_index)
+        set_hotkey('Home', self.popup_viewer, self.show_index)
 
         # Load settings
-        self.defaultstyle = common.read_json(common.local_path('defaultstyle.json'))
-        self.css_template = common.read_file(common.local_path('template.css'))
-        self.index_css_template = common.read_file(common.local_path(join('templates','index_page.css')))
-        self.viewer_css_template = common.read_file(common.local_path('viewer_page.css'))
+        self.defaultstyle = read_json(local_path('defaultstyle.json'))
+        self.css_template = read_file(local_path(join('templates','template.css')))
+        self.index_css_template = read_file(local_path(join('templates','index_page.css')))
+        self.viewer_css_template = read_file(local_path(join('templates','viewer_page.css')))
         self.settings, self.style = {}, {}
         self.reload_settings()
 
@@ -140,7 +140,7 @@ class MainWindow(QtGui.QFrame):
                        splitext(fname)[0].replace('-', ' '))
         try:
             open(fullpath, 'a').close()
-            common.write_json(metadatafile, {'title': title, 'description': '', 'tags': tags})
+            write_json(metadatafile, {'title': title, 'description': '', 'tags': tags})
         except Exception as e:
             self.terminal.error('Couldn\'t create the files: {}'.format(str(e)))
         else:
@@ -190,7 +190,7 @@ class MainWindow(QtGui.QFrame):
         if style != self.style:
             self.style = style.copy()
             self.update_style(style)
-            common.write_json(stylepath, style)
+            write_json(stylepath, style)
 
 
     def update_style(self, style):
@@ -235,13 +235,13 @@ def read_config(configdir, defaultstyle):
         configpath = join(getenv('HOME'), '.config', 'sapfo')
     configfile = join(configpath, 'settings.json')
     stylefile = join(configpath, 'style.json')
-    common.make_sure_config_exists(configfile, common.local_path('default_settings.json'))
-    common.make_sure_config_exists(stylefile, common.local_path('defaultstyle.json'))
+    make_sure_config_exists(configfile, local_path('default_settings.json'))
+    make_sure_config_exists(stylefile, local_path('defaultstyle.json'))
     # Make sure to update the style with the defaultstyle's values
-    newstyle = common.read_json(stylefile)
+    newstyle = read_json(stylefile)
     style = defaultstyle.copy()
     style.update({k:v for k,v in newstyle.items() if k in defaultstyle})
-    return common.read_json(configfile), style, stylefile
+    return read_json(configfile), style, stylefile
 
 
 def main():

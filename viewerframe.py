@@ -1,3 +1,4 @@
+from os.path import join
 import re
 
 from PyQt4.QtCore import pyqtSignal, Qt, QUrl
@@ -19,7 +20,7 @@ class ViewerFrame(QtGui.QFrame):
 
         self.hotkeys_set = False
 
-        self.template = read_file(local_path('viewer_page_template.html'))
+        self.template = read_file(local_path(join('templates', 'viewer_page_template.html')))
         self.css = "" # Is set every time the config is reloaded
         self.rawtext = ""
         self.formatconverters = []
