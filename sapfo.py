@@ -3,7 +3,7 @@
 import collections
 import copy
 from os import getenv
-from os.path import exists, expanduser, isdir, join, split, splitext
+from os.path import isdir, join
 import re
 import sys
 
@@ -12,7 +12,6 @@ from PyQt4.QtCore import Qt
 
 from libsyntyche.common import read_json, read_file, write_json, kill_theming, local_path, make_sure_config_exists
 from libsyntyche.fileviewer import FileViewer
-from terminal import Terminal
 from indexframe import IndexFrame
 from viewerframe import ViewerFrame
 from metaframe import MetaFrame
@@ -29,20 +28,10 @@ class MainWindow(QtGui.QFrame):
         # Create layouts
         self.stack = QtGui.QStackedLayout(self)
         kill_theming(self.stack)
-        self.index_widget = QtGui.QWidget(self)
-        layout = QtGui.QVBoxLayout(self.index_widget)
-        kill_theming(layout)
 
         # Index viewer
-        self.index_viewer = IndexFrame(self.index_widget, dry_run)
-        layout.addWidget(self.index_viewer, stretch=1)
-
-        # Terminal
-        self.terminal = Terminal(self.index_widget, self.index_viewer.get_tags)
-        layout.addWidget(self.terminal)
-
-        # Add both to stack
-        self.stack.addWidget(self.index_widget)
+        self.index_viewer = IndexFrame(self, dry_run)
+        self.stack.addWidget(self.index_viewer)
 
         # Story viewer
         self.story_viewer = ViewerFrame(self)
@@ -86,82 +75,26 @@ class MainWindow(QtGui.QFrame):
         self.close()
 
     def connect_signals(self):
-        t, iv = self.terminal, self.index_viewer
         connects = (
-            (t.filter_,                 iv.filter_entries),
-            (t.sort,                    iv.sort_entries),
-            (t.open_,                   iv.open_entry),
-            (t.edit,                    iv.edit_entry),
-            (t.input_term.scroll_index, iv.event),
-            (t.list_,                   iv.list_),
-            (t.count_length,            iv.count_length),
-            (t.external_edit,           iv.external_run_entry),
-            (t.open_meta,               iv.open_meta),
-            (t.new_entry,               self.new_entry),
-            (t.zoom,                    iv.zoom),
-            (self.story_viewer.show_index, self.show_index),
-            (self.meta_viewer.show_index, self.show_index),
-            (t.quit,                    self.close),
-            (self.meta_viewer.quit,     self.quit),
-            (iv.view_entry,             self.view_entry),
-            (iv.view_meta,              self.view_meta),
-            (iv.error,                  t.error),
-            (iv.print_,                 t.print_),
-            (iv.show_popup,             self.show_popup),
-            (t.show_readme,             self.show_popup),
-            (iv.set_terminal_text,      t.prompt)
+            (self.story_viewer.show_index,  self.show_index),
+            (self.meta_viewer.show_index,   self.show_index),
+            (self.index_viewer.quit,        self.close),
+            (self.meta_viewer.quit,         self.quit),
+            (self.index_viewer.view_entry,  self.view_entry),
+            (self.index_viewer.view_meta,   self.view_meta),
+            (self.index_viewer.show_popup,  self.show_popup),
         )
         for signal, slot in connects:
             signal.connect(slot)
 
 
-    def new_entry(self, arg):
-        def metadatafile(path):
-            dirname, fname = split(path)
-            return join(dirname, '.' + fname + '.metadata')
-        file_exists = False
-        tags = []
-        new_entry_rx = re.match(r'\s*\(([^\(]*?)\)\s*(.+)\s*', arg)
-        if not new_entry_rx:
-            self.terminal.error('Invalid new entry command')
-            return
-        tagstr, path = new_entry_rx.groups()
-        fullpath = expanduser(join(self.settings['path'], path))
-        dirname, fname = split(fullpath)
-        metadatafile = join(dirname, '.' + fname + '.metadata')
-        if tagstr:
-            tags = list({tag.strip() for tag in tagstr.split(',')})
-        if exists(metadatafile):
-            self.terminal.error('Metadata already exists for that file')
-            return
-        if exists(fullpath):
-            file_exists = True
-        # Fix the capitalization
-        title = re.sub(r"\w[\w']*",
-                       lambda mo: mo.group(0)[0].upper() + mo.group(0)[1:].lower(),
-                       splitext(fname)[0].replace('-', ' '))
-        try:
-            open(fullpath, 'a').close()
-            write_json(metadatafile, {'title': title, 'description': '', 'tags': tags})
-        except Exception as e:
-            self.terminal.error('Couldn\'t create the files: {}'.format(str(e)))
-        else:
-            self.index_viewer.reload_view()
-            if file_exists:
-                self.terminal.print_('New entry created, metadatafile added to existing file')
-            else:
-                self.terminal.print_('New entry created')
-
-
     def show_index(self):
-        self.stack.setCurrentWidget(self.index_widget)
-        self.terminal.setFocus()
-
+        self.stack.setCurrentWidget(self.index_viewer)
+        self.index_viewer.terminal.setFocus()
 
     def view_entry(self, entry):
         self.story_viewer.view_page(entry)
         self.stack.setCurrentWidget(self.story_viewer)
-
 
     def view_meta(self, entry):
         self.meta_viewer.set_entry(entry)
@@ -186,7 +119,6 @@ class MainWindow(QtGui.QFrame):
             self.index_viewer.update_settings(settings)
             self.story_viewer.update_settings(settings)
             self.meta_viewer.update_settings(settings)
-            self.terminal.update_settings(settings)
             self.popuphomekey.setKey(QtGui.QKeySequence(settings['hotkeys']['home']))
         if style != self.style:
             self.style = style.copy()
@@ -201,7 +133,7 @@ class MainWindow(QtGui.QFrame):
             viewercss = self.viewer_css_template.format(**style)
         except KeyError as e:
             print(e)
-            self.terminal.error('Invalid style config: key missing')
+            self.index_viewer.error('Invalid style config: key missing')
             return
         self.setStyleSheet(css)
         self.index_viewer.css = indexcss
@@ -213,17 +145,17 @@ class MainWindow(QtGui.QFrame):
 
     # ===== Input overrides ===========================
     def wheelEvent(self, ev):
-        self.index_viewer.wheelEvent(ev)
+        self.index_viewer.webview.wheelEvent(ev)
 
     def keyPressEvent(self, ev):
-        if self.stack.currentWidget() == self.index_widget and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.keyPressEvent(ev)
+        if self.stack.currentWidget() == self.index_viewer and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
+            self.index_viewer.webview.keyPressEvent(ev)
         else:
             return super().keyPressEvent(ev)
 
     def keyReleaseEvent(self, ev):
-        if self.stack.currentWidget() == self.index_widget and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.keyReleaseEvent(ev)
+        if self.stack.currentWidget() == self.index_viewer and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
+            self.index_viewer.webview.keyReleaseEvent(ev)
         else:
             return super().keyReleaseEvent(ev)
     # =================================================
