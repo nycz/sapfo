@@ -36,8 +36,7 @@ class ViewerFrame(QtGui.QFrame):
         self.webview.settings().setDefaultTextEncoding('utf-8')
 
         self.info_panel = infopanel.InfoPanel(self)
-        layout.addWidget(self.info_panel)
-        layout.setStretchFactor(self.info_panel, 0)
+        layout.addWidget(self.info_panel, 0)
 
     def update_settings(self, settings):
         self.set_hotkeys(settings['hotkeys'])
@@ -61,7 +60,7 @@ class ViewerFrame(QtGui.QFrame):
 
     def toggle_fullscreen(self):
         self.fullscreen = not self.fullscreen
-        self.info_panel.set_fullscreen(self.fullscreen)
+        self.info_panel.setHidden(self.fullscreen)
 
     def zoom_in(self):
         self.webview.setZoomFactor(self.webview.zoomFactor()+0.1)

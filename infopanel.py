@@ -1,8 +1,6 @@
-from os.path import basename
-
 from PyQt4 import QtCore, QtGui
 
-from libsyntyche.common import kill_theming, set_hotkey
+from libsyntyche.common import kill_theming
 
 
 class InfoPanel(QtGui.QFrame):
@@ -16,12 +14,8 @@ class InfoPanel(QtGui.QFrame):
         self.show()
 
     def set_data(self, data):
-        wc = "<em>({:,})</em>".format(data.wordcount)
         s = "<strong>{fname}</strong>\t&nbsp;\t{wordcount}"
         self.label.setText(s.format(
             fname=data.title,
-            wordcount=wc
+            wordcount="<em>({:,})</em>".format(data.wordcount)
         ))
-
-    def set_fullscreen(self, fullscreen):
-        self.setHidden(fullscreen)
