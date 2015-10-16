@@ -295,6 +295,12 @@ class MetaFrame(QtGui.QFrame):
         self.formatconverters = settings['formatting converters']
         self.chapterstrings = settings['chapter strings']
         self.defaultpages = settings['backstory default pages']
+        # Terminal animation settings
+        self.terminal.output_term.animate = settings['animate terminal output']
+        interval = settings['terminal animation interval']
+        if interval < 1:
+            self.error('Too low animation interval')
+        self.terminal.output_term.set_timer_interval(max(1, interval))
         # Update hotkeys
         for key, shortcut in self.hotkeys.items():
             shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))

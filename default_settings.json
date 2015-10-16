@@ -14,6 +14,8 @@
   },
   "path": "",
   "editor": "",
+  "animate terminal output": true,
+  "terminal animation interval": 5,
   "tag colors": {},
   "tag macros": {},
   "formatting converters": [],

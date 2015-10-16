@@ -186,9 +186,7 @@ class MainWindow(QtGui.QFrame):
             self.index_viewer.update_settings(settings)
             self.story_viewer.update_settings(settings)
             self.meta_viewer.update_settings(settings)
-            self.terminal.rootpath = settings['path']
-            self.terminal.tagmacros = settings['tag macros']
-            self.terminal.set_hotkeys(settings['hotkeys'])
+            self.terminal.update_settings(settings)
             self.popuphomekey.setKey(QtGui.QKeySequence(settings['hotkeys']['home']))
         if style != self.style:
             self.style = style.copy()

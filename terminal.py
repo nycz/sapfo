@@ -76,9 +76,18 @@ class Terminal(GenericTerminal):
     def cmd_show_readme(self, arg):
         self.show_readme.emit('', local_path('README.md'), None, 'markdown')
 
-    def set_hotkeys(self, hotkeys):
+    def update_settings(self, settings):
+        self.rootpath = settings['path']
+        self.tagmacros = settings['tag macros']
+        # Terminal animation settings
+        self.output_term.animate = settings['animate terminal output']
+        interval = settings['terminal animation interval']
+        if interval < 1:
+            self.error('Too low animation interval')
+        self.output_term.set_timer_interval(max(1, interval))
+        # Update hotkeys
         for key, shortcut in self.hotkeys.items():
-            shortcut.setKey(QtGui.QKeySequence(hotkeys[key]))
+            shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))
 
     def command_parsing_injection(self, arg):
         if arg.isdigit():
