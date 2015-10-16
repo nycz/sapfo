@@ -5,7 +5,24 @@ from PyQt4.QtCore import pyqtSignal, Qt, QUrl
 from PyQt4 import QtGui, QtWebKit
 
 from libsyntyche.common import kill_theming, read_file, local_path
-import infopanel
+
+
+class InfoPanel(QtGui.QFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        layout = QtGui.QGridLayout(self)
+        kill_theming(layout)
+        class InfoPanelLabel(QtGui.QLabel): pass
+        self.label = InfoPanelLabel()
+        layout.addWidget(self.label, 1, 0, Qt.AlignHCenter)
+        self.show()
+
+    def set_data(self, data):
+        s = "<strong>{fname}</strong>\t&nbsp;\t{wordcount}"
+        self.label.setText(s.format(
+            fname=data.title,
+            wordcount="<em>({:,})</em>".format(data.wordcount)
+        ))
 
 
 class ViewerFrame(QtGui.QFrame):
@@ -45,7 +62,7 @@ class ViewerFrame(QtGui.QFrame):
         layout.setStretchFactor(self.webview, 1)
         self.webview.settings().setDefaultTextEncoding('utf-8')
 
-        self.info_panel = infopanel.InfoPanel(self)
+        self.info_panel = InfoPanel(self)
         layout.addWidget(self.info_panel, 0)
 
     def update_settings(self, settings):
