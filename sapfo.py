@@ -10,7 +10,7 @@ import sys
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import Qt
 
-from libsyntyche.common import read_json, read_file, write_json, kill_theming, local_path, set_hotkey, make_sure_config_exists
+from libsyntyche.common import read_json, read_file, write_json, kill_theming, local_path, make_sure_config_exists
 from libsyntyche.fileviewer import FileViewer
 from terminal import Terminal
 from indexframe import IndexFrame
@@ -55,7 +55,9 @@ class MainWindow(QtGui.QFrame):
         # Popup viewer
         self.popup_viewer = FileViewer(self)
         self.stack.addWidget(self.popup_viewer)
-        set_hotkey('Home', self.popup_viewer, self.show_index)
+        self.popuphomekey = QtGui.QShortcut(QtGui.QKeySequence(),
+                                            self.popup_viewer,
+                                            self.show_index)
 
         # Load settings
         self.defaultstyle = read_json(local_path('defaultstyle.json'))
@@ -187,6 +189,7 @@ class MainWindow(QtGui.QFrame):
             self.terminal.rootpath = settings['path']
             self.terminal.tagmacros = settings['tag macros']
             self.terminal.set_hotkeys(settings['hotkeys'])
+            self.popuphomekey.setKey(QtGui.QKeySequence(settings['hotkeys']['home']))
         if style != self.style:
             self.style = style.copy()
             self.update_style(style)

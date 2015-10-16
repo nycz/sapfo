@@ -9,7 +9,7 @@ import shutil
 from PyQt4.QtCore import pyqtSignal, Qt
 from PyQt4 import QtGui, QtCore
 
-from libsyntyche.common import kill_theming, set_hotkey, read_file, write_file, local_path
+from libsyntyche.common import kill_theming, read_file, write_file, local_path
 from libsyntyche.terminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
 
 def fixtitle(fname):
@@ -234,12 +234,18 @@ class MetaFrame(QtGui.QFrame):
         self.formatter = Formatter(self.textarea)
 
         self.revisionactive = False
-        self.hotkeys_set = False
 
-        set_hotkey('Ctrl+PgUp', self, lambda: self.tabbar.change_tab(-1))
-        set_hotkey('Ctrl+PgDown', self, lambda: self.tabbar.change_tab(+1))
-        set_hotkey('Ctrl+S', self, self.save_tab)
-        set_hotkey('Escape', self, self.toggle_terminal)
+        hotkeypairs = (
+            ('next tab', lambda: self.tabbar.change_tab(+1)),
+            ('prev tab', lambda: self.tabbar.change_tab(-1)),
+            ('save', self.save_tab),
+            ('toggle terminal', self.toggle_terminal),
+            ('home', self.cmd_go_to_index)
+        )
+        self.hotkeys = {
+            key: QtGui.QShortcut(QtGui.QKeySequence(), self, callback)
+            for key, callback in hotkeypairs
+        }
 
 
     def create_layout(self, titlelabel, tabbar, tabcounter, revisionnotice,
@@ -285,18 +291,13 @@ class MetaFrame(QtGui.QFrame):
             signal.connect(slot)
 
     def update_settings(self, settings):
-        self.set_hotkeys(settings['hotkeys'])
         self.formatter.update_formats(settings['backstory viewer formats'])
         self.formatconverters = settings['formatting converters']
         self.chapterstrings = settings['chapter strings']
         self.defaultpages = settings['backstory default pages']
-
-    def set_hotkeys(self, hotkeys):
-        if self.hotkeys_set:
-            return
-        self.hotkeys_set = True
-        for key in hotkeys['exit backstory']:
-            set_hotkey(key, self, self.cmd_go_to_index)
+        # Update hotkeys
+        for key, shortcut in self.hotkeys.items():
+            shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))
 
     def toggle_terminal(self):
         if self.textarea.hasFocus():

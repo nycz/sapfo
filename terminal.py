@@ -6,7 +6,7 @@ import re
 from PyQt4 import QtGui
 from PyQt4.QtCore import pyqtSignal, Qt, QEvent
 
-from libsyntyche.common import set_hotkey, read_file, local_path
+from libsyntyche.common import read_file, local_path
 from libsyntyche.terminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
 
 
@@ -46,10 +46,18 @@ class Terminal(GenericTerminal):
         super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox)
         self.get_tags = get_tags
         self.autocomplete_type = '' # 'path' or 'tag'
-        self.hotkeys_set = False
         # These two are set in reload_settings() in sapfo.py
         self.rootpath = ''
         self.tagmacros = {}
+        hotkeypairs = (
+            ('zoom in', lambda: self.zoom.emit('in')),
+            ('zoom out', lambda: self.zoom.emit('out')),
+            ('reset zoom', lambda: self.zoom.emit('reset'))
+        )
+        self.hotkeys = {
+            key: QtGui.QShortcut(QtGui.QKeySequence(), self, callback)
+            for key, callback in hotkeypairs
+        }
 
         self.commands = {
             'f': (self.filter_, 'Filter'),
@@ -69,15 +77,8 @@ class Terminal(GenericTerminal):
         self.show_readme.emit('', local_path('README.md'), None, 'markdown')
 
     def set_hotkeys(self, hotkeys):
-        if self.hotkeys_set:
-            return
-        self.hotkeys_set = True
-        for key in hotkeys['zoom in']:
-            set_hotkey(key, self, lambda: self.zoom.emit('in'))
-        for key in hotkeys['zoom out']:
-            set_hotkey(key, self, lambda: self.zoom.emit('out'))
-        for key in hotkeys['reset zoom']:
-            set_hotkey(key, self, lambda: self.zoom.emit('reset'))
+        for key, shortcut in self.hotkeys.items():
+            shortcut.setKey(QtGui.QKeySequence(hotkeys[key]))
 
     def command_parsing_injection(self, arg):
         if arg.isdigit():

@@ -4,7 +4,7 @@ import re
 from PyQt4.QtCore import pyqtSignal, Qt, QUrl
 from PyQt4 import QtGui, QtWebKit
 
-from libsyntyche.common import kill_theming, set_hotkey, read_file, local_path
+from libsyntyche.common import kill_theming, read_file, local_path
 import infopanel
 
 
@@ -18,7 +18,17 @@ class ViewerFrame(QtGui.QFrame):
         self.fullscreen = False
         self.setDisabled(True)
 
-        self.hotkeys_set = False
+        hotkeypairs = (
+            ('home', self.goto_index),
+            ('toggle fullscreen', self.toggle_fullscreen),
+            ('zoom in', self.zoom_in),
+            ('zoom out', self.zoom_out),
+            ('reset zoom', self.zoom_reset)
+        )
+        self.hotkeys = {
+            key: QtGui.QShortcut(QtGui.QKeySequence(), self, callback)
+            for key, callback in hotkeypairs
+        }
 
         self.template = read_file(local_path(join('templates', 'viewer_page_template.html')))
         self.css = "" # Is set every time the config is reloaded
@@ -39,24 +49,11 @@ class ViewerFrame(QtGui.QFrame):
         layout.addWidget(self.info_panel, 0)
 
     def update_settings(self, settings):
-        self.set_hotkeys(settings['hotkeys'])
         self.formatconverters = settings['formatting converters']
         self.chapterstrings = settings['chapter strings']
-
-    def set_hotkeys(self, hotkeys):
-        if self.hotkeys_set:
-            return
-        self.hotkeys_set = True
-        for key in hotkeys['home']:
-            set_hotkey(key, self, self.goto_index)
-        for key in hotkeys['toggle fullscreen']:
-            set_hotkey(key, self, self.toggle_fullscreen)
-        for key in hotkeys['zoom in']:
-            set_hotkey(key, self, self.zoom_in)
-        for key in hotkeys['zoom out']:
-            set_hotkey(key, self, self.zoom_out)
-        for key in hotkeys['reset zoom']:
-            set_hotkey(key, self, self.zoom_reset)
+        # Update hotkeys
+        for key, shortcut in self.hotkeys.items():
+            shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))
 
     def toggle_fullscreen(self):
         self.fullscreen = not self.fullscreen

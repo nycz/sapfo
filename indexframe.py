@@ -5,10 +5,10 @@ from os.path import exists, join
 import re
 import subprocess
 
-from PyQt4 import QtWebKit
+from PyQt4 import QtGui, QtWebKit
 from PyQt4.QtCore import pyqtSignal, Qt
 
-from libsyntyche.common import local_path, read_file, read_json, set_hotkey, write_json
+from libsyntyche.common import local_path, read_file, read_json, write_json
 from libsyntyche import taggedlist
 
 
@@ -27,10 +27,12 @@ class IndexFrame(QtWebKit.QWebView):
         self.dry_run = dry_run
         self.htmltemplates = load_html_templates()
         self.css = None # Is set every time the config is reloaded
-
-        set_hotkey("Ctrl+R", parent, self.reload_view)
-        set_hotkey("F5", parent, self.reload_view)
-
+        # Have this here for easy addition of more hotkeys if needed
+        self.hotkeys = {
+            key: QtGui.QShortcut(QtGui.QKeySequence(), parent, callback)
+            for key, callback in (('reload', self.reload_view),)
+        }
+        # Entries and stuff
         self.entries = ()
         self.visible_entries = ()
         activefilters = namedtuple('activefilters', 'title description tags wordcount backstorywordcount backstorypages')
@@ -38,8 +40,11 @@ class IndexFrame(QtWebKit.QWebView):
         self.sorted_by = ('title', False)
         self.undostack = ()
 
-    def update_settings(self, new_settings):
-        self.settings = new_settings
+    def update_settings(self, settings):
+        self.settings = settings
+        # Update hotkeys
+        for key, shortcut in self.hotkeys.items():
+            shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))
         self.reload_view()
 
     def zoom(self, arg):
