@@ -168,7 +168,7 @@ def read_config(configdir, defaultstyle):
         configpath = join(getenv('HOME'), '.config', 'sapfo')
     configfile = join(configpath, 'settings.json')
     stylefile = join(configpath, 'style.json')
-    make_sure_config_exists(configfile, local_path('default_settings.json'))
+    make_sure_config_exists(configfile, local_path('defaultconfig.json'))
     make_sure_config_exists(stylefile, local_path('defaultstyle.json'))
     # Make sure to update the style with the defaultstyle's values
     newstyle = read_json(stylefile)
