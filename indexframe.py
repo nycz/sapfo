@@ -503,6 +503,9 @@ def get_backstory_data(fname):
         return out
     for dirpath, _, filenames in os.walk(root):
         for f in filenames:
+            # Skip old revision files
+            if re.search(r'\.rev\d+$', f) is not None:
+                continue
             try:
                 data = read_file(join(dirpath, f)).split('\n',1)[1]
                 words = len(re.findall(r'\S+', data))
