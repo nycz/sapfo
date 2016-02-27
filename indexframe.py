@@ -268,7 +268,11 @@ class IndexFrame(QtGui.QWidget):
 
         If arg is not specified, print the current sort order.
         """
-        acronyms = {'n': 'title', 'c': 'wordcount', 'b': 'backstorywordcount', 'p': 'backstorypages'}
+        acronyms = {'n': 'title',
+                    'c': 'wordcount',
+                    'b': 'backstorywordcount',
+                    'p': 'backstorypages',
+                    'm': 'lastmodified'}
         if not arg:
             attr = self.sorted_by[0]
             order = ('ascending', 'descending')[self.sorted_by[1]]
@@ -533,6 +537,7 @@ def index_stories(path):
         ('backstorywordcount', {'filter': 'number'}),
         ('backstorypages', {'filter': 'number'}),
         ('file', {}),
+        ('lastmodified', {'filter': 'number'}),
         ('metadatafile', {}),
     )
     metafile = lambda dirpath, fname: join(dirpath, '.'+fname+'.metadata')
@@ -551,6 +556,7 @@ def index_stories(path):
                 backstorydata['wordcount'],
                 backstorydata['pages'],
                 fname,
+                os.path.getmtime(fname),
                 metadatafile)
                for metadata, fname, metadatafile, backstorydata in files)
     return attributes, entries
