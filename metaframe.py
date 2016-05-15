@@ -521,7 +521,7 @@ class MetaFrame(QtGui.QFrame):
                 self.textarea.setPlainText(data)
                 self.textarea.document().setModified(False)
                 self.revisionactive = True
-                self.revisionnotice.setText('Showing revision {}'.format(arg))
+                self.revisionnotice.setText('Showing revision {}. Changes will not be saved.'.format(arg))
                 self.revisionnotice.show()
         elif arg == '#':
             self.terminal.print_('Current revision: {}'.format(jsondata['revision']))
