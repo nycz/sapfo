@@ -5,6 +5,7 @@ import os.path
 from os.path import join
 import re
 import shutil
+import subprocess
 
 from PyQt4.QtCore import pyqtSignal, Qt
 from PyQt4 import QtGui, QtCore
@@ -236,6 +237,7 @@ class MetaFrame(QtGui.QFrame):
         self.formatter = Formatter(self.textarea)
 
         self.revisionactive = False
+        self.entryfilename = ''
 
         hotkeypairs = (
             ('next tab', lambda: self.tabbar.change_tab(+1)),
@@ -288,6 +290,7 @@ class MetaFrame(QtGui.QFrame):
             (t.print_filename,  self.cmd_print_filename),
             (t.count_words,     self.cmd_count_words),
             (t.revision_control,self.cmd_revision_control),
+            (t.external_edit,   self.cmd_external_edit),
         )
         for signal, slot in connects:
             signal.connect(slot)
@@ -297,6 +300,7 @@ class MetaFrame(QtGui.QFrame):
         self.formatconverters = settings['formatting converters']
         self.chapterstrings = settings['chapter strings']
         self.defaultpages = settings['backstory default pages']
+        self.externaleditor = settings['editor']
         # Terminal animation settings
         self.terminal.output_term.animate = settings['animate terminal output']
         interval = settings['terminal animation interval']
@@ -393,6 +397,7 @@ class MetaFrame(QtGui.QFrame):
         self.revisionnotice.hide()
         self.terminal.clear()
         self.root = entry.file + '.metadir'
+        self.entryfilename = entry.file
         self.make_sure_metadir_exists(self.root)
         self.tabbar.open_entry(self.root)
         self.load_tab(0)
@@ -525,6 +530,12 @@ class MetaFrame(QtGui.QFrame):
         else:
             self.terminal.error('Unknown argument: "{}"'.format(arg))
 
+    def cmd_external_edit(self, arg):
+        if not self.externaleditor:
+            self.error('No editor command defined')
+            return
+        subprocess.Popen([self.externaleditor, self.entryfilename])
+        self.terminal.print_('Opening entry with {}'.format(self.externaleditor))
 
 
 
@@ -538,6 +549,7 @@ class MetaTerminal(GenericTerminal):
     quit = pyqtSignal(str)
     go_back = pyqtSignal(str)
     revision_control = pyqtSignal(str)
+    external_edit = pyqtSignal(str)
 
     def __init__(self, parent):
         super().__init__(parent, GenericTerminalInputBox, GenericTerminalOutputBox)
@@ -553,6 +565,7 @@ class MetaTerminal(GenericTerminal):
             'q': (self.quit, 'Quit (q! to force)'),
             '#': (self.revision_control, 'Revision control'),
             'b': (self.go_back, 'Go back to index (b! to force)'),
+            'x': (self.external_edit, 'Open in external program/editor'),
         }
 
         self.hide()
