@@ -12,6 +12,7 @@ from PyQt4 import QtGui, QtCore
 
 from libsyntyche.common import kill_theming, read_file, write_file, local_path
 from libsyntyche.terminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
+from libsyntyche.texteditor import SearchAndReplaceable
 
 def fixtitle(fname):
     return re.sub(r"\w[\w']*",
@@ -213,7 +214,7 @@ class MetaFrame(QtGui.QFrame):
     def __init__(self, parent):
         super().__init__(parent)
 
-        class MetaTextEdit(QtGui.QTextEdit):
+        class MetaTextEdit(QtGui.QTextEdit, SearchAndReplaceable):
             pass
         self.textarea = MetaTextEdit()
         self.textarea.setTabStopWidth(30)
@@ -228,6 +229,7 @@ class MetaFrame(QtGui.QFrame):
             pass
         self.revisionnotice = MetaRevisionNotice(self)
         self.terminal = MetaTerminal(self)
+        self.textarea.initialize_search_and_replace(self.terminal.error, self.terminal.print_)
         self.tabbar = TabBar(self, self.terminal.print_, self.set_tab_index)
 
         self.create_layout(self.titlelabel, self.tabbar, self.tabcounter,
@@ -291,6 +293,7 @@ class MetaFrame(QtGui.QFrame):
             (t.count_words,     self.cmd_count_words),
             (t.revision_control,self.cmd_revision_control),
             (t.external_edit,   self.cmd_external_edit),
+            (t.search_and_replace, self.textarea.search_and_replace),
         )
         for signal, slot in connects:
             signal.connect(slot)
@@ -554,6 +557,7 @@ class MetaTerminal(GenericTerminal):
     go_back = pyqtSignal(str)
     revision_control = pyqtSignal(str)
     external_edit = pyqtSignal(str)
+    search_and_replace = pyqtSignal(str)
 
     def __init__(self, parent):
         super().__init__(parent, GenericTerminalInputBox, GenericTerminalOutputBox)
@@ -570,6 +574,7 @@ class MetaTerminal(GenericTerminal):
             '#': (self.revision_control, 'Revision control'),
             'b': (self.go_back, 'Go back to index (b! to force)'),
             'x': (self.external_edit, 'Open in external program/editor'),
+            '/': (self.search_and_replace, 'Search/replace', {'keep whitespace': True}),
         }
 
         self.hide()
