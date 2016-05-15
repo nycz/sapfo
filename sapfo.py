@@ -136,6 +136,7 @@ class MainWindow(QtGui.QFrame):
             self.index_viewer.error('Invalid style config: key missing')
             return
         self.setStyleSheet(css)
+        self.index_viewer.defaulttagcolor = style['index entry tag default background']
         self.index_viewer.css = indexcss
         self.story_viewer.css = viewercss
         self.index_viewer.refresh_view(keep_position=True)
