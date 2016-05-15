@@ -143,6 +143,8 @@ class TabBar(QtGui.QTabBar):
         for f in fnames:
             if re.search(r'\.rev\d+$', f) is not None:
                 continue
+            if os.path.isdir(join(root, f)):
+                continue
             firstline, data = read_file(join(root, f)).split('\n', 1)
             try:
                 jsondata = json.loads(firstline)
