@@ -448,6 +448,10 @@ class MetaFrame(QtGui.QFrame):
             os.remove(join(self.root, fname))
 
     def cmd_rename_current_page(self, title):
+        if not title.strip():
+            oldtitle = self.tabbar.pages[self.tabbar.currentIndex()][0]
+            self.terminal.prompt('r {}'.format(oldtitle))
+            return
         try:
             self.tabbar.rename_page(title)
         except KeyError as e:
