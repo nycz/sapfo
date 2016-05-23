@@ -90,20 +90,27 @@ class Formatter(QtGui.QSyntaxHighlighter):
 
 
 class TabBar(QtGui.QTabBar):
-    def __init__(self, parent, print_, set_tab_index):
+    set_tab_index = pyqtSignal(int)
+
+    def __init__(self, parent, print_):
         super().__init__(parent)
         self.print_ = print_
         self.pages = []
-        self.set_tab_index = set_tab_index
 
     def mousePressEvent(self, ev):
         if ev.button() == Qt.LeftButton:
             tab = self.tabAt(ev.pos())
             if tab != -1:
-                self.set_tab_index(tab)
+                self.set_tab_index.emit(tab)
 
     def wheelEvent(self, ev):
         self.change_tab(-ev.delta())
+
+    def next_tab(self):
+            self.change_tab(1)
+
+    def prev_tab(self):
+        self.change_tab(-1)
 
     def change_tab(self, direction):
         currenttab = self.currentIndex()
@@ -113,7 +120,7 @@ class TabBar(QtGui.QTabBar):
             newtab = self.count() - 1
         else:
             newtab = currenttab + int(direction/abs(direction))
-        self.set_tab_index(newtab)
+        self.set_tab_index.emit(newtab)
 
     def clear(self):
         while self.count() > 1:
@@ -207,30 +214,28 @@ class TabBar(QtGui.QTabBar):
         self.moveTab(i, next(zip(*self.pages)).index(newtitle))
 
 
-class MetaFrame(QtGui.QFrame):
-    show_index = pyqtSignal()
-    quit = pyqtSignal(bool)
+class BackstoryWindow(QtGui.QFrame):
+    closed = pyqtSignal(str)
 
-    def __init__(self, parent):
-        super().__init__(parent)
-
-        class MetaTextEdit(QtGui.QTextEdit, SearchAndReplaceable):
+    def __init__(self, entry, settings):
+        super().__init__()
+        class BackstoryTextEdit(QtGui.QTextEdit, SearchAndReplaceable):
             pass
-        self.textarea = MetaTextEdit()
+        self.textarea = BackstoryTextEdit()
         self.textarea.setTabStopWidth(30)
         self.textarea.setAcceptRichText(False)
-        class MetaTitle(QtGui.QLabel):
+        class BackstoryTitle(QtGui.QLabel):
             pass
-        self.titlelabel = MetaTitle()
-        class MetaTabCounter(QtGui.QLabel):
+        self.titlelabel = BackstoryTitle()
+        class BackstoryTabCounter(QtGui.QLabel):
             pass
-        self.tabcounter = MetaTabCounter(self)
-        class MetaRevisionNotice(QtGui.QLabel):
+        self.tabcounter = BackstoryTabCounter(self)
+        class BackstoryRevisionNotice(QtGui.QLabel):
             pass
-        self.revisionnotice = MetaRevisionNotice(self)
-        self.terminal = MetaTerminal(self)
+        self.revisionnotice = BackstoryRevisionNotice(self)
+        self.terminal = BackstoryTerminal(self)
         self.textarea.initialize_search_and_replace(self.terminal.error, self.terminal.print_)
-        self.tabbar = TabBar(self, self.terminal.print_, self.set_tab_index)
+        self.tabbar = TabBar(self, self.terminal.print_)
 
         self.create_layout(self.titlelabel, self.tabbar, self.tabcounter,
                            self.revisionnotice, self.textarea, self.terminal)
@@ -239,19 +244,37 @@ class MetaFrame(QtGui.QFrame):
         self.formatter = Formatter(self.textarea)
 
         self.revisionactive = False
-        self.entryfilename = ''
+        self.forcequitflag = False
 
         hotkeypairs = (
-            ('next tab', lambda: self.tabbar.change_tab(+1)),
-            ('prev tab', lambda: self.tabbar.change_tab(-1)),
+            ('next tab', self.tabbar.next_tab),
+            ('prev tab', self.tabbar.prev_tab),
             ('save', self.save_tab),
             ('toggle terminal', self.toggle_terminal),
-            ('home', self.cmd_go_to_index)
         )
         self.hotkeys = {
             key: QtGui.QShortcut(QtGui.QKeySequence(), self, callback)
             for key, callback in hotkeypairs
         }
+        self.update_settings(settings)
+        self.entryfilename = entry.file
+        self.root = entry.file + '.metadir'
+        self.make_sure_metadir_exists(self.root)
+        self.tabbar.open_entry(self.root)
+        self.load_tab(0)
+        self.titlelabel.setText(entry.title)
+        self.setWindowTitle(entry.title)
+        self.textarea.setFocus()
+        self.show()
+
+
+    def closeEvent(self, ev):
+        success = self.save_tab()
+        if success or self.forcequitflag:
+            self.closed.emit(self.entryfilename)
+            ev.accept()
+        else:
+            ev.ignore()
 
 
     def create_layout(self, titlelabel, tabbar, tabcounter, revisionnotice,
@@ -280,11 +303,14 @@ class MetaFrame(QtGui.QFrame):
         # Terminal
         layout.addWidget(self.terminal)
 
+    def cmd_quit(self, arg):
+        self.forcequitflag = arg == '!'
+        self.close()
+
     def connect_signals(self):
         t = self.terminal
         connects = (
-            (t.go_back,         self.cmd_go_to_index),
-            (t.quit,            lambda arg: self.quit.emit(arg == '!')),
+            (t.quit,            self.cmd_quit),
             (t.new_page,        self.cmd_new_page),
             (t.delete_page,     self.cmd_delete_current_page),
             (t.rename_page,     self.cmd_rename_current_page),
@@ -294,6 +320,7 @@ class MetaFrame(QtGui.QFrame):
             (t.revision_control,self.cmd_revision_control),
             (t.external_edit,   self.cmd_external_edit),
             (t.search_and_replace, self.textarea.search_and_replace),
+            (self.tabbar.set_tab_index, self.set_tab_index),
         )
         for signal, slot in connects:
             signal.connect(slot)
@@ -343,7 +370,7 @@ class MetaFrame(QtGui.QFrame):
                 write_file(fname, firstline + '\n' + data)
             except Exception as e:
                 print(str(e))
-                self.terminal.error('Something went wrong when saving! (Use q! or b! to force)')
+                self.terminal.error('Something went wrong when saving! (Use q! to force)')
                 return False
         cursorpos = self.textarea.textCursor().position()
         scrollpos = self.textarea.verticalScrollBar().sliderPosition()
@@ -388,24 +415,6 @@ class MetaFrame(QtGui.QFrame):
             if success:
                 # Load the new tab
                 self.load_tab(newtab)
-
-
-    def set_entry(self, entry):
-        """
-        Load an entry, filling the tab bar with all pages etc.
-
-        This is the first thing that's called whenever the metaviewer is booted up.
-        """
-        self.revisionactive = False
-        self.revisionnotice.hide()
-        self.terminal.clear()
-        self.root = entry.file + '.metadir'
-        self.entryfilename = entry.file
-        self.make_sure_metadir_exists(self.root)
-        self.tabbar.open_entry(self.root)
-        self.load_tab(0)
-        self.titlelabel.setText(entry.title)
-        self.textarea.setFocus()
 
     def make_sure_metadir_exists(self, root):
         """
@@ -468,11 +477,6 @@ class MetaFrame(QtGui.QFrame):
 
     def cmd_save_current_page(self, _):
         self.save_tab()
-
-    def cmd_go_to_index(self, arg=''):
-        success = self.save_tab()
-        if success or arg == '!':
-            self.show_index.emit()
 
     def cmd_print_filename(self, arg):
         fname = self.current_page_path()
@@ -546,7 +550,7 @@ class MetaFrame(QtGui.QFrame):
 
 
 
-class MetaTerminal(GenericTerminal):
+class BackstoryTerminal(GenericTerminal):
     new_page = pyqtSignal(str)
     delete_page = pyqtSignal(str)
     rename_page = pyqtSignal(str)
@@ -554,14 +558,13 @@ class MetaTerminal(GenericTerminal):
     print_filename = pyqtSignal(str)
     count_words = pyqtSignal(str)
     quit = pyqtSignal(str)
-    go_back = pyqtSignal(str)
     revision_control = pyqtSignal(str)
     external_edit = pyqtSignal(str)
     search_and_replace = pyqtSignal(str)
+    print_help = pyqtSignal(str)
 
     def __init__(self, parent):
         super().__init__(parent, GenericTerminalInputBox, GenericTerminalOutputBox)
-
         self.commands = {
             'n': (self.new_page, 'New page'),
             'd': (self.delete_page, 'Delete page'),
@@ -569,12 +572,11 @@ class MetaTerminal(GenericTerminal):
             's': (self.save_page, 'Save page'),
             'f': (self.print_filename, 'Print name of the active file'),
             'c': (self.count_words, 'Print the page\'s wordcount'),
-            '?': (self.cmd_help, 'List commands or help for [command]'),
+            '?': (self.print_help, 'List commands or help for [command]'),
             'q': (self.quit, 'Quit (q! to force)'),
             '#': (self.revision_control, 'Revision control'),
-            'b': (self.go_back, 'Go back to index (b! to force)'),
             'x': (self.external_edit, 'Open in external program/editor'),
             '/': (self.search_and_replace, 'Search/replace', {'keep whitespace': True}),
         }
-
+        self.print_help.connect(self.cmd_help)
         self.hide()

@@ -6,6 +6,8 @@ from os import getenv
 from os.path import isdir, join
 import re
 import sys
+import weakref, gc
+from pympler import tracker
 
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import Qt
@@ -14,10 +16,10 @@ from libsyntyche.common import read_json, read_file, write_json, kill_theming, l
 from libsyntyche.fileviewer import FileViewer
 from indexframe import IndexFrame
 from viewerframe import ViewerFrame
-from metaframe import MetaFrame
+from backstorywindow import BackstoryWindow
 
 
-class MainWindow(QtGui.QFrame):
+class MainWindow(QtGui.QWidget):
     def __init__(self, configdir, activation_event, dry_run):
         super().__init__()
         self.setWindowTitle('Sapfo')
@@ -27,7 +29,6 @@ class MainWindow(QtGui.QFrame):
 
         # Create layouts
         self.stack = QtGui.QStackedLayout(self)
-        kill_theming(self.stack)
 
         # Index viewer
         self.index_viewer = IndexFrame(self, dry_run)
@@ -37,9 +38,8 @@ class MainWindow(QtGui.QFrame):
         self.story_viewer = ViewerFrame(self)
         self.stack.addWidget(self.story_viewer)
 
-        # Meta viewer
-        self.meta_viewer = MetaFrame(self)
-        self.stack.addWidget(self.meta_viewer)
+        # Backstory editor
+        self.backstorywindows = {}
 
         # Popup viewer
         self.popup_viewer = FileViewer(self)
@@ -61,32 +61,28 @@ class MainWindow(QtGui.QFrame):
         self.show()
 
     def closeEvent(self, event):
-        if self.stack.currentWidget() == self.meta_viewer:
-            success = self.meta_viewer.save_tab()
-            if success or self.force_quit_flag:
-                event.accept()
-            else:
-                event.ignore()
+        # Don't quit if any backstory windows are open
+        if self.backstorywindows:
+            self.index_viewer.terminal.error('One or more backstory windows are still open!')
+            event.ignore()
         else:
             event.accept()
 
     def quit(self, force):
+        # This flag is not used atm
         self.force_quit_flag = force
         self.close()
 
     def connect_signals(self):
         connects = (
             (self.story_viewer.show_index,  self.show_index),
-            (self.meta_viewer.show_index,   self.show_index),
             (self.index_viewer.quit,        self.close),
-            (self.meta_viewer.quit,         self.quit),
             (self.index_viewer.view_entry,  self.view_entry),
-            (self.index_viewer.view_meta,   self.view_meta),
+            (self.index_viewer.view_meta,   self.open_backstory_editor),
             (self.index_viewer.show_popup,  self.show_popup),
         )
         for signal, slot in connects:
             signal.connect(slot)
-
 
     def show_index(self):
         self.stack.setCurrentWidget(self.index_viewer)
@@ -96,9 +92,20 @@ class MainWindow(QtGui.QFrame):
         self.story_viewer.view_page(entry)
         self.stack.setCurrentWidget(self.story_viewer)
 
-    def view_meta(self, entry):
-        self.meta_viewer.set_entry(entry)
-        self.stack.setCurrentWidget(self.meta_viewer)
+    def open_backstory_editor(self, entry):
+        if entry.file in self.backstorywindows:
+            self.backstorywindows[entry.file].activateWindow()
+            self.backstorywindows[entry.file].raise_()
+            return
+        bsw = BackstoryWindow(entry, self.settings)
+        bsw.setStyleSheet(self.styleSheet())
+        self.backstorywindows[entry.file] = bsw
+        bsw.closed.connect(self.forget_backstory_window)
+
+    def forget_backstory_window(self, file):
+        bsw = self.backstorywindows[file]
+        bsw.deleteLater()
+        del self.backstorywindows[file]
 
     def show_popup(self, *args):
         self.popup_viewer.set_page(*args)
@@ -118,7 +125,8 @@ class MainWindow(QtGui.QFrame):
             self.settings = copy.deepcopy(settings)
             self.index_viewer.update_settings(settings)
             self.story_viewer.update_settings(settings)
-            self.meta_viewer.update_settings(settings)
+            for bsw in self.backstorywindows.values():
+                bsw.update_settings(settings)
             self.popuphomekey.setKey(QtGui.QKeySequence(settings['hotkeys']['home']))
         if style != self.style:
             self.style = style.copy()
@@ -136,6 +144,8 @@ class MainWindow(QtGui.QFrame):
             self.index_viewer.error('Invalid style config: key missing')
             return
         self.setStyleSheet(css)
+        for bsw in self.backstorywindows.values():
+            bsw.setStyleSheet(css)
         self.index_viewer.defaulttagcolor = style['index entry tag default background']
         self.index_viewer.css = indexcss
         self.story_viewer.css = viewercss
@@ -206,7 +216,6 @@ def main():
                         args.dry_run)
     app.setActiveWindow(window)
     sys.exit(app.exec_())
-
 
 if __name__ == '__main__':
     main()
