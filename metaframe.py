@@ -252,7 +252,17 @@ class MetaFrame(QtGui.QFrame):
             key: QtGui.QShortcut(QtGui.QKeySequence(), self, callback)
             for key, callback in hotkeypairs
         }
+        self.ignorewheelevent = False
 
+    def wheelEvent(self, ev):
+        # If this isn't here textarea will call this method later
+        # and we'll get an infinite loop
+        if self.ignorewheelevent:
+            self.ignorewheelevent = False
+            return
+        self.ignorewheelevent = True
+        self.textarea.wheelEvent(ev)
+        ev.ignore()
 
     def create_layout(self, titlelabel, tabbar, tabcounter, revisionnotice,
                       textarea, terminal):
