@@ -29,11 +29,11 @@ GenericTerminalOutputBox {{
     background: {terminal output background};
 }}
 
-/* METAFRAME */
-MetaFrame {{
+/* BACKSTORY */
+BackstoryWindow {{
     background: {metaframe margin background};
 }}
-MetaTextEdit {{
+BackstoryTextEdit {{
     background: {metaframe background};
     color: {metaframe text color};
     selection-color: {metaframe background};
@@ -45,7 +45,7 @@ MetaTextEdit {{
     border-right: 2px solid {metaframe page border color};
     max-width: {metaframe page width};
 }}
-MetaTitle {{
+BackstoryTitle {{
     color: {metaframe tab color};
     background: {metaframe tab bar background};
     font-family: "{metaframe title font}";
@@ -54,7 +54,7 @@ MetaTitle {{
     text-decoration: underline;
     padding: 10px;
 }}
-MetaTabCounter {{
+BackstoryTabCounter {{
     color: {metaframe tab color};
     background: {metaframe tab bar background};
     border-bottom: 2px solid {metaframe page border color};
@@ -64,7 +64,7 @@ MetaTabCounter {{
     font-weight: bold;
     padding: 4px;
 }}
-MetaRevisionNotice {{
+BackstoryRevisionNotice {{
     color: {metaframe revision notice color};
     background: {metaframe revision notice background};
     border-bottom: 2px dashed {metaframe page border color};
