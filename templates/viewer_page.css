@@ -1,62 +1,62 @@
-html, body {{
+html, body {
     margin: 0px;
     height: 100%;
-}}
-body {{
-    background-color: {viewer margin background};
-    font-family: "{viewer font}"!important;
-    font-size: {viewer font size};
-    color: {viewer text color};
-    line-height: {viewer line height};
-}}
-h1 {{
+}
+body {
+    background-color: #181818;
+    font-family: "Serif"!important;
+    font-size: 12px;
+    color: #ddd;
+    line-height: 130%;
+}
+h1 {
     line-height: 110%;
-}}
-#main {{
-    background-color: {viewer body background};
-    border-left: 2px solid {viewer body border color};
-    border-right: 2px solid {viewer body border color};
+}
+#main {
+    background-color: #222;
+    border-left: 2px solid black;
+    border-right: 2px solid black;
     margin-left: auto;
     margin-right: auto;
     min-height: 100%;
-    padding: {viewer body padding};
-    max-width: {viewer body width};
-}}
-p {{
-    margin-top: {viewer paragraph margin top};
-    margin-bottom: {viewer paragraph margin bottom};
-    text-indent: {viewer paragraph first line indentation};
-}}
-h2 {{
-    margin-top: {viewer chapter header margin top};
-    margin-bottom: {viewer chapter header margin bottom};
-    font-size: {viewer chapter header font size};
-    font-family: "{viewer chapter header font}";
+    padding: 40px;
+    max-width: 800px;
+}
+p {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    text-indent: 0px;
+}
+h2 {
+    margin-top: 40px;
+    margin-bottom: 20px;
+    font-size: 18px;
+    font-family: "Sans-serif";
     line-height: 120%;
-}}
-hr {{
+}
+hr {
     border: 0;
-    margin-top: {viewer horizontal line margin};
-    margin-bottom: {viewer horizontal line margin};
-    background: {viewer horizontal line color};
-    height: {viewer horizontal line height};
-    width: {viewer horizontal line width}
-}}
-hr#header {{
+    margin-top: 40px;
+    margin-bottom: 40px;
+    background: #888;
+    height: 2px;
+    width: 40%
+}
+hr#header {
     width: 100%;
     margin: 0px;
-}}
-::-webkit-scrollbar {{
-    background-color: {viewer margin background};
-    height: {scrollbar width};
-    width: {scrollbar width};
-}}
-::-webkit-scrollbar-button {{
+}
+::-webkit-scrollbar {
+    background-color: #181818;
+    height: 15px;
+    width: 15px;
+}
+::-webkit-scrollbar-button {
     display: none;
-}}
-::-webkit-scrollbar-thumb {{
-    background-color: {scrollbar viewer slider color};
-}}
-::-webkit-scrollbar-corner {{
-    background-color: {index background};
-}}
+}
+::-webkit-scrollbar-thumb {
+    background-color: black;
+}
+::-webkit-scrollbar-corner {
+    background-color: #233;
+}

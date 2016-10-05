@@ -594,9 +594,10 @@ def generate_html_body(visible_entries, tagstemplate, entrytemplate, entrylength
     Return html generated from the visible entries.
     """
     def format_tags(tags):
+        colhtml = 'style="background-color:{};"'
         return '<wbr>'.join(
             tagstemplate.format(tag=t.replace(' ', '&nbsp;').replace('-', '&#8209;'),
-                                color=tagcolors.get(t, deftagcolor))
+                                color=colhtml.format(tagcolors[t]) if t in tagcolors else '')
             for t in sorted(tags))
     def format_desc(desc):
         return desc if desc else '<span class="empty_desc">[no desc]</span>'
@@ -758,7 +759,3 @@ class Terminal(GenericTerminal):
             # Remove the root prefix and add a / at the end if it's a directory
             return [p.replace(root, '', 1).lstrip(os.path.sep) + (os.path.sep*os.path.isdir(p))
                     for p in suggestions]
-
-
-
-

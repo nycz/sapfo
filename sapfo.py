@@ -52,11 +52,11 @@ class MainWindow(QtGui.QWidget):
                                             self.show_index)
 
         # Load settings
-        self.defaultstyle = read_json(local_path('defaultstyle.json'))
-        self.css_template = read_file(local_path(join('templates','template.css')))
-        self.index_css_template = read_file(local_path(join('templates','index_page.css')))
-        self.viewer_css_template = read_file(local_path(join('templates','viewer_page.css')))
-        self.settings, self.style = {}, {}
+        self.css_parts = ['qt', 'index_page', 'viewer_page']
+        self.css_overrides = {x: '' for x in self.css_parts}
+        self.css = {x: read_file(local_path(join('templates', '{}.css'.format(x))))
+                    for x in self.css_parts}
+        self.settings = {}
         self.reload_settings()
 
         # Misc
@@ -114,9 +114,8 @@ class MainWindow(QtGui.QWidget):
         self.popup_viewer.set_page(*args)
         self.stack.setCurrentWidget(self.popup_viewer)
 
-
     def reload_settings(self):
-        settings, style, stylepath = read_config(self.configdir, self.defaultstyle)
+        settings, css_overrides = read_config(self.configdir, self.css_parts)
         # TODO: FIX THIS UGLY ASS SHIT
         # Something somewhere fucks up and changes the settings dict,
         # therefor the deepcopy(). Fix pls.
@@ -131,30 +130,21 @@ class MainWindow(QtGui.QWidget):
             for bsw in self.backstorywindows.values():
                 bsw.update_settings(settings)
             self.popuphomekey.setKey(QtGui.QKeySequence(settings['hotkeys']['home']))
-        if style != self.style:
-            self.style = style.copy()
-            self.update_style(style)
-            write_json(stylepath, style)
+        # if self.css_overrides != css_overrides:
+        self.update_style(css_overrides)
 
 
-    def update_style(self, style):
-        try:
-            css = self.css_template.format(**style)
-            indexcss = self.index_css_template.format(**style)
-            viewercss = self.viewer_css_template.format(**style)
-        except KeyError as e:
-            print(e)
-            self.index_viewer.error('Invalid style config: key missing')
-            return
+    def update_style(self, css_overrides):
+        css = self.css['qt'] + '\n' + css_overrides['qt']
         self.setStyleSheet(css)
         for bsw in self.backstorywindows.values():
             bsw.setStyleSheet(css)
-        self.index_viewer.defaulttagcolor = style['index entry tag default background']
-        self.index_viewer.css = indexcss
-        self.story_viewer.css = viewercss
+        self.index_viewer.css = self.css['index_page'] + '\n' + css_overrides['index_page']
+        self.story_viewer.css = self.css['viewer_page'] + '\n' + css_overrides['viewer_page']
         self.index_viewer.refresh_view(keep_position=True)
         if self.story_viewer.isEnabled():
             self.story_viewer.update_css()
+        self.css_overrides = css_overrides
 
 
     # ===== Input overrides ===========================
@@ -175,16 +165,19 @@ class MainWindow(QtGui.QWidget):
     # =================================================
 
 
-def read_config(configpath, defaultstyle):
+def read_config(configpath, cssnames):
     configfile = join(configpath, 'settings.json')
-    stylefile = join(configpath, 'style.json')
+    styles = {}
+    for name in cssnames:
+        fullpath = join(configpath, '{}_override.css'.format(name))
+        try:
+            data = read_file(fullpath)
+        except:
+            data = ''
+        finally:
+            styles[name] = data
     make_sure_config_exists(configfile, local_path('defaultconfig.json'))
-    make_sure_config_exists(stylefile, local_path('defaultstyle.json'))
-    # Make sure to update the style with the defaultstyle's values
-    newstyle = read_json(stylefile)
-    style = defaultstyle.copy()
-    style.update({k:v for k,v in newstyle.items() if k in defaultstyle})
-    return read_json(configfile), style, stylefile
+    return read_json(configfile), styles
 
 
 def main():

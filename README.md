@@ -184,9 +184,9 @@ In essence, it's a whole bunch of ORs (`|`) and ANDs (`,`) with parentheses to i
 
 The style config
 ----------------
-While the actual stylesheets aren't configurable directly, Sapfo provides a simple json file to config certain values. The file is called `style.json` and is copied to Sapfo's config directory if it isn't present.
+There are three stylesheets: `index_page.css` (for the index view), `viewer_page` (for when reading a single entry), and `qt.css` (for everything else, mostly the terminal and the backstory window).
 
-Most settings should be obvious but if not, check the files `index_page.css`, `viewer_page.css` and `template.css` in the sapfo directory (not the config directory) to see what the values actually changes. The values should always be CSS-compatible. Check `defaultstyle.json` or read up on CSS to learn more.
+All three can be overridden partially or completely by a matching file in the config directory called `[stylesheet name]_override.css`, for example `index_page_override.css`.
 
 
 Note to self
