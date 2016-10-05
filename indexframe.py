@@ -4,6 +4,7 @@ from operator import itemgetter
 import os
 import os.path
 from os.path import exists, join
+import pickle
 import re
 import subprocess
 
@@ -22,7 +23,7 @@ class IndexFrame(QtGui.QWidget):
     show_popup = pyqtSignal(str, str, str, str)
     quit = pyqtSignal(str)
 
-    def __init__(self, parent, dry_run):
+    def __init__(self, parent, dry_run, statepath):
         super().__init__(parent)
         # Layout and shit
         layout = QtGui.QVBoxLayout(self)
@@ -52,13 +53,35 @@ class IndexFrame(QtGui.QWidget):
             key: QtGui.QShortcut(QtGui.QKeySequence(), self, callback)
             for key, callback in hotkeypairs
         }
+        # State
+        self.statepath = statepath
+        state = self.load_state()
         # Entries and stuff
         self.entries = ()
         self.visible_entries = ()
         activefilters = namedtuple('activefilters', 'title description tags wordcount backstorywordcount backstorypages')
-        self.active_filters = activefilters(* 6 * (None,))
-        self.sorted_by = ('title', False)
+        self.active_filters = activefilters(**state['active filters'])
+        self.sorted_by = state['sorted by'] #('title', False)
         self.undostack = ()
+
+    def load_state(self):
+        try:
+            with open(self.statepath, 'rb') as f:
+                state = pickle.load(f)
+            return state
+        except FileNotFoundError:
+            return {
+                'active filters': {k:None for k in 'title description tags wordcount backstorywordcount backstorypages'.split()},
+                'sorted by': ('title', False)
+            }
+
+    def save_state(self):
+        state = {
+            'active filters': self.active_filters._asdict(),
+            'sorted by': self.sorted_by
+        }
+        with open(self.statepath, 'wb') as f:
+            pickle.dump(state, f)
 
     def connect_signals(self):
         t = self.terminal
@@ -264,6 +287,7 @@ class IndexFrame(QtGui.QWidget):
         # Print the output
         filtered, total = len(self.visible_entries), len(self.entries)
         self.print_(resultstr.format(filtered, total))
+        self.save_state()
 
     def sort_entries(self, arg):
         """
@@ -295,6 +319,7 @@ class IndexFrame(QtGui.QWidget):
         if sorted_entries != self.visible_entries:
             self.visible_entries = sorted_entries
             self.refresh_view()
+        self.save_state()
 
     def edit_entry(self, arg):
         """

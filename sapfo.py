@@ -23,7 +23,10 @@ class MainWindow(QtGui.QWidget):
     def __init__(self, configdir, activation_event, dry_run):
         super().__init__()
         self.setWindowTitle('Sapfo')
-        self.configdir = configdir
+        if configdir:
+            self.configdir = configdir
+        else:
+            self.configdir = join(getenv('HOME'), '.config', 'sapfo')
         activation_event.connect(self.reload_settings)
         self.force_quit_flag = False
 
@@ -31,7 +34,7 @@ class MainWindow(QtGui.QWidget):
         self.stack = QtGui.QStackedLayout(self)
 
         # Index viewer
-        self.index_viewer = IndexFrame(self, dry_run)
+        self.index_viewer = IndexFrame(self, dry_run, join(self.configdir, 'state'))
         self.stack.addWidget(self.index_viewer)
 
         # Story viewer
@@ -172,11 +175,7 @@ class MainWindow(QtGui.QWidget):
     # =================================================
 
 
-def read_config(configdir, defaultstyle):
-    if configdir:
-        configpath = configdir
-    else:
-        configpath = join(getenv('HOME'), '.config', 'sapfo')
+def read_config(configpath, defaultstyle):
     configfile = join(configpath, 'settings.json')
     stylefile = join(configpath, 'style.json')
     make_sure_config_exists(configfile, local_path('defaultconfig.json'))
