@@ -161,7 +161,7 @@ class TabBar(QtGui.QTabBar):
                 self.print_('Bad/no properties found on page {}, fixing...'.format(f))
                 title = fixtitle(f)
                 jsondata = generate_page_metadata(title)
-                write_file(join(root, f), '\n'.join(jsondata, firstline, data))
+                write_file(join(root, f), '\n'.join([jsondata, firstline, data]))
                 yield [title, f, 0, 0]
             else:
                 fixedjsondata = check_and_fix_page_metadata(jsondata, data, join(root, f))
