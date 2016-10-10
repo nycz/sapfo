@@ -169,7 +169,7 @@ def read_config(configpath, cssnames):
     configfile = join(configpath, 'settings.json')
     styles = {}
     for name in cssnames:
-        fullpath = join(configpath, '{}_override.css'.format(name))
+        fullpath = join(configpath, '{}.css'.format(name))
         try:
             data = read_file(fullpath)
         except:
