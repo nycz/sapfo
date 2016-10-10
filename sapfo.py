@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 
-import collections
 import copy
 from os import getenv
 from os.path import isdir, join
-import re
 import sys
-import weakref, gc
-from pympler import tracker
 
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtCore import Qt
 
-from libsyntyche.common import read_json, read_file, write_json, kill_theming, local_path, make_sure_config_exists
+from libsyntyche.common import read_json, read_file, local_path, make_sure_config_exists
 from libsyntyche.fileviewer import FileViewer
 from indexframe import IndexFrame
 from viewerframe import ViewerFrame
