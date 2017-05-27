@@ -7,8 +7,8 @@ import re
 import shutil
 import subprocess
 
-from PyQt4.QtCore import pyqtSignal, Qt
-from PyQt4 import QtGui, QtCore
+from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5 import QtGui, QtCore, QtWidgets
 
 from libsyntyche.common import kill_theming, read_file, write_file, local_path
 from libsyntyche.terminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
@@ -89,7 +89,7 @@ class Formatter(QtGui.QSyntaxHighlighter):
                 self.setFormat(chunk.start(), chunk.end()-chunk.start(), format)
 
 
-class TabBar(QtGui.QTabBar):
+class TabBar(QtWidgets.QTabBar):
     set_tab_index = pyqtSignal(int)
 
     def __init__(self, parent, print_):
@@ -104,7 +104,7 @@ class TabBar(QtGui.QTabBar):
                 self.set_tab_index.emit(tab)
 
     def wheelEvent(self, ev):
-        self.change_tab(-ev.delta())
+        self.change_tab(-ev.angleDelta().y())
 
     def next_tab(self):
             self.change_tab(1)
@@ -214,23 +214,23 @@ class TabBar(QtGui.QTabBar):
         self.moveTab(i, next(zip(*self.pages)).index(newtitle))
 
 
-class BackstoryWindow(QtGui.QFrame):
+class BackstoryWindow(QtWidgets.QFrame):
     closed = pyqtSignal(str)
 
     def __init__(self, entry, settings):
         super().__init__()
-        class BackstoryTextEdit(QtGui.QTextEdit, SearchAndReplaceable):
+        class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):
             pass
         self.textarea = BackstoryTextEdit()
         self.textarea.setTabStopWidth(30)
         self.textarea.setAcceptRichText(False)
-        class BackstoryTitle(QtGui.QLabel):
+        class BackstoryTitle(QtWidgets.QLabel):
             pass
         self.titlelabel = BackstoryTitle()
-        class BackstoryTabCounter(QtGui.QLabel):
+        class BackstoryTabCounter(QtWidgets.QLabel):
             pass
         self.tabcounter = BackstoryTabCounter(self)
-        class BackstoryRevisionNotice(QtGui.QLabel):
+        class BackstoryRevisionNotice(QtWidgets.QLabel):
             pass
         self.revisionnotice = BackstoryRevisionNotice(self)
         self.terminal = BackstoryTerminal(self)
@@ -253,7 +253,7 @@ class BackstoryWindow(QtGui.QFrame):
             ('toggle terminal', self.toggle_terminal),
         )
         self.hotkeys = {
-            key: QtGui.QShortcut(QtGui.QKeySequence(), self, callback)
+            key: QtWidgets.QShortcut(QtGui.QKeySequence(), self, callback)
             for key, callback in hotkeypairs
         }
         self.ignorewheelevent = False
@@ -289,13 +289,13 @@ class BackstoryWindow(QtGui.QFrame):
 
     def create_layout(self, titlelabel, tabbar, tabcounter, revisionnotice,
                       textarea, terminal):
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
         kill_theming(layout)
         # Title label
         titlelabel.setAlignment(Qt.AlignCenter)
         layout.addWidget(titlelabel)
         # Tab bar and tab counter
-        tab_layout = QtGui.QHBoxLayout()
+        tab_layout = QtWidgets.QHBoxLayout()
         tabbar.setDrawBase(False)
         tab_layout.addWidget(tabbar, stretch=1)
         tab_layout.addWidget(tabcounter, stretch=0)
@@ -305,7 +305,7 @@ class BackstoryWindow(QtGui.QFrame):
         layout.addWidget(revisionnotice)
         revisionnotice.hide()
         # Textarea
-        textarea_layout = QtGui.QHBoxLayout()
+        textarea_layout = QtWidgets.QHBoxLayout()
         textarea_layout.addStretch()
         textarea_layout.addWidget(textarea, stretch=1)
         textarea_layout.addStretch()

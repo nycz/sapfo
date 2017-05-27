@@ -1,18 +1,18 @@
 from os.path import join
 import re
 
-from PyQt4.QtCore import pyqtSignal, Qt, QUrl
-from PyQt4 import QtGui, QtWebKit
+from PyQt5.QtCore import pyqtSignal, Qt, QUrl
+from PyQt5 import QtGui, QtWebEngineWidgets, QtWidgets
 
 from libsyntyche.common import kill_theming, read_file, local_path
 
 
-class InfoPanel(QtGui.QFrame):
+class InfoPanel(QtWidgets.QFrame):
     def __init__(self, parent):
         super().__init__(parent)
-        layout = QtGui.QGridLayout(self)
+        layout = QtWidgets.QGridLayout(self)
         kill_theming(layout)
-        class InfoPanelLabel(QtGui.QLabel): pass
+        class InfoPanelLabel(QtWidgets.QLabel): pass
         self.label = InfoPanelLabel()
         layout.addWidget(self.label, 1, 0, Qt.AlignHCenter)
         self.show()
@@ -25,7 +25,7 @@ class InfoPanel(QtGui.QFrame):
         ))
 
 
-class ViewerFrame(QtGui.QFrame):
+class ViewerFrame(QtWidgets.QFrame):
 
     set_fullscreen = pyqtSignal(bool)
     show_index = pyqtSignal()
@@ -43,7 +43,7 @@ class ViewerFrame(QtGui.QFrame):
             ('reset zoom', self.zoom_reset)
         )
         self.hotkeys = {
-            key: QtGui.QShortcut(QtGui.QKeySequence(), self, callback)
+            key: QtWidgets.QShortcut(QtGui.QKeySequence(), self, callback)
             for key, callback in hotkeypairs
         }
 
@@ -54,10 +54,10 @@ class ViewerFrame(QtGui.QFrame):
         self.chapterstrings = []
 
         # Layout
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
         kill_theming(layout)
 
-        self.webview = QtWebKit.QWebView(self)
+        self.webview = QtWebEngineWidgets.QWebEngineView(self)
         layout.addWidget(self.webview)
         layout.setStretchFactor(self.webview, 1)
         self.webview.settings().setDefaultTextEncoding('utf-8')

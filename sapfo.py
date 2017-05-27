@@ -5,8 +5,8 @@ from os import getenv
 from os.path import isdir, join
 import sys
 
-from PyQt4 import QtGui, QtCore
-from PyQt4.QtCore import Qt
+from PyQt5 import QtGui, QtCore, QtWidgets
+from PyQt5.QtCore import Qt
 
 from libsyntyche.common import read_json, read_file, local_path, make_sure_config_exists
 from libsyntyche.fileviewer import FileViewer
@@ -15,7 +15,7 @@ from viewerframe import ViewerFrame
 from backstorywindow import BackstoryWindow
 
 
-class MainWindow(QtGui.QWidget):
+class MainWindow(QtWidgets.QWidget):
     def __init__(self, configdir, activation_event, dry_run):
         super().__init__()
         self.setWindowTitle('Sapfo')
@@ -27,7 +27,7 @@ class MainWindow(QtGui.QWidget):
         self.force_quit_flag = False
 
         # Create layouts
-        self.stack = QtGui.QStackedLayout(self)
+        self.stack = QtWidgets.QStackedLayout(self)
 
         # Index viewer
         self.index_viewer = IndexFrame(self, dry_run, join(self.configdir, 'state'))
@@ -43,7 +43,7 @@ class MainWindow(QtGui.QWidget):
         # Popup viewer
         self.popup_viewer = FileViewer(self)
         self.stack.addWidget(self.popup_viewer)
-        self.popuphomekey = QtGui.QShortcut(QtGui.QKeySequence(),
+        self.popuphomekey = QtWidgets.QShortcut(QtGui.QKeySequence(),
                                             self.popup_viewer,
                                             self.show_index)
 
@@ -145,17 +145,20 @@ class MainWindow(QtGui.QWidget):
 
     # ===== Input overrides ===========================
     def wheelEvent(self, ev):
-        self.index_viewer.webview.wheelEvent(ev)
+        self.index_viewer.scroll_view('up' if ev.angleDelta().y() > 0 else 'down')
+        # self.index_viewer.webview.wheelEvent(ev)
 
     def keyPressEvent(self, ev):
         if self.stack.currentWidget() == self.index_viewer and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.webview.keyPressEvent(ev)
+            self.index_viewer.scroll_view('up' if ev.key() == Qt.Key_PageUp else 'down', 'page')
+            # self.index_viewer.webview.keyPressEvent(ev)
         else:
             return super().keyPressEvent(ev)
 
     def keyReleaseEvent(self, ev):
         if self.stack.currentWidget() == self.index_viewer and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.webview.keyReleaseEvent(ev)
+            pass
+            # self.index_viewer.webview.keyReleaseEvent(ev)
         else:
             return super().keyReleaseEvent(ev)
     # =================================================
@@ -188,7 +191,7 @@ def main():
                         help='don\'t write anything to disk')
     args = parser.parse_args()
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
 
     class AppEventFilter(QtCore.QObject):
         activation_event = QtCore.pyqtSignal()

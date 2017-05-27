@@ -8,15 +8,15 @@ import pickle
 import re
 import subprocess
 
-from PyQt4 import QtGui, QtWebKit
-from PyQt4.QtCore import pyqtSignal, Qt, QEvent
+from PyQt5 import QtGui, QtWebEngineWidgets, QtWidgets
+from PyQt5.QtCore import pyqtSignal, Qt, QEvent
 
 from libsyntyche import taggedlist
 from libsyntyche.common import local_path, read_file, read_json, write_json, kill_theming
 from libsyntyche.terminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
 
 
-class IndexFrame(QtGui.QWidget):
+class IndexFrame(QtWidgets.QWidget):
 
     view_entry = pyqtSignal(tuple)
     view_meta = pyqtSignal(tuple)
@@ -26,9 +26,9 @@ class IndexFrame(QtGui.QWidget):
     def __init__(self, parent, dry_run, statepath):
         super().__init__(parent)
         # Layout and shit
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
         kill_theming(layout)
-        self.webview = QtWebKit.QWebView(self)
+        self.webview = QtWebEngineWidgets.QWebEngineView(self)
         self.webview.setDisabled(True)
         layout.addWidget(self.webview, stretch=1)
         self.terminal = Terminal(self, self.get_tags)
@@ -50,7 +50,7 @@ class IndexFrame(QtGui.QWidget):
             ('reset zoom', self.zoom_reset)
         )
         self.hotkeys = {
-            key: QtGui.QShortcut(QtGui.QKeySequence(), self, callback)
+            key: QtWidgets.QShortcut(QtGui.QKeySequence(), self, callback)
             for key, callback in hotkeypairs
         }
         # State
@@ -63,6 +63,11 @@ class IndexFrame(QtGui.QWidget):
         self.active_filters = activefilters(**state['active filters'])
         self.sorted_by = state['sorted by'] #('title', False)
         self.undostack = ()
+
+    def scroll_view(self, direction, length='smol'):
+        length_var = '(window.innerHeight-60)' if length == 'page' else '100'
+        dir_var = '-' if direction == 'up' else ''
+        self.webview.page().runJavaScript(f'window.scrollBy(0, {dir_var}{length_var});')
 
     def load_state(self):
         try:
@@ -91,7 +96,7 @@ class IndexFrame(QtGui.QWidget):
             (t.open_,                   self.open_entry),
             (t.edit,                    self.edit_entry),
             (t.new_entry,               self.new_entry),
-            (t.input_term.scroll_index, self.webview.event),
+            (t.input_term.scroll_index, self.scroll_view),
             (t.list_,                   self.list_),
             (t.count_length,            self.count_length),
             (t.external_edit,           self.external_run_entry),
@@ -138,8 +143,9 @@ class IndexFrame(QtGui.QWidget):
         Refresh the view with the filtered entries and the current css.
         The full entrylist is not touched by this.
         """
-        frame = self.webview.page().mainFrame()
-        pos = frame.scrollBarValue(Qt.Vertical)
+        # frame = self.webview.page().mainFrame()
+        # pos = frame.scrollBarValue(Qt.Vertical)
+        pos = self.webview.page().scrollPosition().y()
         body = generate_html_body(self.visible_entries,
                                   self.htmltemplates.tags,
                                   self.htmltemplates.entry,
@@ -148,7 +154,9 @@ class IndexFrame(QtGui.QWidget):
                                   self.defaulttagcolor)
         self.webview.setHtml(self.htmltemplates.index_page.format(body=body, css=self.css))
         if keep_position:
-            frame.setScrollBarValue(Qt.Vertical, pos)
+            # this doesnt work. well shit
+            self.webview.page().runJavaScript(f'window.scrollBy(0,{pos});')
+            # frame.setScrollBarValue(Qt.Vertical, pos)
         print('refreshed')
 
     def get_tags(self):
@@ -174,7 +182,7 @@ class IndexFrame(QtGui.QWidget):
             sortarg = 1
             if len(arg) == 2 and arg[1] == 'a':
                 sortarg = 0
-            self.old_pos = self.webview.page().mainFrame().scrollBarValue(Qt.Vertical)
+            self.old_pos = self.webview.page().scrollPosition().y()  # mainFrame().scrollBarValue(Qt.Vertical)
             entry_template = '<div class="list_entry"><span class="tag" style="background-color:{color};">{tagname}</span><span class="length">({count:,})</span></div>'
             defcol = self.defaulttagcolor
             t_entries = (entry_template.format(color=self.settings['tag colors'].get(tag, defcol),
@@ -625,19 +633,20 @@ def write_metadata(entries):
 # TERMINAL
 
 class TerminalInputBox(GenericTerminalInputBox):
-    scroll_index = pyqtSignal(QtGui.QKeyEvent)
+    scroll_index = pyqtSignal(str)
 
     def keyPressEvent(self, event):
         if event.modifiers() == Qt.ControlModifier and event.key() in (Qt.Key_Up, Qt.Key_Down):
-            nev = QtGui.QKeyEvent(QEvent.KeyPress, event.key(), Qt.NoModifier)
-            self.scroll_index.emit(nev)
+            # nev = QtGui.QKeyEvent(QEvent.KeyPress, event.key(), Qt.NoModifier)
+            self.scroll_index.emit('up' if event.key() == Qt.Key_Up else 'down')
         else:
             return super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
         if event.modifiers() == Qt.ControlModifier and event.key() in (Qt.Key_Up, Qt.Key_Down):
-            nev = QtGui.QKeyEvent(QEvent.KeyRelease, event.key(), Qt.NoModifier)
-            self.scroll_index.emit(nev)
+            pass
+            # nev = QtGui.QKeyEvent(QEvent.KeyRelease, event.key(), Qt.NoModifier)
+            # self.scroll_index.emit(nev)
         else:
             return super().keyReleaseEvent(event)
 
