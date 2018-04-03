@@ -11,7 +11,7 @@ from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5 import QtGui, QtCore, QtWidgets
 
 from libsyntyche.common import kill_theming, read_file, write_file, local_path
-from libsyntyche.terminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
+from libsyntyche.oldterminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
 from libsyntyche.texteditor import SearchAndReplaceable
 
 def fixtitle(fname):

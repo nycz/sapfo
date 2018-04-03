@@ -2,7 +2,7 @@ from os.path import join
 import re
 
 from PyQt5.QtCore import pyqtSignal, Qt, QUrl
-from PyQt5 import QtGui, QtWebEngineWidgets, QtWidgets
+from PyQt5 import QtGui, QtWidgets
 
 from libsyntyche.common import kill_theming, read_file, local_path
 
@@ -57,10 +57,10 @@ class ViewerFrame(QtWidgets.QFrame):
         layout = QtWidgets.QVBoxLayout(self)
         kill_theming(layout)
 
-        self.webview = QtWebEngineWidgets.QWebEngineView(self)
+        self.webview = QtWidgets.QTextEdit(self)
+        self.webview.setReadOnly(True)
         layout.addWidget(self.webview)
         layout.setStretchFactor(self.webview, 1)
-        self.webview.settings().setDefaultTextEncoding('utf-8')
 
         self.info_panel = InfoPanel(self)
         layout.addWidget(self.info_panel, 0)
@@ -77,13 +77,13 @@ class ViewerFrame(QtWidgets.QFrame):
         self.info_panel.setHidden(self.fullscreen)
 
     def zoom_in(self):
-        self.webview.setZoomFactor(self.webview.zoomFactor()+0.1)
+        self.webview.zoomIn()
 
     def zoom_out(self):
-        self.webview.setZoomFactor(self.webview.zoomFactor()-0.1)
+        self.webview.zoomOut()
 
     def zoom_reset(self):
-        self.webview.setZoomFactor(1)
+        pass
 
     def goto_index(self):
         self.setDisabled(True)
@@ -98,10 +98,9 @@ class ViewerFrame(QtWidgets.QFrame):
         self.set_html()
 
     def update_css(self):
-        frame = self.webview.page().mainFrame()
-        pos = frame.scrollBarValue(Qt.Vertical)
+        pos = self.webview.verticalScrollBar().value()
         self.set_html()
-        frame.setScrollBarValue(Qt.Vertical, pos)
+        self.webview.verticalScrollBar().setValue(pos)
 
     def set_html(self):
         html = self.template.format(title=self.data.title, body=self.rawtext, css=self.css)

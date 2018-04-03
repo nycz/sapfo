@@ -8,12 +8,12 @@ import pickle
 import re
 import subprocess
 
-from PyQt5 import QtGui, QtWebEngineWidgets, QtWidgets
+from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt, QEvent
 
 from libsyntyche import taggedlist
 from libsyntyche.common import local_path, read_file, read_json, write_json, kill_theming
-from libsyntyche.terminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
+from libsyntyche.oldterminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
 
 
 class IndexFrame(QtWidgets.QWidget):
@@ -28,8 +28,8 @@ class IndexFrame(QtWidgets.QWidget):
         # Layout and shit
         layout = QtWidgets.QVBoxLayout(self)
         kill_theming(layout)
-        self.webview = QtWebEngineWidgets.QWebEngineView(self)
-        self.webview.setDisabled(True)
+        self.webview = QtWidgets.QTextEdit(self)
+        self.webview.setReadOnly(True)
         layout.addWidget(self.webview, stretch=1)
         self.terminal = Terminal(self, self.get_tags)
         layout.addWidget(self.terminal)
@@ -64,11 +64,6 @@ class IndexFrame(QtWidgets.QWidget):
         self.sorted_by = state['sorted by'] #('title', False)
         self.undostack = ()
 
-    def scroll_view(self, direction, length='smol'):
-        length_var = '(window.innerHeight-60)' if length == 'page' else '100'
-        dir_var = '-' if direction == 'up' else ''
-        self.webview.page().runJavaScript(f'window.scrollBy(0, {dir_var}{length_var});')
-
     def load_state(self):
         try:
             with open(self.statepath, 'rb') as f:
@@ -96,7 +91,7 @@ class IndexFrame(QtWidgets.QWidget):
             (t.open_,                   self.open_entry),
             (t.edit,                    self.edit_entry),
             (t.new_entry,               self.new_entry),
-            (t.input_term.scroll_index, self.scroll_view),
+            (t.input_term.scroll_index, self.webview.event),
             (t.list_,                   self.list_),
             (t.count_length,            self.count_length),
             (t.external_edit,           self.external_run_entry),
@@ -116,13 +111,16 @@ class IndexFrame(QtWidgets.QWidget):
         self.reload_view()
 
     def zoom_in(self):
-        self.webview.setZoomFactor(self.webview.zoomFactor()+0.1)
+        self.webview.zoomIn()
+        # self.webview.setZoomFactor(self.webview.zoomFactor()+0.1)
 
     def zoom_out(self):
-        self.webview.setZoomFactor(self.webview.zoomFactor()-0.1)
+        self.webview.zoomOut()
+        # self.webview.setZoomFactor(self.webview.zoomFactor()-0.1)
 
     def zoom_reset(self):
-        self.webview.setZoomFactor(1)
+        pass
+        # self.webview.setZoomFactor(1)
 
 
     def reload_view(self):
@@ -143,9 +141,7 @@ class IndexFrame(QtWidgets.QWidget):
         Refresh the view with the filtered entries and the current css.
         The full entrylist is not touched by this.
         """
-        # frame = self.webview.page().mainFrame()
-        # pos = frame.scrollBarValue(Qt.Vertical)
-        pos = self.webview.page().scrollPosition().y()
+        pos = self.webview.verticalScrollBar().value()
         body = generate_html_body(self.visible_entries,
                                   self.htmltemplates.tags,
                                   self.htmltemplates.entry,
@@ -154,9 +150,7 @@ class IndexFrame(QtWidgets.QWidget):
                                   self.defaulttagcolor)
         self.webview.setHtml(self.htmltemplates.index_page.format(body=body, css=self.css))
         if keep_position:
-            # this doesnt work. well shit
-            self.webview.page().runJavaScript(f'window.scrollBy(0,{pos});')
-            # frame.setScrollBarValue(Qt.Vertical, pos)
+            self.webview.verticalScrollBar().setValue(pos)
         print('refreshed')
 
     def get_tags(self):
@@ -182,7 +176,7 @@ class IndexFrame(QtWidgets.QWidget):
             sortarg = 1
             if len(arg) == 2 and arg[1] == 'a':
                 sortarg = 0
-            self.old_pos = self.webview.page().scrollPosition().y()  # mainFrame().scrollBarValue(Qt.Vertical)
+            self.old_pos = self.webview.verticalScrollBar().value()
             entry_template = '<div class="list_entry"><span class="tag" style="background-color:{color};">{tagname}</span><span class="length">({count:,})</span></div>'
             defcol = self.defaulttagcolor
             t_entries = (entry_template.format(color=self.settings['tag colors'].get(tag, defcol),

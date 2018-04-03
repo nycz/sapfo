@@ -144,21 +144,15 @@ class MainWindow(QtWidgets.QWidget):
 
 
     # ===== Input overrides ===========================
-    def wheelEvent(self, ev):
-        self.index_viewer.scroll_view('up' if ev.angleDelta().y() > 0 else 'down')
-        # self.index_viewer.webview.wheelEvent(ev)
-
     def keyPressEvent(self, ev):
         if self.stack.currentWidget() == self.index_viewer and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.scroll_view('up' if ev.key() == Qt.Key_PageUp else 'down', 'page')
-            # self.index_viewer.webview.keyPressEvent(ev)
+            self.index_viewer.webview.keyPressEvent(ev)
         else:
             return super().keyPressEvent(ev)
 
     def keyReleaseEvent(self, ev):
         if self.stack.currentWidget() == self.index_viewer and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            pass
-            # self.index_viewer.webview.keyReleaseEvent(ev)
+            self.index_viewer.webview.keyReleaseEvent(ev)
         else:
             return super().keyReleaseEvent(ev)
     # =================================================
