@@ -158,7 +158,7 @@ class TabBar(QtWidgets.QTabBar):
             try:
                 jsondata = json.loads(firstline)
             except ValueError:
-                self.print_('Bad/no properties found on page {}, fixing...'.format(f))
+                self.print_(f'Bad/no properties found on page {f}, fixing...')
                 title = fixtitle(f)
                 jsondata = generate_page_metadata(title)
                 write_file(join(root, f), '\n'.join([jsondata, firstline, data]))
@@ -200,7 +200,7 @@ class TabBar(QtWidgets.QTabBar):
         i = self.currentIndex()
         page = self.pages.pop(i)
         self.removeTab(i)
-        self.print_('Page "{}" deleted'.format(page[0]))
+        self.print_(f'Page "{page[0]}" deleted')
         return page[1]
 
     def rename_page(self, newtitle):
@@ -360,7 +360,8 @@ class BackstoryWindow(QtWidgets.QFrame):
             self.textarea.setFocus()
 
     def update_tabcounter(self):
-        self.tabcounter.setText('{}/{}'.format(self.tabbar.currentIndex()+1, self.tabbar.count()))
+        self.tabcounter.setText(f'{self.tabbar.currentIndex()+1}'
+                                f'/{self.tabbar.count()}')
 
     def save_tab(self):
         """
@@ -380,7 +381,8 @@ class BackstoryWindow(QtWidgets.QFrame):
                 write_file(fname, firstline + '\n' + data)
             except Exception as e:
                 print(str(e))
-                self.terminal.error('Something went wrong when saving! (Use q! to force)')
+                self.terminal.error('Something went wrong when saving! '
+                                    '(Use q! to force)')
                 return False
         cursorpos = self.textarea.textCursor().position()
         scrollpos = self.textarea.verticalScrollBar().sliderPosition()
@@ -472,7 +474,7 @@ class BackstoryWindow(QtWidgets.QFrame):
     def cmd_rename_current_page(self, title):
         if not title.strip():
             oldtitle = self.tabbar.pages[self.tabbar.currentIndex()][0]
-            self.terminal.prompt('r {}'.format(oldtitle))
+            self.terminal.prompt(f'r {oldtitle}')
             return
         try:
             self.tabbar.rename_page(title)
@@ -499,7 +501,7 @@ class BackstoryWindow(QtWidgets.QFrame):
 
     def cmd_count_words(self, arg):
         wc = len(re.findall(r'\S+', self.textarea.document().toPlainText()))
-        self.terminal.print_('Words: {}'.format(wc))
+        self.terminal.print_(f'Words: {wc}')
 
     def cmd_revision_control(self, arg):
         fname = self.current_page_path()
@@ -507,7 +509,8 @@ class BackstoryWindow(QtWidgets.QFrame):
         jsondata = json.loads(firstline)
         if arg == '+':
             if self.revisionactive:
-                self.terminal.error('Can\'t create new revision when viewing an old one')
+                self.terminal.error('Can\'t create new revision '
+                                    'when viewing an old one')
                 return
             saved = self.save_tab()
             if saved:
@@ -515,16 +518,16 @@ class BackstoryWindow(QtWidgets.QFrame):
                 _, data = read_file(fname).split('\n', 1)
                 f = join(self.root, fname)
                 rev = jsondata['revision']
-                shutil.copy2(f, f + '.rev{}'.format(rev))
+                shutil.copy2(f, f'{f}.rev{rev}')
                 jsondata['revision'] += 1
                 jsondata['revision created'] = datetime.now().isoformat()
                 write_file(f, json.dumps(jsondata) + '\n' + data)
-                self.terminal.print_('Revision increased to {}'.format(rev + 1))
+                self.terminal.print_(f'Revision increased to {rev + 1}')
         # Show a certain revision
         elif arg.isdigit():
-            revfname = join(self.root, fname + '.rev{}'.format(arg))
+            revfname = join(self.root, f'{fname}.rev{arg}')
             if not os.path.exists(revfname):
-                self.terminal.error('Revision {} not found'.format(arg))
+                self.terminal.error(f'Revision {arg} not found')
                 return
             saved = self.save_tab()
             if not saved:
@@ -538,10 +541,11 @@ class BackstoryWindow(QtWidgets.QFrame):
                 self.textarea.setPlainText(data)
                 self.textarea.document().setModified(False)
                 self.revisionactive = True
-                self.revisionnotice.setText('Showing revision {}. Changes will not be saved.'.format(arg))
+                self.revisionnotice.setText(f'Showing revision {arg}. '
+                                            f'Changes will not be saved.')
                 self.revisionnotice.show()
         elif arg == '#':
-            self.terminal.print_('Current revision: {}'.format(jsondata['revision']))
+            self.terminal.print_(f'Current revision: {jsondata["revision"]}')
         elif not arg:
             if not self.revisionactive:
                 self.terminal.error('Already showing latest revision')
@@ -549,14 +553,14 @@ class BackstoryWindow(QtWidgets.QFrame):
                 currenttab = self.tabbar.currentIndex()
                 self.set_tab_index(currenttab)
         else:
-            self.terminal.error('Unknown argument: "{}"'.format(arg))
+            self.terminal.error(f'Unknown argument: "{arg}"')
 
     def cmd_external_edit(self, arg):
         if not self.externaleditor:
             self.error('No editor command defined')
             return
         subprocess.Popen([self.externaleditor, self.entryfilename])
-        self.terminal.print_('Opening entry with {}'.format(self.externaleditor))
+        self.terminal.print_(f'Opening entry with {self.externaleditor}')
 
 
 

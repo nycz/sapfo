@@ -166,7 +166,7 @@ class IndexFrame(QtWidgets.QWidget):
 
     def list_(self, arg):
         if arg.startswith('f'):
-            filters = ('{} {}'.format(cmd, payload) for cmd, payload in self.active_filters)
+            filters = (f'{cmd} {payload}' for cmd, payload in self.active_filters)
             if self.active_filters:
                 self.print_(', '.join(filters))
             else:
@@ -177,14 +177,20 @@ class IndexFrame(QtWidgets.QWidget):
             if len(arg) == 2 and arg[1] == 'a':
                 sortarg = 0
             self.old_pos = self.webview.verticalScrollBar().value()
-            entry_template = '<div class="list_entry"><span class="tag" style="background-color:{color};">{tagname}</span><span class="length">({count:,})</span></div>'
+            entry_template = (
+                '<div class="list_entry">'
+                '<span class="tag" style="background-color:{color};">'
+                '{tagname}</span><span class="length">({count:,})'
+                '</span></div>')
             defcol = self.defaulttagcolor
             t_entries = (entry_template.format(color=self.settings['tag colors'].get(tag, defcol),
                                                tagname=tag, count=num)
-                         for tag, num in sorted(self.get_tags(), key=itemgetter(sortarg), reverse=sortarg))
+                         for tag, num in sorted(self.get_tags(),
+                                                key=itemgetter(sortarg),
+                                                reverse=sortarg))
             body = '<br>'.join(t_entries)
-            html = '<style type="text/css">{css}</style>\
-                    <body><div id="taglist">{body}</div></body>'.format(body=body, css=self.css)
+            html = (f'<style type="text/css">{self.css}</style>'
+                    f'<body><div id="taglist">{body}</div></body>')
             self.show_popup.emit(html, '', '', 'html')
 
 
@@ -234,9 +240,9 @@ class IndexFrame(QtWidgets.QWidget):
         filterchars = ''.join(filters)
         # Print active filters
         if not arg:
-            active_filters = ['{}: {}'.format(cmd, payload)
-                             for cmd, payload in self.active_filters._asdict().items()
-                             if payload is not None]
+            active_filters = [f'{cmd}: {payload}'
+                              for cmd, payload in self.active_filters._asdict().items()
+                              if payload is not None]
             if active_filters:
                 self.print_('; '.join(active_filters))
             else:
@@ -249,10 +255,11 @@ class IndexFrame(QtWidgets.QWidget):
             visible_entries = self.regenerate_visible_entries()
             resultstr = 'Filters reset: {}/{} entries visible'
         # Reset specified filter
-        elif re.fullmatch(r'[{}]-\s*'.format(filterchars), arg):
+        elif re.fullmatch(rf'[{filterchars}]-\s*', arg):
             self.active_filters = self.active_filters._replace(**{filters[arg[0]]:None})
             visible_entries = self.regenerate_visible_entries()
-            resultstr = 'Filter on {} reset: {{}}/{{}} entries visible'.format(filters[arg[0]])
+            resultstr = (f'Filter on {filters[arg[0]]} reset: '
+                         f'{{}}/{{}} entries visible')
         else:
             # Prompt active filter
             if arg.strip() in filters.keys():
@@ -262,11 +269,11 @@ class IndexFrame(QtWidgets.QWidget):
                 self.set_terminal_text('f' + arg.strip() + ' ' + payload)
                 return
             # Filter empty entries
-            if re.fullmatch(r'[dt]_\s*'.format(filterchars), arg):
+            if re.fullmatch(r'[dt]_\s*', arg):
                 cmd = arg[0]
                 payload = ''
             # Regular filter command
-            elif re.fullmatch(r'[{}] +\S.*'.format(filterchars), arg):
+            elif re.fullmatch(rf'[{filterchars}] +\S.*', arg):
                 cmd = arg[0]
                 payload = arg.split(None,1)[1].strip()
             # Invalid filter command
@@ -279,7 +286,7 @@ class IndexFrame(QtWidgets.QWidget):
                 visible_entries = self.regenerate_visible_entries()
             except SyntaxError as e:
                 # This should be an error from the tag parser
-                self.error('[Tag parsing] {}'.format(e))
+                self.error(f'[Tag parsing] {e}')
                 return
             resultstr = 'Filtered: {}/{} entries visible'
         # Only actually update stuff if the entries have changed
@@ -305,10 +312,10 @@ class IndexFrame(QtWidgets.QWidget):
         if not arg:
             attr = self.sorted_by[0]
             order = ('ascending', 'descending')[self.sorted_by[1]]
-            self.print_('Sorted by {}, {}'.format(attr, order))
+            self.print_(f'Sorted by {attr}, {order}')
             return
         if arg[0] not in acronyms:
-            self.error('Unknown attribute to sort by: "{}"'.format(arg[0]))
+            self.error(f'Unknown attribute to sort by: "{arg[0]}"')
             return
         if not re.fullmatch(r'\w-?\s*', arg):
             self.error('Incorrect sort command')
@@ -342,7 +349,7 @@ class IndexFrame(QtWidgets.QWidget):
             self.refresh_view(keep_position=True)
             if not self.dry_run:
                 write_metadata(undoitem)
-            self.print_('{} edits reverted'.format(len(undoitem)))
+            self.print_(f'{len(undoitem)} edits reverted')
             return
         replace_tags = re.fullmatch(r't\*\s*(.*?)\s*,\s*(.*?)\s*', arg)
         main_data = re.fullmatch(r'[dtn](\d+)(.*)', arg)
@@ -365,7 +372,7 @@ class IndexFrame(QtWidgets.QWidget):
                 self.refresh_view(keep_position=True)
                 if not self.dry_run:
                     write_metadata(changed)
-                self.print_('Edited tags in {} entries'.format(len(changed)))
+                self.print_(f'Edited tags in {len(changed)} entries')
             else:
                 self.error('No tags edited')
         # Edit a single entry
@@ -446,7 +453,7 @@ class IndexFrame(QtWidgets.QWidget):
             open(fullpath, 'a').close()
             write_json(metadatafile, {'title': title, 'description': '', 'tags': tags})
         except Exception as e:
-            self.error('Couldn\'t create the files: {}'.format(str(e)))
+            self.error(f'Couldn\'t create the files: {e}')
         else:
             self.reload_view()
             if file_exists:
@@ -466,10 +473,10 @@ class IndexFrame(QtWidgets.QWidget):
             partialnames = [n for n, entry in enumerate(self.visible_entries)
                             if arg.lower() in entry.title.lower()]
             if not partialnames:
-                self.error('Entry not found: "{}"'.format(arg))
+                self.error(f'Entry not found: "{arg}"')
                 return
             elif len(partialnames) > 1:
-                self.error('Ambiguous name, matches {} entries'.format(len(partialnames)))
+                self.error(f'Ambiguous name, matches {len(partialnames)} entries')
                 return
             elif len(partialnames) == 1:
                 arg = partialnames[0]
@@ -505,10 +512,11 @@ class IndexFrame(QtWidgets.QWidget):
             partialnames = [n for n, entry in enumerate(self.visible_entries)
                             if arg.lower() in entry.title.lower()]
             if not partialnames:
-                self.error('Entry not found: "{}"'.format(arg))
+                self.error(f'Entry not found: "{arg}"')
                 return
             elif len(partialnames) > 1:
-                self.error('Ambiguous name, matches {} entries'.format(len(partialnames)))
+                self.error(f'Ambiguous name, '
+                           f'matches {len(partialnames)} entries')
                 return
             elif len(partialnames) == 1:
                 arg = partialnames[0]
@@ -520,7 +528,7 @@ class IndexFrame(QtWidgets.QWidget):
             return
         subprocess.Popen([self.settings['editor'],
                           self.visible_entries[int(arg)].file])
-        self.print_('Opening entry with {}'.format(self.settings['editor']))
+        self.print_(f'Opening entry with {self.settings["editor"]}')
 
 
 def load_html_templates():

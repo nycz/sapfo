@@ -50,7 +50,7 @@ class MainWindow(QtWidgets.QWidget):
         # Load settings
         self.css_parts = ['qt', 'index_page', 'viewer_page']
         self.css_overrides = {x: '' for x in self.css_parts}
-        self.css = {x: read_file(local_path(join('templates', '{}.css'.format(x))))
+        self.css = {x: read_file(local_path(join('templates', f'{x}.css')))
                     for x in self.css_parts}
         self.settings = {}
         self.reload_settings()
@@ -162,7 +162,7 @@ def read_config(configpath, cssnames):
     configfile = join(configpath, 'settings.json')
     styles = {}
     for name in cssnames:
-        fullpath = join(configpath, '{}.css'.format(name))
+        fullpath = join(configpath, f'{name}.css')
         try:
             data = read_file(fullpath)
         except:
@@ -179,7 +179,7 @@ def main():
     def valid_dir(dirname):
         if isdir(dirname):
             return dirname
-        parser.error('Directory does not exist: {}'.format(dirname))
+        parser.error(f'Directory does not exist: {dirname}')
     parser.add_argument('-c', '--config-directory', type=valid_dir)
     parser.add_argument('-d', '--dry-run', action='store_true',
                         help='don\'t write anything to disk')

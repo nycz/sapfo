@@ -18,11 +18,8 @@ class InfoPanel(QtWidgets.QFrame):
         self.show()
 
     def set_data(self, data):
-        s = "<strong>{fname}</strong>\t&nbsp;\t{wordcount}"
-        self.label.setText(s.format(
-            fname=data.title,
-            wordcount="<em>({:,})</em>".format(data.wordcount)
-        ))
+        self.label.setText(f'<strong>{data.title}</strong>\t&nbsp;\t'
+                           f'<em>({data.wordcount:,})</em>')
 
 
 class ViewerFrame(QtWidgets.QFrame):
@@ -136,7 +133,7 @@ def format_rawtext(text, formatconverters, chapterstrings):
                     if n > oldn:
                         yield format_chunk(lines[oldn:n])
                     # Yield the formatted chapter line
-                    yield '<h2>'+template.format(**match.groupdict()).strip()+'</h2>'
+                    yield f'<h2>{template.format(**match.groupdict()).strip()}</h2>'
                     oldn = n+1
                     break
         # If there's any text left, format and yield it
