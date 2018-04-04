@@ -7,23 +7,26 @@ from os.path import exists, join
 import pickle
 import re
 import subprocess
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
-from PyQt5 import QtGui, QtWidgets
-from PyQt5.QtCore import pyqtSignal, Qt, QEvent
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import pyqtSignal, Qt
 
 from libsyntyche import taggedlist
-from libsyntyche.common import local_path, read_file, read_json, write_json, kill_theming
-from libsyntyche.oldterminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
+from libsyntyche.common import (local_path, read_file, read_json, write_json,
+                                kill_theming)
+from libsyntyche.oldterminal import (GenericTerminalInputBox,
+                                     GenericTerminalOutputBox, GenericTerminal)
 
 
 class IndexFrame(QtWidgets.QWidget):
-
     view_entry = pyqtSignal(tuple)
     view_meta = pyqtSignal(tuple)
     show_popup = pyqtSignal(str, str, str, str)
     quit = pyqtSignal(str)
 
-    def __init__(self, parent, dry_run, statepath):
+    def __init__(self, parent: QtWidgets.QWidget, dry_run: bool,
+                 statepath: str) -> None:
         super().__init__(parent)
         # Layout and shit
         layout = QtWidgets.QVBoxLayout(self)
@@ -40,8 +43,8 @@ class IndexFrame(QtWidgets.QWidget):
         self.set_terminal_text = self.terminal.prompt
         self.dry_run = dry_run
         self.htmltemplates = load_html_templates()
-        self.css = None # Is set every time the config is reloaded
-        self.defaulttagcolor = None # Is set every time the style is reloaded
+        self.css = None  # Is set every time the config is reloaded
+        self.defaulttagcolor = None  # Is set every time the style is reloaded
         # Hotkeys
         hotkeypairs = (
             ('reload', self.reload_view),
@@ -61,21 +64,21 @@ class IndexFrame(QtWidgets.QWidget):
         self.visible_entries = ()
         activefilters = namedtuple('activefilters', 'title description tags wordcount backstorywordcount backstorypages')
         self.active_filters = activefilters(**state['active filters'])
-        self.sorted_by = state['sorted by'] #('title', False)
+        self.sorted_by = state['sorted by']
         self.undostack = ()
 
-    def load_state(self):
+    def load_state(self) -> Dict[str, Any]:
         try:
             with open(self.statepath, 'rb') as f:
                 state = pickle.load(f)
             return state
         except FileNotFoundError:
             return {
-                'active filters': {k:None for k in 'title description tags wordcount backstorywordcount backstorypages'.split()},
+                'active filters': {k: None for k in 'title description tags wordcount backstorywordcount backstorypages'.split()},
                 'sorted by': ('title', False)
             }
 
-    def save_state(self):
+    def save_state(self) -> None:
         state = {
             'active filters': self.active_filters._asdict(),
             'sorted by': self.sorted_by
@@ -83,7 +86,7 @@ class IndexFrame(QtWidgets.QWidget):
         with open(self.statepath, 'wb') as f:
             pickle.dump(state, f)
 
-    def connect_signals(self):
+    def connect_signals(self) -> None:
         t = self.terminal
         connects = (
             (t.filter_,                 self.filter_entries),
@@ -102,7 +105,7 @@ class IndexFrame(QtWidgets.QWidget):
         for signal, slot in connects:
             signal.connect(slot)
 
-    def update_settings(self, settings):
+    def update_settings(self, settings: Dict) -> None:
         self.settings = settings
         self.terminal.update_settings(settings)
         # Update hotkeys
@@ -110,20 +113,16 @@ class IndexFrame(QtWidgets.QWidget):
             shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))
         self.reload_view()
 
-    def zoom_in(self):
+    def zoom_in(self) -> None:
         self.webview.zoomIn()
-        # self.webview.setZoomFactor(self.webview.zoomFactor()+0.1)
 
-    def zoom_out(self):
+    def zoom_out(self) -> None:
         self.webview.zoomOut()
-        # self.webview.setZoomFactor(self.webview.zoomFactor()-0.1)
 
-    def zoom_reset(self):
+    def zoom_reset(self) -> None:
         pass
-        # self.webview.setZoomFactor(1)
 
-
-    def reload_view(self):
+    def reload_view(self) -> None:
         """
         Reload the entrylist by scanning the metadata files and then refresh
         the view with the updated entrylist.
@@ -136,7 +135,7 @@ class IndexFrame(QtWidgets.QWidget):
         print('reloaded')
         self.refresh_view(keep_position=True)
 
-    def refresh_view(self, keep_position=False):
+    def refresh_view(self, keep_position: bool = False) -> None:
         """
         Refresh the view with the filtered entries and the current css.
         The full entrylist is not touched by this.
@@ -148,12 +147,13 @@ class IndexFrame(QtWidgets.QWidget):
                                   self.settings['entry length template'],
                                   self.settings['tag colors'],
                                   self.defaulttagcolor)
-        self.webview.setHtml(self.htmltemplates.index_page.format(body=body, css=self.css))
+        self.webview.setHtml(self.htmltemplates.index_page.format(
+                    body=body, css=self.css))
         if keep_position:
             self.webview.verticalScrollBar().setValue(pos)
         print('refreshed')
 
-    def get_tags(self):
+    def get_tags(self) -> List[Tuple[str, int]]:
         """
         Return all tags and how many times they appear among the entries.
         Called by the terminal for the tab completion.
@@ -164,7 +164,7 @@ class IndexFrame(QtWidgets.QWidget):
                 tags[t] += 1
         return list(tags.items())
 
-    def list_(self, arg):
+    def list_(self, arg: str) -> None:
         if arg.startswith('f'):
             filters = (f'{cmd} {payload}' for cmd, payload in self.active_filters)
             if self.active_filters:
@@ -220,7 +220,7 @@ class IndexFrame(QtWidgets.QWidget):
             self.settings['tag macros'] if tagmacros is None else tagmacros,
         )
 
-    def filter_entries(self, arg):
+    def filter_entries(self, arg: str) -> None:
         """
         The main filter method, called by terminal command.
 
@@ -298,7 +298,7 @@ class IndexFrame(QtWidgets.QWidget):
         self.print_(resultstr.format(filtered, total))
         self.save_state()
 
-    def sort_entries(self, arg):
+    def sort_entries(self, arg: str) -> None:
         """
         The main sort method, called by terminal command.
 
@@ -330,7 +330,7 @@ class IndexFrame(QtWidgets.QWidget):
             self.refresh_view()
         self.save_state()
 
-    def edit_entry(self, arg):
+    def edit_entry(self, arg: str) -> None:
         """
         The main edit method, called by terminal command.
 
@@ -396,7 +396,8 @@ class IndexFrame(QtWidgets.QWidget):
                                                 payload,
                                                 self.attributedata)
                 if entries != self.entries:
-                    self.undostack = self.undostack + ((self.visible_entries[entry_id],),)
+                    self.undostack = self.undostack \
+                            + ((self.visible_entries[entry_id],),)
                     self.entries = entries
                     self.visible_entries = self.regenerate_visible_entries()
                     self.refresh_view(keep_position=True)
@@ -406,28 +407,27 @@ class IndexFrame(QtWidgets.QWidget):
         else:
             self.error('Invalid edit command')
 
-
-    def open_entry(self, arg):
+    def open_entry(self, arg: int) -> None:
         """
         Main open entry method, called by the terminal.
 
         arg should be the index of the entry to be viewed.
         """
         if not isinstance(arg, int):
-            raise AssertionError('BAD CODE: the open entry arg should be an int')
+            raise AssertionError('BAD CODE: the open entry arg '
+                                 'should be an int')
         if arg not in range(len(self.visible_entries)):
             self.error('Index out of range')
             return
         self.view_entry.emit(self.visible_entries[arg])
 
-
-    def new_entry(self, arg):
+    def new_entry(self, arg: str) -> None:
         """
         Main new entry method, called by the terminal.
         """
-        def metadatafile(path):
-            dirname, fname = os.path.split(path)
-            return join(dirname, '.' + fname + '.metadata')
+        # def metadatafile(path: str) -> str:
+        #     dirname, fname = os.path.split(path)
+        #     return join(dirname, '.' + fname + '.metadata')
         file_exists = False
         tags = []
         new_entry_rx = re.match(r'\s*\(([^\(]*?)\)\s*(.+)\s*', arg)
@@ -451,19 +451,19 @@ class IndexFrame(QtWidgets.QWidget):
                        os.path.splitext(fname)[0].replace('-', ' '))
         try:
             open(fullpath, 'a').close()
-            write_json(metadatafile, {'title': title, 'description': '', 'tags': tags})
+            write_json(metadatafile, {'title': title, 'description': '',
+                                      'tags': tags})
         except Exception as e:
             self.error(f'Couldn\'t create the files: {e}')
         else:
             self.reload_view()
             if file_exists:
-                self.print_('New entry created, metadatafile added to existing file')
+                self.print_('New entry created, '
+                            'metadatafile added to existing file')
             else:
                 self.print_('New entry created')
 
-
-
-    def open_meta(self, arg):
+    def open_meta(self, arg: str) -> None:
         """
         Main open meta method, called by the terminal.
 
@@ -476,7 +476,8 @@ class IndexFrame(QtWidgets.QWidget):
                 self.error(f'Entry not found: "{arg}"')
                 return
             elif len(partialnames) > 1:
-                self.error(f'Ambiguous name, matches {len(partialnames)} entries')
+                self.error(f'Ambiguous name, '
+                           f'matches {len(partialnames)} entries')
                 return
             elif len(partialnames) == 1:
                 arg = partialnames[0]
@@ -485,14 +486,14 @@ class IndexFrame(QtWidgets.QWidget):
             return
         self.view_meta.emit(self.visible_entries[int(arg)])
 
-
-    def count_length(self, arg):
+    def count_length(self, arg: str) -> None:
         """
         Main count length method, called by terminal command.
         """
         def print_length(targetstr, targetattr):
             self.print_('Total {}: {}'.format(targetstr,
-                    sum(getattr(x, targetattr) for x in self.visible_entries)))
+                        sum(getattr(x, targetattr)
+                            for x in self.visible_entries)))
         cmd = arg.strip()
         if cmd == 'c':
             print_length('wordcount', 'wordcount')
@@ -503,8 +504,7 @@ class IndexFrame(QtWidgets.QWidget):
         else:
             self.error('Unknown argument')
 
-
-    def external_run_entry(self, arg):
+    def external_run_entry(self, arg: str) -> None:
         """
         Main external run method, called by terminal command.
         """
@@ -532,15 +532,17 @@ class IndexFrame(QtWidgets.QWidget):
 
 
 def load_html_templates():
+    def get_file(fname: str) -> str:
+        return read_file(local_path(join('templates', fname)))
     html = namedtuple('HTMLTemplates', 'entry index_page tags')
-    path = lambda fname: local_path(join('templates', fname))
-    return html(read_file(path('entry_template.html')),
-                read_file(path('index_page_template.html')),
-                read_file(path('tags_template.html')))
+    return html(get_file('entry_template.html'),
+                get_file('index_page_template.html'),
+                get_file('tags_template.html'))
 
-def get_backstory_data(fname):
+
+def get_backstory_data(fname: str) -> Dict[str, int]:
     out = {'wordcount': 0, 'pages': 0}
-    root = fname + '.metadir'
+    root = f'{fname}.metadir'
     if not os.path.isdir(root):
         return out
     for dirpath, _, filenames in os.walk(root):
@@ -549,9 +551,9 @@ def get_backstory_data(fname):
             if re.search(r'\.rev\d+$', f) is not None:
                 continue
             try:
-                data = read_file(join(dirpath, f)).split('\n',1)[1]
+                data = read_file(join(dirpath, f)).split('\n', 1)[1]
                 words = len(re.findall(r'\S+', data))
-            except:
+            except Exception:
                 # Just ignore the file if something went wrong
                 # TODO: add something here if being verbose?
                 pass
@@ -562,11 +564,13 @@ def get_backstory_data(fname):
 
 
 @taggedlist.generate_entrylist
-def index_stories(path):
+def index_stories(path: str):
     """
     Find all files that match the filter, and return a sorted list
     of them with wordcount, paths and all data from the metadata file.
     """
+    def metafile(dirpath: str, fname: str) -> str:
+        return join(dirpath, f'.{fname}.metadata')
     attributes = (
         ('title', {'filter': 'text', 'parser': 'text'}),
         ('tags', {'filter': 'tags', 'parser': 'tags'}),
@@ -578,8 +582,6 @@ def index_stories(path):
         ('lastmodified', {'filter': 'number'}),
         ('metadatafile', {}),
     )
-    metafile = lambda dirpath, fname: join(dirpath, '.'+fname+'.metadata')
-    metadir = lambda dirpath, fname: join(dirpath, fname+'.metadir')
     files = ((read_json(metafile(dirpath, fname)),
              join(dirpath, fname),
              metafile(dirpath, fname),
@@ -599,29 +601,41 @@ def index_stories(path):
                for metadata, fname, metadatafile, backstorydata in files)
     return attributes, entries
 
-def generate_html_body(visible_entries, tagstemplate, entrytemplate, entrylengthtemplate, tagcolors, deftagcolor):
+
+def generate_html_body(visible_entries,
+                       tagstemplate: str,
+                       entrytemplate: str,
+                       entrylengthtemplate: str,
+                       tagcolors: Dict[str, str],
+                       deftagcolor: str
+                       ) -> str:
     """
     Return html generated from the visible entries.
     """
-    def format_tags(tags):
+    def format_tags(tags: Iterable[str]) -> str:
         colhtml = 'style="background-color:{};"'
         return '<wbr>'.join(
-            tagstemplate.format(tag=t.replace(' ', '&nbsp;').replace('-', '&#8209;'),
-                                color=colhtml.format(tagcolors[t]) if t in tagcolors else '')
+            tagstemplate.format(tag=t.replace(' ', '&nbsp;')
+                                     .replace('-', '&#8209;'),
+                                color=(colhtml.format(tagcolors[t])
+                                       if t in tagcolors else ''))
             for t in sorted(tags))
-    def format_desc(desc):
+
+    def format_desc(desc: str) -> str:
         return desc if desc else '<span class="empty_desc">[no desc]</span>'
     entrytemplate = entrytemplate.format(lengthformatstr=entrylengthtemplate)
-    entries = (entrytemplate.format(title=entry.title, id=n,
-                                    tags=format_tags(entry.tags),
-                                    desc=format_desc(entry.description),
-                                    wordcount=entry.wordcount,
-                                    backstorywordcount=entry.backstorywordcount,
-                                    backstorypages=entry.backstorypages)
-               for n,entry in enumerate(visible_entries))
+    entries = (entrytemplate.format(
+                    title=entry.title, id=n,
+                    tags=format_tags(entry.tags),
+                    desc=format_desc(entry.description),
+                    wordcount=entry.wordcount,
+                    backstorywordcount=entry.backstorywordcount,
+                    backstorypages=entry.backstorypages)
+               for n, entry in enumerate(visible_entries))
     return '<hr />'.join(entries)
 
-def write_metadata(entries):
+
+def write_metadata(entries) -> None:
     for entry in entries:
         metadata = {
             'title': entry.title,
@@ -631,21 +645,23 @@ def write_metadata(entries):
         write_json(entry.metadatafile, metadata)
 
 
-
 # TERMINAL
 
 class TerminalInputBox(GenericTerminalInputBox):
     scroll_index = pyqtSignal(str)
 
-    def keyPressEvent(self, event):
-        if event.modifiers() == Qt.ControlModifier and event.key() in (Qt.Key_Up, Qt.Key_Down):
+    def keyPressEvent(self, event: QtCore.QEvent) -> Any:
+        if event.modifiers() == Qt.ControlModifier \
+                and event.key() in (Qt.Key_Up, Qt.Key_Down):
             # nev = QtGui.QKeyEvent(QEvent.KeyPress, event.key(), Qt.NoModifier)
-            self.scroll_index.emit('up' if event.key() == Qt.Key_Up else 'down')
+            self.scroll_index.emit('up' if event.key() == Qt.Key_Up
+                                   else 'down')
         else:
             return super().keyPressEvent(event)
 
-    def keyReleaseEvent(self, event):
-        if event.modifiers() == Qt.ControlModifier and event.key() in (Qt.Key_Up, Qt.Key_Down):
+    def keyReleaseEvent(self, event: QtCore.QEvent) -> Any:
+        if event.modifiers() == Qt.ControlModifier \
+                and event.key() in (Qt.Key_Up, Qt.Key_Down):
             pass
             # nev = QtGui.QKeyEvent(QEvent.KeyRelease, event.key(), Qt.NoModifier)
             # self.scroll_index.emit(nev)
@@ -666,10 +682,10 @@ class Terminal(GenericTerminal):
     count_length = pyqtSignal(str)
     show_readme = pyqtSignal(str, str, str, str)
 
-    def __init__(self, parent, get_tags):
+    def __init__(self, parent: QtWidgets.QWidget, get_tags: Callable) -> None:
         super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox)
         self.get_tags = get_tags
-        self.autocomplete_type = '' # 'path' or 'tag'
+        self.autocomplete_type = ''  # 'path' or 'tag'
         # These two are set in reload_settings() in sapfo.py
         self.rootpath = ''
         self.tagmacros = {}
@@ -687,10 +703,10 @@ class Terminal(GenericTerminal):
             'h': (self.cmd_show_readme, 'Show readme')
         }
 
-    def cmd_show_readme(self, arg):
+    def cmd_show_readme(self, arg: Any) -> None:
         self.show_readme.emit('', local_path('README.md'), None, 'markdown')
 
-    def update_settings(self, settings):
+    def update_settings(self, settings: Dict) -> None:
         self.rootpath = settings['path']
         self.tagmacros = settings['tag macros']
         # Terminal animation settings
@@ -700,17 +716,18 @@ class Terminal(GenericTerminal):
             self.error('Too low animation interval')
         self.output_term.set_timer_interval(max(1, interval))
 
-    def command_parsing_injection(self, arg):
+    def command_parsing_injection(self, arg: str) -> Optional[bool]:
         if arg.isdigit():
             self.open_.emit(int(arg))
             return True
 
-    def autocomplete(self, reverse):
-
-        def get_interval(t, pos, separators):
-            """ Return the interval of the string that is going to be autocompleted """
+    def autocomplete(self, reverse: bool) -> None:
+        def get_interval(t: str, pos: int, separators: str) -> Tuple[int, int]:
+            """
+            Return the interval of the string that is going to be autocompleted
+            """
             start, end = 0, len(t)
-            for n,i in enumerate(t):
+            for n, i in enumerate(t):
                 if n < pos and i in separators:
                     start = n + 1
                 if n >= pos and i in separators:
@@ -718,18 +735,20 @@ class Terminal(GenericTerminal):
                     break
             return start, end
 
-        def autocomplete_tags(text, pos, separators, prefix=''):
+        def autocomplete_tags(text: str, pos: int, separators: str,
+                              prefix: str = '') -> None:
             self.autocomplete_type = 'tag'
             start, end = get_interval(text, pos, separators)
-            ws_prefix, dash, target_text = re.match(r'(\s*)(-?)(.*)',text[start:end]).groups()
+            ws_prefix, dash, target_text = re.match(r'(\s*)(-?)(.*)',
+                                                    text[start:end]).groups()
             new_text = self.run_autocompletion(target_text, reverse)
-            output = prefix + text[:start] + ws_prefix + dash + new_text + text[end:]
+            output = (prefix + text[:start] + ws_prefix
+                      + dash + new_text + text[end:])
             self.prompt(output)
             self.input_term.setCursorPosition(len(output) - len(text[end:]))
 
         text = self.input_term.text()
         pos = self.input_term.cursorPosition()
-
         # Auto complete the ft and the et command
         tabsep_rx = re.match(r'(ft|et\*|et\d+\s*)(.*)', text)
         if tabsep_rx:
@@ -737,7 +756,8 @@ class Terminal(GenericTerminal):
             if pos < len(prefix):
                 return
             separators = {'f': '(),|', 'e': ','}
-            autocomplete_tags(payload, pos - len(prefix), separators[prefix[0]], prefix=prefix)
+            autocomplete_tags(payload, pos - len(prefix),
+                              separators[prefix[0]], prefix=prefix)
         # Autocomplete the n command
         elif re.match(r'n\s*\([^\(]*?(\)\s*.*)?$', text):
             taggroup_pos_start = text.find('(') + 1
@@ -748,16 +768,18 @@ class Terminal(GenericTerminal):
             if pos > taggroup_pos_end:
                 self.autocomplete_type = 'path'
                 start = taggroup_pos_end + 1
-                new_text = self.run_autocompletion(text[start:].lstrip(), reverse)
+                new_text = self.run_autocompletion(text[start:].lstrip(),
+                                                   reverse)
                 self.prompt(text[:start] + ' ' + new_text)
-            # If the cursor is within the tags' parentheses, autocomplete it as a tag
+            # If the cursor is within the tags' parentheses,
+            # then autocomplete it as a tag
             else:
                 autocomplete_tags(text, pos, '(),')
 
-
-    def get_ac_suggestions(self, prefix):
+    def get_ac_suggestions(self, prefix: str) -> List[str]:
         if self.autocomplete_type == 'tag':
-            tags = next(zip(*sorted(self.get_tags(), key=itemgetter(1), reverse=True)))
+            tags = next(zip(*sorted(self.get_tags(),
+                                    key=itemgetter(1), reverse=True)))
             macros = ('@' + x for x in sorted(self.tagmacros.keys()))
             return [x for x in chain(tags, macros) if x.startswith(prefix)]
         elif self.autocomplete_type == 'path':
@@ -765,8 +787,10 @@ class Terminal(GenericTerminal):
             dirpath, namepart = os.path.split(join(root, prefix))
             if not os.path.isdir(dirpath):
                 return []
-            suggestions = [join(dirpath, p) for p in sorted(os.listdir(dirpath))
+            suggestions = [join(dirpath, p)
+                           for p in sorted(os.listdir(dirpath))
                            if p.lower().startswith(namepart.lower())]
             # Remove the root prefix and add a / at the end if it's a directory
-            return [p.replace(root, '', 1).lstrip(os.path.sep) + (os.path.sep*os.path.isdir(p))
+            return [p.replace(root, '', 1).lstrip(os.path.sep)
+                    + (os.path.sep*os.path.isdir(p))
                     for p in suggestions]

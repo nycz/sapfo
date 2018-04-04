@@ -4,11 +4,13 @@ import copy
 from os import getenv
 from os.path import isdir, join
 import sys
+from typing import Optional
 
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import Qt
 
-from libsyntyche.common import read_json, read_file, local_path, make_sure_config_exists
+from libsyntyche.common import (read_json, read_file, local_path,
+                                make_sure_config_exists)
 from libsyntyche.fileviewer import FileViewer
 from indexframe import IndexFrame
 from viewerframe import ViewerFrame
@@ -16,7 +18,8 @@ from backstorywindow import BackstoryWindow
 
 
 class MainWindow(QtWidgets.QWidget):
-    def __init__(self, configdir, activation_event, dry_run):
+    def __init__(self, configdir: Optional[str],
+                 activation_event: QtCore.pyqtSignal, dry_run: bool) -> None:
         super().__init__()
         self.setWindowTitle('Sapfo')
         if configdir:
@@ -30,7 +33,8 @@ class MainWindow(QtWidgets.QWidget):
         self.stack = QtWidgets.QStackedLayout(self)
 
         # Index viewer
-        self.index_viewer = IndexFrame(self, dry_run, join(self.configdir, 'state'))
+        self.index_viewer = IndexFrame(self, dry_run,
+                                       join(self.configdir, 'state'))
         self.stack.addWidget(self.index_viewer)
 
         # Story viewer
@@ -44,8 +48,8 @@ class MainWindow(QtWidgets.QWidget):
         self.popup_viewer = FileViewer(self)
         self.stack.addWidget(self.popup_viewer)
         self.popuphomekey = QtWidgets.QShortcut(QtGui.QKeySequence(),
-                                            self.popup_viewer,
-                                            self.show_index)
+                                                self.popup_viewer,
+                                                self.show_index)
 
         # Load settings
         self.css_parts = ['qt', 'index_page', 'viewer_page']
@@ -59,20 +63,21 @@ class MainWindow(QtWidgets.QWidget):
         self.connect_signals()
         self.show()
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QtCore.QEvent) -> None:
         # Don't quit if any backstory windows are open
         if self.backstorywindows:
-            self.index_viewer.terminal.error('One or more backstory windows are still open!')
+            self.index_viewer.terminal.error('One or more backstory windows '
+                                             'are still open!')
             event.ignore()
         else:
             event.accept()
 
-    def quit(self, force):
+    def quit(self, force: bool) -> None:
         # This flag is not used atm
         self.force_quit_flag = force
         self.close()
 
-    def connect_signals(self):
+    def connect_signals(self) -> None:
         connects = (
             (self.story_viewer.show_index,  self.show_index),
             (self.index_viewer.quit,        self.close),
@@ -83,15 +88,15 @@ class MainWindow(QtWidgets.QWidget):
         for signal, slot in connects:
             signal.connect(slot)
 
-    def show_index(self):
+    def show_index(self) -> None:
         self.stack.setCurrentWidget(self.index_viewer)
         self.index_viewer.terminal.setFocus()
 
-    def view_entry(self, entry):
+    def view_entry(self, entry) -> None:
         self.story_viewer.view_page(entry)
         self.stack.setCurrentWidget(self.story_viewer)
 
-    def open_backstory_editor(self, entry):
+    def open_backstory_editor(self, entry) -> None:
         if entry.file in self.backstorywindows:
             self.backstorywindows[entry.file].activateWindow()
             self.backstorywindows[entry.file].raise_()
@@ -101,16 +106,16 @@ class MainWindow(QtWidgets.QWidget):
         self.backstorywindows[entry.file] = bsw
         bsw.closed.connect(self.forget_backstory_window)
 
-    def forget_backstory_window(self, file):
+    def forget_backstory_window(self, file) -> None:
         bsw = self.backstorywindows[file]
         bsw.deleteLater()
         del self.backstorywindows[file]
 
-    def show_popup(self, *args):
+    def show_popup(self, *args) -> None:
         self.popup_viewer.set_page(*args)
         self.stack.setCurrentWidget(self.popup_viewer)
 
-    def reload_settings(self):
+    def reload_settings(self) -> None:
         settings, css_overrides = read_config(self.configdir, self.css_parts)
         # TODO: FIX THIS UGLY ASS SHIT
         # Something somewhere fucks up and changes the settings dict,
@@ -125,33 +130,36 @@ class MainWindow(QtWidgets.QWidget):
             self.story_viewer.update_settings(settings)
             for bsw in self.backstorywindows.values():
                 bsw.update_settings(settings)
-            self.popuphomekey.setKey(QtGui.QKeySequence(settings['hotkeys']['home']))
+            self.popuphomekey.setKey(QtGui.QKeySequence(
+                    settings['hotkeys']['home']))
         # if self.css_overrides != css_overrides:
         self.update_style(css_overrides)
 
-
-    def update_style(self, css_overrides):
+    def update_style(self, css_overrides) -> None:
         css = self.css['qt'] + '\n' + css_overrides['qt']
         self.setStyleSheet(css)
         for bsw in self.backstorywindows.values():
             bsw.setStyleSheet(css)
-        self.index_viewer.css = self.css['index_page'] + '\n' + css_overrides['index_page']
-        self.story_viewer.css = self.css['viewer_page'] + '\n' + css_overrides['viewer_page']
+        self.index_viewer.css = '\n'.join([self.css['index_page'],
+                                           css_overrides['index_page']])
+        self.story_viewer.css = '\n'.join([self.css['viewer_page'],
+                                           css_overrides['viewer_page']])
         self.index_viewer.refresh_view(keep_position=True)
         if self.story_viewer.isEnabled():
             self.story_viewer.update_css()
         self.css_overrides = css_overrides
 
-
     # ===== Input overrides ===========================
     def keyPressEvent(self, ev):
-        if self.stack.currentWidget() == self.index_viewer and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
+        if self.stack.currentWidget() == self.index_viewer \
+                and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
             self.index_viewer.webview.keyPressEvent(ev)
         else:
             return super().keyPressEvent(ev)
 
     def keyReleaseEvent(self, ev):
-        if self.stack.currentWidget() == self.index_viewer and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
+        if self.stack.currentWidget() == self.index_viewer \
+                and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
             self.index_viewer.webview.keyReleaseEvent(ev)
         else:
             return super().keyReleaseEvent(ev)
@@ -165,7 +173,7 @@ def read_config(configpath, cssnames):
         fullpath = join(configpath, f'{name}.css')
         try:
             data = read_file(fullpath)
-        except:
+        except Exception:
             data = ''
         finally:
             styles[name] = data
@@ -173,10 +181,11 @@ def read_config(configpath, cssnames):
     return read_json(configfile), styles
 
 
-def main():
+def main() -> None:
     import argparse
     parser = argparse.ArgumentParser()
-    def valid_dir(dirname):
+
+    def valid_dir(dirname: str) -> Optional[str]:
         if isdir(dirname):
             return dirname
         parser.error(f'Directory does not exist: {dirname}')
@@ -189,7 +198,8 @@ def main():
 
     class AppEventFilter(QtCore.QObject):
         activation_event = QtCore.pyqtSignal()
-        def eventFilter(self, object, event):
+
+        def eventFilter(self, object: QtCore.QObject, event) -> bool:
             if event.type() == QtCore.QEvent.ApplicationActivate:
                 self.activation_event.emit()
             return False
@@ -201,6 +211,7 @@ def main():
                         args.dry_run)
     app.setActiveWindow(window)
     sys.exit(app.exec_())
+
 
 if __name__ == '__main__':
     main()

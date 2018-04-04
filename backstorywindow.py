@@ -6,20 +6,30 @@ from os.path import join
 import re
 import shutil
 import subprocess
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 from PyQt5.QtCore import pyqtSignal, Qt
-from PyQt5 import QtGui, QtCore, QtWidgets
+from PyQt5 import QtGui, QtWidgets
 
-from libsyntyche.common import kill_theming, read_file, write_file, local_path
-from libsyntyche.oldterminal import GenericTerminalInputBox, GenericTerminalOutputBox, GenericTerminal
+from libsyntyche.common import kill_theming, read_file, write_file
+from libsyntyche.oldterminal import (GenericTerminalInputBox,
+                                     GenericTerminalOutputBox, GenericTerminal)
 from libsyntyche.texteditor import SearchAndReplaceable
 
-def fixtitle(fname):
+
+Page = Tuple[str, str, int, int]
+
+
+def fixtitle(fname: str) -> str:
     return re.sub(r"\w[\w']*",
                   lambda mo: mo.group(0)[0].upper() + mo.group(0)[1:].lower(),
                   os.path.splitext(fname)[0].replace('-', ' '))
 
-def generate_page_metadata(title, created=None, revision=None, revcreated=None, asdict=False):
+
+def generate_page_metadata(title: str, created: Optional[datetime] = None,
+                           revision: Optional[int] = None,
+                           revcreated: Optional[datetime] = None,
+                           asdict: bool = False) -> Union[str, Dict[str, Any]]:
     """
     Return a JSON string with the default metadata for a single backstory page.
     """
@@ -35,13 +45,16 @@ def generate_page_metadata(title, created=None, revision=None, revcreated=None, 
     else:
         return json.dumps(d)
 
-def check_and_fix_page_metadata(jsondata, payload, fname):
+
+def check_and_fix_page_metadata(jsondata: Dict[str, Any], payload: str,
+                                fname: str) -> Dict[str, Any]:
     """
     Make sure that the page's metadata has all required keys. Fix and add
     them if some of them are missing.
     """
     fixed = False
-    defaultvalues = generate_page_metadata(fixtitle(os.path.basename(fname)), asdict=True)
+    defaultvalues = generate_page_metadata(fixtitle(os.path.basename(fname)),
+                                           asdict=True)
     # Special case if date exists and revision date doesn't:
     if 'revision created' not in jsondata and 'date' in jsondata:
         jsondata['revision created'] = jsondata['date']
@@ -55,12 +68,13 @@ def check_and_fix_page_metadata(jsondata, payload, fname):
         write_file(fname, json.dumps(jsondata) + '\n' + payload)
     return jsondata
 
-class Formatter(QtGui.QSyntaxHighlighter):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.formats = None
 
-    def update_formats(self, formatstrings):
+class Formatter(QtGui.QSyntaxHighlighter):
+    def __init__(self, *args: Any) -> None:
+        super().__init__(*args)
+        self.formats: Optional[List] = None
+
+    def update_formats(self, formatstrings: Dict) -> None:
         self.formats = []
         font = QtGui.QFont
         for s, items in formatstrings.items():
@@ -81,38 +95,38 @@ class Formatter(QtGui.QSyntaxHighlighter):
             self.formats.append((s, f))
         self.rehighlight()
 
-    def highlightBlock(self, text):
+    def highlightBlock(self, text: str) -> None:
         if self.formats is None:
             return
-        for rx, format in self.formats:
+        for rx, fmt in self.formats:
             for chunk in re.finditer(rx, text):
-                self.setFormat(chunk.start(), chunk.end()-chunk.start(), format)
+                self.setFormat(chunk.start(), chunk.end() - chunk.start(), fmt)
 
 
 class TabBar(QtWidgets.QTabBar):
     set_tab_index = pyqtSignal(int)
 
-    def __init__(self, parent, print_):
+    def __init__(self, parent: QtWidgets.QWidget, print_: Callable) -> None:
         super().__init__(parent)
         self.print_ = print_
-        self.pages = []
+        self.pages: List[Page] = []
 
-    def mousePressEvent(self, ev):
+    def mousePressEvent(self, ev: QtGui.QMouseEvent) -> None:
         if ev.button() == Qt.LeftButton:
             tab = self.tabAt(ev.pos())
             if tab != -1:
                 self.set_tab_index.emit(tab)
 
-    def wheelEvent(self, ev):
+    def wheelEvent(self, ev: QtGui.QWheelEvent) -> None:
         self.change_tab(-ev.angleDelta().y())
 
-    def next_tab(self):
+    def next_tab(self) -> None:
             self.change_tab(1)
 
-    def prev_tab(self):
+    def prev_tab(self) -> None:
         self.change_tab(-1)
 
-    def change_tab(self, direction):
+    def change_tab(self, direction: int) -> None:
         currenttab = self.currentIndex()
         if direction > 0 and currenttab == self.count() - 1:
             newtab = 0
@@ -122,7 +136,7 @@ class TabBar(QtWidgets.QTabBar):
             newtab = currenttab + int(direction/abs(direction))
         self.set_tab_index.emit(newtab)
 
-    def clear(self):
+    def clear(self) -> None:
         while self.count() > 1:
             if self.currentIndex() == 0:
                 self.removeTab(1)
@@ -130,21 +144,22 @@ class TabBar(QtWidgets.QTabBar):
                 self.removeTab(0)
         self.removeTab(0)
 
-    def current_page_fname(self):
+    def current_page_fname(self) -> str:
         i = self.currentIndex()
         return self.pages[i][1]
 
-    def get_page_fname(self, i):
+    def get_page_fname(self, i: int) -> str:
         return self.pages[i][1]
 
-    def set_page_position(self, page, cursorpos, scrollpos):
+    def set_page_position(self, page: Page, cursorpos: int,
+                          scrollpos: int) -> None:
         self.pages[page][2] = cursorpos
         self.pages[page][3] = scrollpos
 
-    def get_page_position(self, page):
-        return self.pages[page][2:4]
+    def get_page_position(self, i: int) -> Tuple[int, int]:
+        return self.pages[i][2:4]
 
-    def load_pages(self, root):
+    def load_pages(self, root: str) -> Iterable[Page]:
         """
         Read all pages from the specified directory and build a list of them.
         """
@@ -161,23 +176,25 @@ class TabBar(QtWidgets.QTabBar):
                 self.print_(f'Bad/no properties found on page {f}, fixing...')
                 title = fixtitle(f)
                 jsondata = generate_page_metadata(title)
-                write_file(join(root, f), '\n'.join([jsondata, firstline, data]))
+                write_file(join(root, f),
+                           '\n'.join([jsondata, firstline, data]))
                 yield [title, f, 0, 0]
             else:
-                fixedjsondata = check_and_fix_page_metadata(jsondata, data, join(root, f))
+                fixedjsondata = check_and_fix_page_metadata(jsondata, data,
+                                                            join(root, f))
                 yield [fixedjsondata['title'], f, 0, 0]
 
-    def open_entry(self, root):
+    def open_entry(self, root: str) -> None:
         """
         Ready the tab bar for a new entry.
         """
         self.clear()
-        fnames = os.listdir(root)
+        # fnames = os.listdir(root)
         self.pages = sorted(self.load_pages(root))
         for title, _, _, _ in self.pages:
             self.addTab(title)
 
-    def add_page(self, title, fname):
+    def add_page(self, title: str, fname: str) -> int:
         """
         Add a new page to and then sort the tab bar. Return the index of the
         new tab.
@@ -188,11 +205,11 @@ class TabBar(QtWidgets.QTabBar):
         self.insertTab(i, title)
         return i
 
-    def remove_page(self):
+    def remove_page(self) -> str:
         """
-        Remove the active page from the tab bar and return the page's file name.
-        Note that the actual file on the disk is not removed by this.
+        Remove the active page from the tab bar and return the page's file name
 
+        Note that the actual file on the disk is not removed by this.
         Raise IndexError if there is only one tab left.
         """
         if self.count() <= 1:
@@ -203,7 +220,7 @@ class TabBar(QtWidgets.QTabBar):
         self.print_(f'Page "{page[0]}" deleted')
         return page[1]
 
-    def rename_page(self, newtitle):
+    def rename_page(self, newtitle: str) -> None:
         """
         Rename the active page and update the tab bar.
         """
@@ -217,35 +234,36 @@ class TabBar(QtWidgets.QTabBar):
 class BackstoryWindow(QtWidgets.QFrame):
     closed = pyqtSignal(str)
 
-    def __init__(self, entry, settings):
+    def __init__(self, entry, settings: Dict) -> None:
         super().__init__()
+
         class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):
             pass
         self.textarea = BackstoryTextEdit()
         self.textarea.setTabStopWidth(30)
         self.textarea.setAcceptRichText(False)
+
         class BackstoryTitle(QtWidgets.QLabel):
             pass
         self.titlelabel = BackstoryTitle()
+
         class BackstoryTabCounter(QtWidgets.QLabel):
             pass
         self.tabcounter = BackstoryTabCounter(self)
+
         class BackstoryRevisionNotice(QtWidgets.QLabel):
             pass
         self.revisionnotice = BackstoryRevisionNotice(self)
         self.terminal = BackstoryTerminal(self)
-        self.textarea.initialize_search_and_replace(self.terminal.error, self.terminal.print_)
+        self.textarea.initialize_search_and_replace(self.terminal.error,
+                                                    self.terminal.print_)
         self.tabbar = TabBar(self, self.terminal.print_)
-
         self.create_layout(self.titlelabel, self.tabbar, self.tabcounter,
                            self.revisionnotice, self.textarea, self.terminal)
         self.connect_signals()
-
         self.formatter = Formatter(self.textarea)
-
         self.revisionactive = False
         self.forcequitflag = False
-
         hotkeypairs = (
             ('next tab', self.tabbar.next_tab),
             ('prev tab', self.tabbar.prev_tab),
@@ -268,8 +286,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.textarea.setFocus()
         self.show()
 
-
-    def closeEvent(self, ev):
+    def closeEvent(self, ev: QtGui.QCloseEvent) -> None:
         success = self.save_tab()
         if success or self.forcequitflag:
             self.closed.emit(self.entryfilename)
@@ -277,7 +294,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         else:
             ev.ignore()
 
-    def wheelEvent(self, ev):
+    def wheelEvent(self, ev: QtGui.QWheelEvent) -> None:
         # If this isn't here textarea will call this method later
         # and we'll get an infinite loop
         if self.ignorewheelevent:
@@ -287,8 +304,13 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.textarea.wheelEvent(ev)
         ev.ignore()
 
-    def create_layout(self, titlelabel, tabbar, tabcounter, revisionnotice,
-                      textarea, terminal):
+    def create_layout(self,
+                      titlelabel: QtWidgets.QLabel,
+                      tabbar: 'TabBar',
+                      tabcounter: QtWidgets.QLabel,
+                      revisionnotice: QtWidgets.QLabel,
+                      textarea: QtWidgets.QTextEdit,
+                      terminal: 'BackstoryTerminal') -> None:
         layout = QtWidgets.QVBoxLayout(self)
         kill_theming(layout)
         # Title label
@@ -313,29 +335,29 @@ class BackstoryWindow(QtWidgets.QFrame):
         # Terminal
         layout.addWidget(self.terminal)
 
-    def cmd_quit(self, arg):
+    def cmd_quit(self, arg: str) -> None:
         self.forcequitflag = arg == '!'
         self.close()
 
-    def connect_signals(self):
+    def connect_signals(self) -> None:
         t = self.terminal
         connects = (
-            (t.quit,            self.cmd_quit),
-            (t.new_page,        self.cmd_new_page),
-            (t.delete_page,     self.cmd_delete_current_page),
-            (t.rename_page,     self.cmd_rename_current_page),
-            (t.save_page,       self.cmd_save_current_page),
-            (t.print_filename,  self.cmd_print_filename),
-            (t.count_words,     self.cmd_count_words),
-            (t.revision_control,self.cmd_revision_control),
-            (t.external_edit,   self.cmd_external_edit),
-            (t.search_and_replace, self.textarea.search_and_replace),
+            (t.quit,                    self.cmd_quit),
+            (t.new_page,                self.cmd_new_page),
+            (t.delete_page,             self.cmd_delete_current_page),
+            (t.rename_page,             self.cmd_rename_current_page),
+            (t.save_page,               self.cmd_save_current_page),
+            (t.print_filename,          self.cmd_print_filename),
+            (t.count_words,             self.cmd_count_words),
+            (t.revision_control,        self.cmd_revision_control),
+            (t.external_edit,           self.cmd_external_edit),
+            (t.search_and_replace,      self.textarea.search_and_replace),
             (self.tabbar.set_tab_index, self.set_tab_index),
         )
         for signal, slot in connects:
             signal.connect(slot)
 
-    def update_settings(self, settings):
+    def update_settings(self, settings: Dict) -> None:
         self.formatter.update_formats(settings['backstory viewer formats'])
         self.formatconverters = settings['formatting converters']
         self.chapterstrings = settings['chapter strings']
@@ -351,7 +373,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         for key, shortcut in self.hotkeys.items():
             shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))
 
-    def toggle_terminal(self):
+    def toggle_terminal(self) -> None:
         if self.textarea.hasFocus():
             self.terminal.show()
             self.terminal.setFocus()
@@ -359,11 +381,11 @@ class BackstoryWindow(QtWidgets.QFrame):
             self.terminal.hide()
             self.textarea.setFocus()
 
-    def update_tabcounter(self):
+    def update_tabcounter(self) -> None:
         self.tabcounter.setText(f'{self.tabbar.currentIndex()+1}'
                                 f'/{self.tabbar.count()}')
 
-    def save_tab(self):
+    def save_tab(self) -> bool:
         """
         Attempt to save the active tab, both the text and the scrollbar/cursor
         position.
@@ -390,7 +412,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.textarea.document().setModified(False)
         return True
 
-    def load_tab(self, newtab):
+    def load_tab(self, newtab: int) -> None:
         """
         Load a new tab with the correct data and scrollbar/cursor position.
 
@@ -405,11 +427,12 @@ class BackstoryWindow(QtWidgets.QFrame):
         # Set the scrollbar/cursor positions
         cursorpos, scrollpos = self.tabbar.get_page_position(newtab)
         tc = self.textarea.textCursor()
-        tc.setPosition(min(cursorpos, self.textarea.document().characterCount()-1))
+        tc.setPosition(min(cursorpos,
+                           self.textarea.document().characterCount() - 1))
         self.textarea.setTextCursor(tc)
         self.textarea.verticalScrollBar().setSliderPosition(scrollpos)
 
-    def set_tab_index(self, newtab):
+    def set_tab_index(self, newtab: int) -> None:
         """
         This is called whenever the tab is changed, i.e. when either of these
         things happen:
@@ -428,7 +451,7 @@ class BackstoryWindow(QtWidgets.QFrame):
                 # Load the new tab
                 self.load_tab(newtab)
 
-    def make_sure_metadir_exists(self, root):
+    def make_sure_metadir_exists(self, root: str) -> None:
         """
         Create a directory with a stub page if none exist.
         """
@@ -438,13 +461,13 @@ class BackstoryWindow(QtWidgets.QFrame):
                 jsondata = generate_page_metadata(title)
                 write_file(join(root, fname), jsondata + '\n')
 
-    def current_page_path(self):
+    def current_page_path(self) -> str:
         """ Return the current page's full path, including root dir """
         return join(self.root, self.tabbar.current_page_fname())
 
     # ======= COMMANDS ========================================================
 
-    def cmd_new_page(self, fname):
+    def cmd_new_page(self, fname: str) -> None:
         f = join(self.root, fname)
         if os.path.exists(f):
             self.terminal.error('File already exists')
@@ -459,7 +482,7 @@ class BackstoryWindow(QtWidgets.QFrame):
             # Do this afterwards to have something to load into textarea
             self.set_tab_index(newtab)
 
-    def cmd_delete_current_page(self, arg):
+    def cmd_delete_current_page(self, arg: str) -> None:
         if arg != '!':
             self.terminal.error('Use d! to confirm deletion')
             return
@@ -471,7 +494,7 @@ class BackstoryWindow(QtWidgets.QFrame):
             self.load_tab(self.tabbar.currentIndex())
             os.remove(join(self.root, fname))
 
-    def cmd_rename_current_page(self, title):
+    def cmd_rename_current_page(self, title: str) -> None:
         if not title.strip():
             oldtitle = self.tabbar.pages[self.tabbar.currentIndex()][0]
             self.terminal.prompt(f'r {oldtitle}')
@@ -487,10 +510,10 @@ class BackstoryWindow(QtWidgets.QFrame):
             jsondata['title'] = title
             write_file(fname, json.dumps(jsondata) + '\n' + data)
 
-    def cmd_save_current_page(self, _):
+    def cmd_save_current_page(self, _: str) -> None:
         self.save_tab()
 
-    def cmd_print_filename(self, arg):
+    def cmd_print_filename(self, arg: str) -> None:
         fname = self.current_page_path()
         if arg == 'c':
             firstline, _ = read_file(fname).split('\n', 1)
@@ -499,11 +522,11 @@ class BackstoryWindow(QtWidgets.QFrame):
         else:
             self.terminal.print_(self.tabbar.current_page_fname())
 
-    def cmd_count_words(self, arg):
+    def cmd_count_words(self, arg: str) -> None:
         wc = len(re.findall(r'\S+', self.textarea.document().toPlainText()))
         self.terminal.print_(f'Words: {wc}')
 
-    def cmd_revision_control(self, arg):
+    def cmd_revision_control(self, arg: str) -> None:
         fname = self.current_page_path()
         firstline, _ = read_file(fname).split('\n', 1)
         jsondata = json.loads(firstline)
@@ -555,13 +578,12 @@ class BackstoryWindow(QtWidgets.QFrame):
         else:
             self.terminal.error(f'Unknown argument: "{arg}"')
 
-    def cmd_external_edit(self, arg):
+    def cmd_external_edit(self, arg: str) -> None:
         if not self.externaleditor:
             self.error('No editor command defined')
             return
         subprocess.Popen([self.externaleditor, self.entryfilename])
         self.terminal.print_(f'Opening entry with {self.externaleditor}')
-
 
 
 class BackstoryTerminal(GenericTerminal):
@@ -577,8 +599,9 @@ class BackstoryTerminal(GenericTerminal):
     search_and_replace = pyqtSignal(str)
     print_help = pyqtSignal(str)
 
-    def __init__(self, parent):
-        super().__init__(parent, GenericTerminalInputBox, GenericTerminalOutputBox)
+    def __init__(self, parent: QtWidgets.QWidget) -> None:
+        super().__init__(parent, GenericTerminalInputBox,
+                         GenericTerminalOutputBox)
         self.commands = {
             'n': (self.new_page, 'New page'),
             'd': (self.delete_page, 'Delete page'),
@@ -590,7 +613,8 @@ class BackstoryTerminal(GenericTerminal):
             'q': (self.quit, 'Quit (q! to force)'),
             '#': (self.revision_control, 'Revision control'),
             'x': (self.external_edit, 'Open in external program/editor'),
-            '/': (self.search_and_replace, 'Search/replace', {'keep whitespace': True}),
+            '/': (self.search_and_replace, 'Search/replace',
+                  {'keep whitespace': True}),
         }
         self.print_help.connect(self.cmd_help)
         self.hide()
