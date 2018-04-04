@@ -12,11 +12,12 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt
 
-from libsyntyche import taggedlist
 from libsyntyche.common import (local_path, read_file, read_json, write_json,
                                 kill_theming)
 from libsyntyche.oldterminal import (GenericTerminalInputBox,
                                      GenericTerminalOutputBox, GenericTerminal)
+
+import taggedlist
 
 
 class IndexFrame(QtWidgets.QWidget):
