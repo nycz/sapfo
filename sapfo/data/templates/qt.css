@@ -1,3 +1,140 @@
+* {
+  background: #233;
+  font-family: "Serif";
+}
+
+#terminal_input, #terminal_output {
+  border: 0px;
+  border-top: 2px solid #111;
+  font-family: "Monospace";
+  font-size: 11pt;
+  color: #ddd;
+}
+
+#terminal_input {
+  background: #222;
+  selection-color: #222;
+  selection-background-color: #ddd;
+}
+
+#terminal_output {
+  background: #191919;
+}
+
+QScrollArea {
+  /*padding: 10px;*/
+}
+
+QWidget {
+  /*margin: 40px;*/
+}
+
+#entry_list_layout {
+  margin: 40px;
+}
+
+EntryList {
+  margin: 15px 8px;
+  qproperty-spacing: 20;
+  qproperty-separator_color: black;
+  qproperty-separator_h_margin: 18;
+  qproperty-separator_height: 1;
+}
+
+Entry {
+}
+
+QLabel {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+#description, #empty_description, #word_count {
+  font-size: 17px;
+}
+#number, #tag {
+  font-size: 13px;
+}
+
+#number, #word_count, #empty_description {
+  font-style: italic;
+}
+
+#number, #word_count {
+  color: #677;
+}
+
+#title {
+  font-size: 18px;
+  color: #cdd;
+}
+
+#number {
+  margin-right: 5px;
+}
+
+#empty_description {
+  color: #d96;
+}
+#description {
+  color: #899;
+}
+#description, #empty_description {
+  /*margin-left: 15px;*/
+  margin-top: 5px;
+}
+
+#tag {
+  background-color: #667;
+  border-radius: 3px;
+  color: #011;
+  font-family: "Monospace";
+  margin-right: 4px;
+  padding: 2px 0px;
+}
+
+#word_count {
+  margin: 0px 5px;
+}
+
+/* VERTICAL SCROLLBAR */
+QScrollBar:vertical {
+    background: #233;
+    width: 15px;
+}
+QScrollBar::handle:vertical {
+    background: #111c1c;
+    min-height: 20px;
+}
+QScrollBar::sub-line:vertical, QScrollBar::add-line:vertical {
+    height: 0px;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+/* TEMP DEBUG */
+
+/*EntryList {
+  background: #236;
+}
+
+Entry {
+  background: #263;
+}
+*/
+
+QLabel {
+  /*border: 1px solid white;*/
+}
+
+
+
+/* OLD CSS */
+
+
 InfoPanel {
     border: none;
     background-color: #333;

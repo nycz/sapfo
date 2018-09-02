@@ -155,14 +155,14 @@ class MainWindow(QtWidgets.QWidget):
     def keyPressEvent(self, ev: QtGui.QKeyEvent) -> Any:
         if self.stack.currentWidget() == self.index_viewer \
                 and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.webview.keyPressEvent(ev)
+            self.index_viewer.scroll_area.keyPressEvent(ev)
         else:
             return super().keyPressEvent(ev)
 
     def keyReleaseEvent(self, ev: QtGui.QKeyEvent) -> Any:
         if self.stack.currentWidget() == self.index_viewer \
                 and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.webview.keyReleaseEvent(ev)
+            self.index_viewer.scroll_area.keyReleaseEvent(ev)
         else:
             return super().keyReleaseEvent(ev)
     # =================================================

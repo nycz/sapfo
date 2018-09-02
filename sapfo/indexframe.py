@@ -1,5 +1,5 @@
 from collections import Counter
-from itertools import chain
+from itertools import chain, zip_longest
 from operator import itemgetter
 import os
 import os.path
@@ -7,7 +7,7 @@ from os.path import exists, join
 import pickle
 import re
 import subprocess
-from typing import Any, Callable, DefaultDict, Dict, Iterable, List, Match, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Match, Optional, Tuple
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt
@@ -17,9 +17,10 @@ from libsyntyche.common import (read_file, read_json, write_json,
 from libsyntyche.oldterminal import (GenericTerminalInputBox,
                                      GenericTerminalOutputBox, GenericTerminal)
 
-from sapfo.common import local_path, ActiveFilters, HtmlTemplates
+from sapfo.common import local_path, ActiveFilters
 import sapfo.taggedlist as taggedlist
-from sapfo.taggedlist import Entry, Entries
+from sapfo.taggedlist import Entries
+from .declarative import grid, hflow, label
 
 
 SortBy = Tuple[str, bool]
@@ -37,9 +38,11 @@ class IndexFrame(QtWidgets.QWidget):
         # Layout and shit
         layout = QtWidgets.QVBoxLayout(self)
         kill_theming(layout)
-        self.webview = QtWidgets.QTextEdit(self)
-        self.webview.setReadOnly(True)
-        layout.addWidget(self.webview, stretch=1)
+        self.scroll_area = QtWidgets.QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.entry_view = EntryList(self, [], EntryWidget)
+        self.scroll_area.setWidget(self.entry_view)
+        layout.addWidget(self.scroll_area, stretch=1)
         self.terminal = Terminal(self, self.get_tags)
         layout.addWidget(self.terminal)
         self.connect_signals()
@@ -48,7 +51,6 @@ class IndexFrame(QtWidgets.QWidget):
         self.error = self.terminal.error
         self.set_terminal_text = self.terminal.prompt
         self.dry_run = dry_run
-        self.htmltemplates = load_html_templates()
         self.css: Optional[str] = None  # Is set every time the config is reloaded
         self.defaulttagcolor: Optional[str] = None  # Is set every time the style is reloaded
         # Hotkeys
@@ -99,7 +101,7 @@ class IndexFrame(QtWidgets.QWidget):
             (t.open_,                   self.open_entry),
             (t.edit,                    self.edit_entry),
             (t.new_entry,               self.new_entry),
-            (t.input_term.scroll_index, self.webview.event),
+            (t.input_term.scroll_index, self.entry_view.event),
             (t.list_,                   self.list_),
             (t.count_length,            self.count_length),
             (t.external_edit,           self.external_run_entry),
@@ -116,13 +118,14 @@ class IndexFrame(QtWidgets.QWidget):
         # Update hotkeys
         for key, shortcut in self.hotkeys.items():
             shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))
+        self.entry_view.tag_colors = settings['tag colors']
         self.reload_view()
 
     def zoom_in(self) -> None:
-        self.webview.zoomIn()
+        pass
 
     def zoom_out(self) -> None:
-        self.webview.zoomOut()
+        pass
 
     def zoom_reset(self) -> None:
         pass
@@ -145,17 +148,10 @@ class IndexFrame(QtWidgets.QWidget):
         Refresh the view with the filtered entries and the current css.
         The full entrylist is not touched by this.
         """
-        pos = self.webview.verticalScrollBar().value()
-        body = generate_html_body(self.visible_entries,
-                                  self.htmltemplates.tags,
-                                  self.htmltemplates.entry,
-                                  self.settings['entry length template'],
-                                  self.settings['tag colors'])
-        self.webview.setHtml(self.htmltemplates.index_page.format(
-                    body=body, css=self.css))
-        if keep_position:
-            self.webview.verticalScrollBar().setValue(pos)
+        # TODO: keep position?
         print('refreshed')
+        # TODO: also dont bruteforce the update
+        self.entry_view.set_entries(self.visible_entries)
 
     def get_tags(self) -> List[Tuple[str, int]]:
         """
@@ -166,6 +162,7 @@ class IndexFrame(QtWidgets.QWidget):
                        for tag in entry.tags).most_common()
 
     def list_(self, arg: str) -> None:
+        # TODO: html -> widget
         if arg.startswith('f'):
             if self.active_filters:
                 self.print_(', '.join(map(' '.join, self.active_filters)))
@@ -176,7 +173,6 @@ class IndexFrame(QtWidgets.QWidget):
             sortarg = 1
             if len(arg) == 2 and arg[1] == 'a':
                 sortarg = 0
-            self.old_pos = self.webview.verticalScrollBar().value()
             entry_template = (
                 '<div class="list_entry">'
                 '<span class="tag" style="background-color:{color};">'
@@ -540,12 +536,174 @@ class IndexFrame(QtWidgets.QWidget):
         self.print_(f'Opening entry with {self.settings["editor"]}')
 
 
-def load_html_templates() -> HtmlTemplates:
-    def get_file(fname: str) -> str:
-        return read_file(local_path(join('data', 'templates', fname)))
-    return HtmlTemplates(get_file('entry_template.html'),
-                         get_file('index_page_template.html'),
-                         get_file('tags_template.html'))
+class EntryWidget(QtWidgets.QFrame):
+    def __init__(self, parent, number, entry_tuple, tag_colors):
+        super().__init__(parent)
+        entry = entry_tuple._asdict()
+        self.number_widget = label(number, 'number', parent=self)
+        self.title_widget = label(entry['title'], 'title', parent=self)
+        self.word_count_widget = label(f'({entry["wordcount"]})',
+                                       'wordcount', parent=self)
+        self.desc_widget = label(entry['description'] or '[no desc]',
+                                 ('description' if entry['description']
+                                  else 'empty_description'),
+                                 word_wrap=True, parent=self)
+        self.tag_widgets = []
+        self.tag_colors = tag_colors
+        for tag in entry['tags']:
+            widget = label(tag, 'tag', parent=self)
+            if tag in tag_colors:
+                widget.setStyleSheet(f'background: {tag_colors[tag]};')
+            self.tag_widgets.append(widget)
+        self.top_row = hflow(self.title_widget,
+                             self.word_count_widget,
+                             *self.tag_widgets)
+        layout = grid({
+            (0, 0): self.number_widget,
+            (0, 1): self.top_row,
+            (1, (0, 1)): self.desc_widget
+        }, col_stretch={1: 1})
+        self.setLayout(layout)
+
+    def update_data(self, entry_tuple):
+        entry = entry_tuple._asdict()
+        self.title_widget.setText(entry['title'])
+        self.word_count_widget.setText(f'({entry["wordcount"]})')
+        self.desc_widget.setText(entry['description'] or '[no desc]')
+        desc_class = ('description' if entry['description']
+                      else 'empty_description')
+        if desc_class != self.desc_widget.objectName():
+            self.desc_widget.setObjectName(desc_class)
+        for tag_widget, tag in zip(self.tag_widgets, entry['tags']):
+            tag_widget.setText(tag)
+        old_tag_count = len(self.tag_widgets)
+        new_tag_count = len(entry['tags'])
+        if old_tag_count > new_tag_count:
+            for tag_widget in self.tag_widgets[new_tag_count:]:
+                self.top_row.removeWidget(tag_widget)
+                tag_widget.deleteLater()
+            self.tag_widgets = self.tag_widgets[:new_tag_count]
+        elif old_tag_count < new_tag_count:
+            for tag in list(entry['tags'])[old_tag_count:]:
+                tag_widget = label(tag, 'tag', parent=self)
+                if tag in self.tag_colors:
+                    tag_widget.setStyleSheet(f'background: {self.tag_colors[tag]};')
+                else:
+                    tag_widget.setStyleSheet('background: #444;')
+                self.tag_widgets.append(tag_widget)
+                self.top_row.addWidget(tag_widget)
+
+
+class EntryList(QtWidgets.QFrame):
+
+    @QtCore.pyqtProperty(int)
+    def spacing(self):
+        return self.layout().spacing()
+
+    @spacing.setter
+    def spacing(self, value):
+        self._spacing = value
+        self.update_spacing()
+
+    @QtCore.pyqtProperty(QtGui.QColor)
+    def separator_color(self):
+        return self._separator_color
+
+    @separator_color.setter
+    def separator_color(self, value):
+        self._separator_color = value
+
+    @QtCore.pyqtProperty(int)
+    def separator_h_margin(self):
+        return self._separator_h_margin
+
+    @separator_h_margin.setter
+    def separator_h_margin(self, value):
+        self._separator_h_margin = value
+
+    @QtCore.pyqtProperty(int)
+    def separator_height(self):
+        return self._separator_height
+
+    @separator_height.setter
+    def separator_height(self, value):
+        self._separator_height = value
+        self.update_spacing()
+
+    def __init__(self, parent, entries, entry_class):
+        super().__init__(parent)
+        self._spacing: int = 0
+        self._separator_color = QtGui.QColor('black')
+        self._separator_h_margin = 0
+        self._separator_height = 1
+        self.entry_class = entry_class
+        self.entry_widgets = []
+        self.tag_colors = {}
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setObjectName('entry_list_layout')
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.add_entries(entries)
+
+    def add_entries(self, entries):
+        self.entry_widgets = []
+        for n, entry in enumerate(entries):
+            entry_widget = self.entry_class(self, n, entry, self.tag_colors)
+            self.entry_widgets.append(entry_widget)
+            self.layout().addWidget(entry_widget)
+        self.layout().addStretch(1)
+
+    def update_entries(self, new_entries):
+        for widget, entry in zip(self.entry_widgets, new_entries):
+            widget.update_data(entry)
+
+    def set_entries(self, new_entries):
+        # Get rid of the extra stretch
+        self.layout().takeAt(self.layout().count() - 1)
+        for n, (widget, entry) in enumerate(zip_longest(self.entry_widgets, new_entries)):
+            if widget is None:
+                entry_widget = self.entry_class(self, n, entry,
+                                                self.tag_colors)
+                self.entry_widgets.append(entry_widget)
+                self.layout().addWidget(entry_widget)
+            elif entry is None:
+                self.layout().removeWidget(widget)
+                widget.deleteLater()
+            else:
+                widget.update_data(entry)
+        # print(len(new_entries), len(self.entry_widgets))
+        if len(new_entries) < len(self.entry_widgets):
+            self.entry_widgets = self.entry_widgets[:len(new_entries)]
+        # print(len(new_entries), len(self.entry_widgets))
+        # print(self.entry_widgets)
+        self.layout().addStretch(1)
+
+
+        # for widget in self.entry_widgets:
+            # self.layout().removeWidget(widget)
+            # widget.deleteLater()
+        # print('10. removed all entries')
+        # self.layout().takeAt(0)
+        # self.add_entries(new_entries)
+
+    def update_spacing(self):
+        self.layout().setSpacing(self._spacing + self._separator_height)
+
+    def paintEvent(self, event: QtGui.QPaintEvent):
+        super().paintEvent(event)
+        painter = QtGui.QPainter(self)
+        # minus two here to skip the stretch at the end and the line below
+        # the bottom item
+        for n in range(self.layout().count() - 2):
+            item: QtWidgets.QLayoutItem = self.layout().itemAt(n)
+            if isinstance(item, QtWidgets.QSpacerItem):
+                continue
+            # print(item)
+            bottom: int = item.widget().geometry().bottom()
+            y: int = bottom + self._spacing / 2
+            painter.fillRect(self._separator_h_margin, y,
+                             self.width() - self._separator_h_margin * 2,
+                             self._separator_height,
+                             self._separator_color)
 
 
 def get_backstory_data(fname: str) -> Dict[str, int]:
@@ -611,38 +769,6 @@ def index_stories(path: str) -> Tuple[Tuple[Tuple[str, Dict[str, str]], ...],
                 metadatafile)
                for metadata, fname, metadatafile, backstorydata in files)
     return attributes, entries
-
-
-def generate_html_body(visible_entries: Entries,
-                       tagstemplate: str,
-                       entrytemplate: str,
-                       entrylengthtemplate: str,
-                       tagcolors: Dict[str, str]
-                       ) -> str:
-    """
-    Return html generated from the visible entries.
-    """
-    def format_tags(tags: Iterable[str]) -> str:
-        colhtml = 'style="background-color:{};"'
-        return '<wbr>'.join(
-            tagstemplate.format(tag=t.replace(' ', '&nbsp;')
-                                     .replace('-', '&#8209;'),
-                                color=(colhtml.format(tagcolors[t])
-                                       if t in tagcolors else ''))
-            for t in sorted(tags))
-
-    def format_desc(desc: str) -> str:
-        return desc if desc else '<span class="empty_desc">[no desc]</span>'
-    entrytemplate = entrytemplate.format(lengthformatstr=entrylengthtemplate)
-    entries = (entrytemplate.format(
-                    title=entry.title, id=n,
-                    tags=format_tags(entry.tags),
-                    desc=format_desc(entry.description),
-                    wordcount=entry.wordcount,
-                    backstorywordcount=entry.backstorywordcount,
-                    backstorypages=entry.backstorypages)
-               for n, entry in enumerate(visible_entries))
-    return '<hr />'.join(entries)
 
 
 def write_metadata(entries: Entries) -> None:

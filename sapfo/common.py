@@ -14,11 +14,5 @@ class ActiveFilters(NamedTuple):
     backstorypages: int
 
 
-class HtmlTemplates(NamedTuple):
-    entry: str
-    index_page: str
-    tags: str
-
-
-def local_path(path: str):
+def local_path(path: str) -> str:
     return str(LOCAL_DIR / path)
