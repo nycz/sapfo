@@ -5,9 +5,10 @@ from typing import Dict, Iterable, List, Tuple, Union
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5 import QtGui, QtWidgets
 
-from libsyntyche.common import kill_theming, read_file, local_path
+from libsyntyche.common import kill_theming, read_file
 
-from taggedlist import Entry
+from sapfo.common import local_path
+from sapfo.taggedlist import Entry
 
 
 FormatConverters = List[Union[Tuple[str, str, str], Tuple[str, str]]]
@@ -51,7 +52,7 @@ class ViewerFrame(QtWidgets.QFrame):
             for key, callback in hotkeypairs
         }
         self.template = read_file(local_path(
-                join('templates', 'viewer_page_template.html')))
+                join('data', 'templates', 'viewer_page_template.html')))
         self.css = ''  # Is set every time the config is reloaded
         self.rawtext = ''
         self.formatconverters: FormatConverters = []

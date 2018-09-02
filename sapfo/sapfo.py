@@ -9,13 +9,13 @@ from typing import Any, Dict, Iterable, Optional, Tuple
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import Qt
 
-from libsyntyche.common import (read_json, read_file, local_path,
-                                make_sure_config_exists)
+from libsyntyche.common import read_json, read_file, make_sure_config_exists
 from libsyntyche.fileviewer import FileViewer
-from indexframe import IndexFrame
-from viewerframe import ViewerFrame
-from backstorywindow import BackstoryWindow
-from taggedlist import Entry
+from sapfo.indexframe import IndexFrame
+from sapfo.viewerframe import ViewerFrame
+from sapfo.backstorywindow import BackstoryWindow
+from sapfo.taggedlist import Entry
+from sapfo.common import local_path
 
 
 class MainWindow(QtWidgets.QWidget):
@@ -55,7 +55,8 @@ class MainWindow(QtWidgets.QWidget):
         # Load settings
         self.css_parts = ['qt', 'index_page', 'viewer_page']
         self.css_overrides = {x: '' for x in self.css_parts}
-        self.css = {x: read_file(local_path(join('templates', f'{x}.css')))
+        self.css = {x: read_file(local_path(join('data', 'templates',
+                                                 f'{x}.css')))
                     for x in self.css_parts}
         self.settings: Dict[str, Any] = {}
         self.reload_settings()
@@ -179,7 +180,7 @@ def read_config(configpath: str, cssnames: Iterable[str]
             data = ''
         finally:
             styles[name] = data
-    make_sure_config_exists(configfile, local_path('defaultconfig.json'))
+    make_sure_config_exists(configfile, local_path(join('data', 'defaultconfig.json')))
     return read_json(configfile), styles
 
 

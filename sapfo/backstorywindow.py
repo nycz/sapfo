@@ -17,7 +17,7 @@ from libsyntyche.oldterminal import (GenericTerminalInputBox,
                                      GenericTerminalOutputBox, GenericTerminal)
 from libsyntyche.texteditor import SearchAndReplaceable
 
-from taggedlist import Entry
+from sapfo.taggedlist import Entry
 
 
 class Page(NamedTuple):

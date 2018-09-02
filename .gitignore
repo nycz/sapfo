@@ -3,3 +3,7 @@ index_page_generated.html
 __pycache__
 *.py3
 !sapfo_bootstrap.py3
+/mypy_output
+.mypy_cache/
+/dump
+sapfo.egg-info/

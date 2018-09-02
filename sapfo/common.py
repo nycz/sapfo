@@ -1,4 +1,8 @@
+from pathlib import Path
 from typing import FrozenSet, NamedTuple
+
+
+LOCAL_DIR = Path(__file__).resolve().parent
 
 
 class ActiveFilters(NamedTuple):
@@ -14,3 +18,7 @@ class HtmlTemplates(NamedTuple):
     entry: str
     index_page: str
     tags: str
+
+
+def local_path(path: str):
+    return str(LOCAL_DIR / path)

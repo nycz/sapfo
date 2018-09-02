@@ -12,14 +12,14 @@ from typing import Any, Callable, DefaultDict, Dict, Iterable, List, Match, Opti
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt
 
-from libsyntyche.common import (local_path, read_file, read_json, write_json,
+from libsyntyche.common import (read_file, read_json, write_json,
                                 kill_theming)
 from libsyntyche.oldterminal import (GenericTerminalInputBox,
                                      GenericTerminalOutputBox, GenericTerminal)
 
-from common import ActiveFilters, HtmlTemplates
-import taggedlist
-from taggedlist import Entry, Entries
+from sapfo.common import local_path, ActiveFilters, HtmlTemplates
+import sapfo.taggedlist as taggedlist
+from sapfo.taggedlist import Entry, Entries
 
 
 SortBy = Tuple[str, bool]
@@ -542,7 +542,7 @@ class IndexFrame(QtWidgets.QWidget):
 
 def load_html_templates() -> HtmlTemplates:
     def get_file(fname: str) -> str:
-        return read_file(local_path(join('templates', fname)))
+        return read_file(local_path(join('data', 'templates', fname)))
     return HtmlTemplates(get_file('entry_template.html'),
                          get_file('index_page_template.html'),
                          get_file('tags_template.html'))
