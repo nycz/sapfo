@@ -41,7 +41,7 @@ class IndexFrame(QtWidgets.QWidget):
         kill_theming(layout)
         self.scroll_area = QtWidgets.QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
-        self.entry_view = EntryList(self, [])
+        self.entry_view = EntryList(self, ())
         self.scroll_area.setWidget(self.entry_view)
         layout.addWidget(self.scroll_area, stretch=1)
         self.terminal = Terminal(self, self.get_tags)
@@ -102,7 +102,7 @@ class IndexFrame(QtWidgets.QWidget):
             (t.open_,                   self.open_entry),
             (t.edit,                    self.edit_entry),
             (t.new_entry,               self.new_entry),
-            (t.input_term.scroll_index, self.entry_view.event),
+            # (t.input_term.scroll_index, self.entry_view.event),
             (t.list_,                   self.list_),
             (t.count_length,            self.count_length),
             (t.external_edit,           self.external_run_entry),
@@ -166,7 +166,7 @@ class IndexFrame(QtWidgets.QWidget):
         # TODO: html -> widget
         if arg.startswith('f'):
             if self.active_filters:
-                self.print_(', '.join(map(' '.join, self.active_filters)))
+                self.print_('; '.join(self.active_filters))
             else:
                 self.error('No active filters')
         elif arg.startswith('t'):
@@ -539,20 +539,19 @@ class IndexFrame(QtWidgets.QWidget):
 
 class EntryWidget(QtWidgets.QFrame):
     def __init__(self, parent: QtWidgets.QWidget, number: int,
-                 entry_tuple: Entry, tag_colors: Dict[str, str]) -> None:
+                 entry: Entry, tag_colors: Dict[str, str]) -> None:
         super().__init__(parent)
-        entry = entry_tuple._asdict()
         self.number_widget = label(number, 'number', parent=self)
-        self.title_widget = label(entry['title'], 'title', parent=self)
-        self.word_count_widget = label(f'({entry["wordcount"]})',
+        self.title_widget = label(entry.title, 'title', parent=self)
+        self.word_count_widget = label(f'({entry.wordcount})',
                                        'wordcount', parent=self)
-        self.desc_widget = label(entry['description'] or '[no desc]',
-                                 ('description' if entry['description']
+        self.desc_widget = label(entry.description or '[no desc]',
+                                 ('description' if entry.description
                                   else 'empty_description'),
                                  word_wrap=True, parent=self)
         self.tag_widgets: List[QtWidgets.QLabel] = []
         self.tag_colors = tag_colors
-        for tag in entry['tags']:
+        for tag in entry.tags:
             widget = label(tag, 'tag', parent=self)
             if tag in tag_colors:
                 widget.setStyleSheet(f'background: {tag_colors[tag]};')
@@ -567,26 +566,25 @@ class EntryWidget(QtWidgets.QFrame):
         }, col_stretch={1: 1})
         self.setLayout(layout)
 
-    def update_data(self, entry_tuple: Entry) -> None:
-        entry = entry_tuple._asdict()
-        self.title_widget.setText(entry['title'])
-        self.word_count_widget.setText(f'({entry["wordcount"]})')
-        self.desc_widget.setText(entry['description'] or '[no desc]')
-        desc_class = ('description' if entry['description']
+    def update_data(self, entry: Entry) -> None:
+        self.title_widget.setText(entry.title)
+        self.word_count_widget.setText(f'({entry.wordcount})')
+        self.desc_widget.setText(entry.description or '[no desc]')
+        desc_class = ('description' if entry.description
                       else 'empty_description')
         if desc_class != self.desc_widget.objectName():
             self.desc_widget.setObjectName(desc_class)
-        for tag_widget, tag in zip(self.tag_widgets, entry['tags']):
+        for tag_widget, tag in zip(self.tag_widgets, entry.tags):
             tag_widget.setText(tag)
         old_tag_count = len(self.tag_widgets)
-        new_tag_count = len(entry['tags'])
+        new_tag_count = len(entry.tags)
         if old_tag_count > new_tag_count:
             for tag_widget in self.tag_widgets[new_tag_count:]:
                 self.top_row.removeWidget(tag_widget)
                 tag_widget.deleteLater()
             self.tag_widgets = self.tag_widgets[:new_tag_count]
         elif old_tag_count < new_tag_count:
-            for tag in list(entry['tags'])[old_tag_count:]:
+            for tag in list(entry.tags)[old_tag_count:]:
                 tag_widget = label(tag, 'tag', parent=self)
                 if tag in self.tag_colors:
                     tag_widget.setStyleSheet(f'background: {self.tag_colors[tag]};')
@@ -705,7 +703,7 @@ class EntryList(QtWidgets.QFrame):
                 continue
             # print(item)
             bottom: int = item.widget().geometry().bottom()
-            y: int = bottom + self._spacing / 2
+            y: int = bottom + self._spacing // 2
             painter.fillRect(self._separator_h_margin, y,
                              self.width() - self._separator_h_margin * 2,
                              self._separator_height,

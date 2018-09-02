@@ -6,7 +6,7 @@ from os.path import join
 import re
 import shutil
 import subprocess
-from typing import (Any, Callable, Dict, Iterable, List,
+from typing import (overload, Any, Callable, Dict, Iterable, List,
                     NamedTuple, Optional, Tuple, Union)
 
 from PyQt5.QtCore import pyqtSignal, Qt
@@ -33,7 +33,24 @@ def fixtitle(fname: str) -> str:
                   os.path.splitext(fname)[0].replace('-', ' '))
 
 
+@overload
 def generate_page_metadata(title: str, created: Optional[datetime] = None,
+                           revision: Optional[int] = None,
+                           revcreated: Optional[datetime] = None,
+                           asdict: bool = True) -> Dict[str, Any]:
+    pass
+
+
+@overload  # noqa: F811
+def generate_page_metadata(title: str, created: Optional[datetime] = None,
+                           revision: Optional[int] = None,
+                           revcreated: Optional[datetime] = None,
+                           asdict: bool = False) -> str:
+    pass
+
+
+def generate_page_metadata(title: str,  # noqa: F811
+                           created: Optional[datetime] = None,
                            revision: Optional[int] = None,
                            revcreated: Optional[datetime] = None,
                            asdict: bool = False) -> Union[str, Dict[str, Any]]:
@@ -255,7 +272,7 @@ class BackstoryWindow(QtWidgets.QFrame):
 
         class BackstoryTitle(QtWidgets.QLabel):
             pass
-        self.titlelabel = BackstoryTitle()
+        self.titlelabel = BackstoryTitle(self)
 
         class BackstoryTabCounter(QtWidgets.QLabel):
             pass
@@ -377,7 +394,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.terminal.output_term.animate = settings['animate terminal output']
         interval = settings['terminal animation interval']
         if interval < 1:
-            self.error('Too low animation interval')
+            self.terminal.error('Too low animation interval')
         self.terminal.output_term.set_timer_interval(max(1, interval))
         # Update hotkeys
         for key, shortcut in self.hotkeys.items():
@@ -569,7 +586,7 @@ class BackstoryWindow(QtWidgets.QFrame):
                 _, data = read_file(revfname).split('\n', 1)
             except Exception as e:
                 print(str(e))
-                self.error('Something went wrong when loading the revision')
+                self.terminal.error('Something went wrong when loading the revision')
             else:
                 self.textarea.setPlainText(data)
                 self.textarea.document().setModified(False)
@@ -590,7 +607,7 @@ class BackstoryWindow(QtWidgets.QFrame):
 
     def cmd_external_edit(self, arg: str) -> None:
         if not self.externaleditor:
-            self.error('No editor command defined')
+            self.terminal.error('No editor command defined')
             return
         subprocess.Popen([self.externaleditor, self.entryfilename])
         self.terminal.print_(f'Opening entry with {self.externaleditor}')

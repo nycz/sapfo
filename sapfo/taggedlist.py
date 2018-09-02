@@ -47,7 +47,7 @@ def edit_entry(index: int, entries: Entries,
 
 
 def replace_tags(oldtagstr: str, newtagstr: str, entries: Entries,
-                 visible_entries: Dict, attribute: str) -> Entries:
+                 visible_entries: Entries, attribute: str) -> Entries:
     """
     Return a tuple where all instances of one tag is replaced by a new tag or
     where a tag has been either added to or removed from all visible entries.

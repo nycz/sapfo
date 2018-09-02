@@ -1,17 +1,17 @@
 from pathlib import Path
-from typing import FrozenSet, NamedTuple
+from typing import Optional, FrozenSet, NamedTuple
 
 
 LOCAL_DIR = Path(__file__).resolve().parent
 
 
 class ActiveFilters(NamedTuple):
-    title: str
-    description: str
-    tags: FrozenSet[str]
-    wordcount: int
-    backstorywordcount: int
-    backstorypages: int
+    title: Optional[str]
+    description: Optional[str]
+    tags: Optional[FrozenSet[str]]
+    wordcount: Optional[int]
+    backstorywordcount: Optional[int]
+    backstorypages: Optional[int]
 
 
 def local_path(path: str) -> str:
