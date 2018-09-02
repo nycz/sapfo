@@ -6,7 +6,8 @@ from os.path import join
 import re
 import shutil
 import subprocess
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import (Any, Callable, Dict, Iterable, List,
+                    NamedTuple, Optional, Tuple, Union)
 
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5 import QtGui, QtWidgets
@@ -16,8 +17,14 @@ from libsyntyche.oldterminal import (GenericTerminalInputBox,
                                      GenericTerminalOutputBox, GenericTerminal)
 from libsyntyche.texteditor import SearchAndReplaceable
 
+from taggedlist import Entry
 
-Page = Tuple[str, str, int, int]
+
+class Page(NamedTuple):
+    title: str
+    fname: str
+    cursorpos: int = 0
+    scrollpos: int = 0
 
 
 def fixtitle(fname: str) -> str:
@@ -145,16 +152,16 @@ class TabBar(QtWidgets.QTabBar):
         self.removeTab(0)
 
     def current_page_fname(self) -> str:
-        i = self.currentIndex()
-        return self.pages[i][1]
+        i: int = self.currentIndex()
+        return self.pages[i].fname
 
     def get_page_fname(self, i: int) -> str:
-        return self.pages[i][1]
+        return self.pages[i].fname
 
-    def set_page_position(self, page: Page, cursorpos: int,
+    def set_page_position(self, i: int, cursorpos: int,
                           scrollpos: int) -> None:
-        self.pages[page][2] = cursorpos
-        self.pages[page][3] = scrollpos
+        self.pages[i] = self.pages[i]._replace(cursorpos=cursorpos,
+                                               scrollpos=scrollpos)
 
     def get_page_position(self, i: int) -> Tuple[int, int]:
         return self.pages[i][2:4]
@@ -163,26 +170,26 @@ class TabBar(QtWidgets.QTabBar):
         """
         Read all pages from the specified directory and build a list of them.
         """
-        fnames = os.listdir(root)
-        for f in fnames:
-            if re.search(r'\.rev\d+$', f) is not None:
+        for fname in os.listdir(root):
+            if re.search(r'\.rev\d+$', fname) is not None:
                 continue
-            if os.path.isdir(join(root, f)):
+            if os.path.isdir(join(root, fname)):
                 continue
-            firstline, data = read_file(join(root, f)).split('\n', 1)
+            firstline, data = read_file(join(root, fname)).split('\n', 1)
             try:
                 jsondata = json.loads(firstline)
             except ValueError:
-                self.print_(f'Bad/no properties found on page {f}, fixing...')
-                title = fixtitle(f)
+                self.print_(f'Bad/no properties found on page {fname}, '
+                            f'fixing...')
+                title = fixtitle(fname)
                 jsondata = generate_page_metadata(title)
-                write_file(join(root, f),
+                write_file(join(root, fname),
                            '\n'.join([jsondata, firstline, data]))
-                yield [title, f, 0, 0]
+                yield Page(title, fname)
             else:
                 fixedjsondata = check_and_fix_page_metadata(jsondata, data,
-                                                            join(root, f))
-                yield [fixedjsondata['title'], f, 0, 0]
+                                                            join(root, fname))
+                yield Page(fixedjsondata['title'], fname)
 
     def open_entry(self, root: str) -> None:
         """
@@ -199,9 +206,10 @@ class TabBar(QtWidgets.QTabBar):
         Add a new page to and then sort the tab bar. Return the index of the
         new tab.
         """
-        self.pages.append([title, fname, 0, 0])
+        self.pages.append(Page(title, fname))
         self.pages.sort()
-        i = list(zip(*self.pages))[1].index(fname)
+        i = next(pos for pos, page in enumerate(self.pages)
+                 if page.fname == fname)
         self.insertTab(i, title)
         return i
 
@@ -214,27 +222,29 @@ class TabBar(QtWidgets.QTabBar):
         """
         if self.count() <= 1:
             raise IndexError('Can\'t remove the only page')
-        i = self.currentIndex()
+        i: int = self.currentIndex()
         page = self.pages.pop(i)
         self.removeTab(i)
-        self.print_(f'Page "{page[0]}" deleted')
-        return page[1]
+        self.print_(f'Page "{page.title}" deleted')
+        return page.fname
 
     def rename_page(self, newtitle: str) -> None:
         """
         Rename the active page and update the tab bar.
         """
         i = self.currentIndex()
-        self.pages[i][0] = newtitle
+        self.pages[i] = self.pages[i]._replace(title=newtitle)
         self.pages.sort()
         self.setTabText(i, newtitle)
-        self.moveTab(i, next(zip(*self.pages)).index(newtitle))
+        new_i = next(pos for pos, page in enumerate(self.pages)
+                     if page.title == newtitle)
+        self.moveTab(i, new_i)
 
 
 class BackstoryWindow(QtWidgets.QFrame):
     closed = pyqtSignal(str)
 
-    def __init__(self, entry, settings: Dict) -> None:
+    def __init__(self, entry: Entry, settings: Dict) -> None:
         super().__init__()
 
         class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):

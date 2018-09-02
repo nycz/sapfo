@@ -4,7 +4,7 @@ import copy
 from os import getenv
 from os.path import isdir, join
 import sys
-from typing import Optional
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import Qt
@@ -15,6 +15,7 @@ from libsyntyche.fileviewer import FileViewer
 from indexframe import IndexFrame
 from viewerframe import ViewerFrame
 from backstorywindow import BackstoryWindow
+from taggedlist import Entry
 
 
 class MainWindow(QtWidgets.QWidget):
@@ -25,7 +26,7 @@ class MainWindow(QtWidgets.QWidget):
         if configdir:
             self.configdir = configdir
         else:
-            self.configdir = join(getenv('HOME'), '.config', 'sapfo')
+            self.configdir = join((getenv('HOME') or ''), '.config', 'sapfo')
         activation_event.connect(self.reload_settings)
         self.force_quit_flag = False
 
@@ -42,7 +43,7 @@ class MainWindow(QtWidgets.QWidget):
         self.stack.addWidget(self.story_viewer)
 
         # Backstory editor
-        self.backstorywindows = {}
+        self.backstorywindows: Dict[str, BackstoryWindow] = {}
 
         # Popup viewer
         self.popup_viewer = FileViewer(self)
@@ -56,7 +57,7 @@ class MainWindow(QtWidgets.QWidget):
         self.css_overrides = {x: '' for x in self.css_parts}
         self.css = {x: read_file(local_path(join('templates', f'{x}.css')))
                     for x in self.css_parts}
-        self.settings = {}
+        self.settings: Dict[str, Any] = {}
         self.reload_settings()
 
         # Misc
@@ -92,11 +93,11 @@ class MainWindow(QtWidgets.QWidget):
         self.stack.setCurrentWidget(self.index_viewer)
         self.index_viewer.terminal.setFocus()
 
-    def view_entry(self, entry) -> None:
+    def view_entry(self, entry: Entry) -> None:
         self.story_viewer.view_page(entry)
         self.stack.setCurrentWidget(self.story_viewer)
 
-    def open_backstory_editor(self, entry) -> None:
+    def open_backstory_editor(self, entry: Entry) -> None:
         if entry.file in self.backstorywindows:
             self.backstorywindows[entry.file].activateWindow()
             self.backstorywindows[entry.file].raise_()
@@ -106,12 +107,12 @@ class MainWindow(QtWidgets.QWidget):
         self.backstorywindows[entry.file] = bsw
         bsw.closed.connect(self.forget_backstory_window)
 
-    def forget_backstory_window(self, file) -> None:
+    def forget_backstory_window(self, file: str) -> None:
         bsw = self.backstorywindows[file]
         bsw.deleteLater()
         del self.backstorywindows[file]
 
-    def show_popup(self, *args) -> None:
+    def show_popup(self, *args: Any) -> None:
         self.popup_viewer.set_page(*args)
         self.stack.setCurrentWidget(self.popup_viewer)
 
@@ -135,7 +136,7 @@ class MainWindow(QtWidgets.QWidget):
         # if self.css_overrides != css_overrides:
         self.update_style(css_overrides)
 
-    def update_style(self, css_overrides) -> None:
+    def update_style(self, css_overrides: Dict[str, str]) -> None:
         css = self.css['qt'] + '\n' + css_overrides['qt']
         self.setStyleSheet(css)
         for bsw in self.backstorywindows.values():
@@ -150,14 +151,14 @@ class MainWindow(QtWidgets.QWidget):
         self.css_overrides = css_overrides
 
     # ===== Input overrides ===========================
-    def keyPressEvent(self, ev):
+    def keyPressEvent(self, ev: QtGui.QKeyEvent) -> Any:
         if self.stack.currentWidget() == self.index_viewer \
                 and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
             self.index_viewer.webview.keyPressEvent(ev)
         else:
             return super().keyPressEvent(ev)
 
-    def keyReleaseEvent(self, ev):
+    def keyReleaseEvent(self, ev: QtGui.QKeyEvent) -> Any:
         if self.stack.currentWidget() == self.index_viewer \
                 and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
             self.index_viewer.webview.keyReleaseEvent(ev)
@@ -166,7 +167,8 @@ class MainWindow(QtWidgets.QWidget):
     # =================================================
 
 
-def read_config(configpath, cssnames):
+def read_config(configpath: str, cssnames: Iterable[str]
+                ) -> Tuple[Dict[str, Any], Dict[str, str]]:
     configfile = join(configpath, 'settings.json')
     styles = {}
     for name in cssnames:
@@ -189,6 +191,7 @@ def main() -> None:
         if isdir(dirname):
             return dirname
         parser.error(f'Directory does not exist: {dirname}')
+        return None
     parser.add_argument('-c', '--config-directory', type=valid_dir)
     parser.add_argument('-d', '--dry-run', action='store_true',
                         help='don\'t write anything to disk')
@@ -199,15 +202,16 @@ def main() -> None:
     class AppEventFilter(QtCore.QObject):
         activation_event = QtCore.pyqtSignal()
 
-        def eventFilter(self, object: QtCore.QObject, event) -> bool:
+        def eventFilter(self, object: QtCore.QObject,
+                        event: QtCore.QEvent) -> bool:
             if event.type() == QtCore.QEvent.ApplicationActivate:
                 self.activation_event.emit()
             return False
-    app.event_filter = AppEventFilter()
-    app.installEventFilter(app.event_filter)
+    event_filter = AppEventFilter()
+    app.installEventFilter(event_filter)
 
     window = MainWindow(args.config_directory,
-                        app.event_filter.activation_event,
+                        event_filter.activation_event,
                         args.dry_run)
     app.setActiveWindow(window)
     sys.exit(app.exec_())

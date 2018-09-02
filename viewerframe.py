@@ -7,6 +7,12 @@ from PyQt5 import QtGui, QtWidgets
 
 from libsyntyche.common import kill_theming, read_file, local_path
 
+from taggedlist import Entry
+
+
+FormatConverters = List[Union[Tuple[str, str, str], Tuple[str, str]]]
+ChapterStrings = List[Tuple[str, str]]
+
 
 class InfoPanel(QtWidgets.QFrame):
     def __init__(self, parent: QtWidgets.QWidget) -> None:
@@ -20,7 +26,7 @@ class InfoPanel(QtWidgets.QFrame):
         layout.addWidget(self.label, 1, 0, Qt.AlignHCenter)
         self.show()
 
-    def set_data(self, data) -> None:
+    def set_data(self, data: Entry) -> None:
         self.label.setText(f'<strong>{data.title}</strong>\t&nbsp;\t'
                            f'<em>({data.wordcount:,})</em>')
 
@@ -48,8 +54,8 @@ class ViewerFrame(QtWidgets.QFrame):
                 join('templates', 'viewer_page_template.html')))
         self.css = ''  # Is set every time the config is reloaded
         self.rawtext = ''
-        self.formatconverters = []
-        self.chapterstrings = []
+        self.formatconverters: FormatConverters = []
+        self.chapterstrings: ChapterStrings = []
 
         # Layout
         layout = QtWidgets.QVBoxLayout(self)
@@ -87,7 +93,7 @@ class ViewerFrame(QtWidgets.QFrame):
         self.setDisabled(True)
         self.show_index.emit()
 
-    def view_page(self, data) -> None:
+    def view_page(self, data: Entry) -> None:
         self.setEnabled(True)
         self.data = data
         self.info_panel.set_data(data)
@@ -108,9 +114,8 @@ class ViewerFrame(QtWidgets.QFrame):
 
 
 def format_rawtext(text: str,
-                   formatconverters: List[Union[Tuple[str, str, str],
-                                                Tuple[str, str]]],
-                   chapterstrings: List[Tuple[str, str]]) -> str:
+                   formatconverters: FormatConverters,
+                   chapterstrings: ChapterStrings) -> str:
     """
     Format the text according to the format and chapter regexes.
     Make sure that the chapter lines aren't touched by the generic formatting.
@@ -150,7 +155,7 @@ def format_rawtext(text: str,
 
 
 def replace_in_selection(rx: str, rep: str, selrx: str, text: str) -> str:
-    chunks = []
+    chunks: List[Tuple[int, int, str]] = []
     selections = re.finditer(selrx, text)
     for sel in selections:
         x = re.sub(rx, rep, sel.group(0))

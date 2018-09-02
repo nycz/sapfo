@@ -1,4 +1,4 @@
-from collections import namedtuple, defaultdict
+from collections import Counter
 from itertools import chain
 from operator import itemgetter
 import os
@@ -7,7 +7,7 @@ from os.path import exists, join
 import pickle
 import re
 import subprocess
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, DefaultDict, Dict, Iterable, List, Match, Optional, Tuple
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt
@@ -17,7 +17,12 @@ from libsyntyche.common import (local_path, read_file, read_json, write_json,
 from libsyntyche.oldterminal import (GenericTerminalInputBox,
                                      GenericTerminalOutputBox, GenericTerminal)
 
+from common import ActiveFilters, HtmlTemplates
 import taggedlist
+from taggedlist import Entry, Entries
+
+
+SortBy = Tuple[str, bool]
 
 
 class IndexFrame(QtWidgets.QWidget):
@@ -44,8 +49,8 @@ class IndexFrame(QtWidgets.QWidget):
         self.set_terminal_text = self.terminal.prompt
         self.dry_run = dry_run
         self.htmltemplates = load_html_templates()
-        self.css = None  # Is set every time the config is reloaded
-        self.defaulttagcolor = None  # Is set every time the style is reloaded
+        self.css: Optional[str] = None  # Is set every time the config is reloaded
+        self.defaulttagcolor: Optional[str] = None  # Is set every time the style is reloaded
         # Hotkeys
         hotkeypairs = (
             ('reload', self.reload_view),
@@ -61,17 +66,16 @@ class IndexFrame(QtWidgets.QWidget):
         self.statepath = statepath
         state = self.load_state()
         # Entries and stuff
-        self.entries = ()
-        self.visible_entries = ()
-        activefilters = namedtuple('activefilters', 'title description tags wordcount backstorywordcount backstorypages')
-        self.active_filters = activefilters(**state['active filters'])
-        self.sorted_by = state['sorted by']
-        self.undostack = ()
+        self.entries: Entries = ()
+        self.visible_entries: Entries = ()
+        self.active_filters: ActiveFilters = ActiveFilters(**state['active filters'])
+        self.sorted_by: SortBy = state['sorted by']
+        self.undostack: Tuple[Entries, ...] = ()
 
     def load_state(self) -> Dict[str, Any]:
         try:
             with open(self.statepath, 'rb') as f:
-                state = pickle.load(f)
+                state: Dict[str, Any] = pickle.load(f)
             return state
         except FileNotFoundError:
             return {
@@ -146,8 +150,7 @@ class IndexFrame(QtWidgets.QWidget):
                                   self.htmltemplates.tags,
                                   self.htmltemplates.entry,
                                   self.settings['entry length template'],
-                                  self.settings['tag colors'],
-                                  self.defaulttagcolor)
+                                  self.settings['tag colors'])
         self.webview.setHtml(self.htmltemplates.index_page.format(
                     body=body, css=self.css))
         if keep_position:
@@ -159,17 +162,13 @@ class IndexFrame(QtWidgets.QWidget):
         Return all tags and how many times they appear among the entries.
         Called by the terminal for the tab completion.
         """
-        tags = defaultdict(int)
-        for e in self.entries:
-            for t in e.tags:
-                tags[t] += 1
-        return list(tags.items())
+        return Counter(tag for entry in self.entries
+                       for tag in entry.tags).most_common()
 
     def list_(self, arg: str) -> None:
         if arg.startswith('f'):
-            filters = (f'{cmd} {payload}' for cmd, payload in self.active_filters)
             if self.active_filters:
-                self.print_(', '.join(filters))
+                self.print_(', '.join(map(' '.join, self.active_filters)))
             else:
                 self.error('No active filters')
         elif arg.startswith('t'):
@@ -188,16 +187,20 @@ class IndexFrame(QtWidgets.QWidget):
                                                tagname=tag, count=num)
                          for tag, num in sorted(self.get_tags(),
                                                 key=itemgetter(sortarg),
-                                                reverse=sortarg))
+                                                reverse=bool(sortarg)))
             body = '<br>'.join(t_entries)
             html = (f'<style type="text/css">{self.css}</style>'
                     f'<body><div id="taglist">{body}</div></body>')
             self.show_popup.emit(html, '', '', 'html')
 
-
-    def regenerate_visible_entries(self, entries=None, active_filters=None,
-                                   attributedata=None, sort_by=None, reverse=None,
-                                   tagmacros=None):
+    def regenerate_visible_entries(self,
+                                   entries: Optional[Entries] = None,
+                                   active_filters: Optional[ActiveFilters] = None,
+                                   attributedata: Optional[taggedlist.AttributeData] = None,
+                                   sort_by: Optional[str] = None,
+                                   reverse: Optional[bool] = None,
+                                   tagmacros: Optional[Dict[str, str]] = None
+                                   ) -> Entries:
         """
         Convenience method to regenerate all the visible entries from scratch
         using the active filters, the full entries list (not the
@@ -210,8 +213,10 @@ class IndexFrame(QtWidgets.QWidget):
         it should always return it into the self.visible_entries variable.
         """
         # Drop the empty posts in the active_filters named tuple
-        raw_active_filters = self.active_filters if active_filters is None else active_filters
-        filters = [(k,v) for k,v in raw_active_filters._asdict().items() if v is not None]
+        raw_active_filters = (self.active_filters if active_filters is None
+                              else active_filters)
+        filters = [(k, v) for k, v in raw_active_filters._asdict().items()
+                   if v is not None]
         return taggedlist.generate_visible_entries(
             self.entries if entries is None else entries,
             filters,
@@ -257,7 +262,7 @@ class IndexFrame(QtWidgets.QWidget):
             resultstr = 'Filters reset: {}/{} entries visible'
         # Reset specified filter
         elif re.fullmatch(rf'[{filterchars}]-\s*', arg):
-            self.active_filters = self.active_filters._replace(**{filters[arg[0]]:None})
+            self.active_filters = self.active_filters._replace(**{filters[arg[0]]: None})
             visible_entries = self.regenerate_visible_entries()
             resultstr = (f'Filter on {filters[arg[0]]} reset: '
                          f'{{}}/{{}} entries visible')
@@ -276,7 +281,7 @@ class IndexFrame(QtWidgets.QWidget):
             # Regular filter command
             elif re.fullmatch(rf'[{filterchars}] +\S.*', arg):
                 cmd = arg[0]
-                payload = arg.split(None,1)[1].strip()
+                payload = arg.split(None, 1)[1].strip()
             # Invalid filter command
             else:
                 self.error('Invalid filter command')
@@ -430,7 +435,7 @@ class IndexFrame(QtWidgets.QWidget):
         #     dirname, fname = os.path.split(path)
         #     return join(dirname, '.' + fname + '.metadata')
         file_exists = False
-        tags = []
+        tags: List[str] = []
         new_entry_rx = re.match(r'\s*\(([^\(]*?)\)\s*(.+)\s*', arg)
         if not new_entry_rx:
             self.error('Invalid new entry command')
@@ -446,9 +451,12 @@ class IndexFrame(QtWidgets.QWidget):
             return
         if exists(fullpath):
             file_exists = True
+
         # Fix the capitalization
+        def fix_capitalization(mo: Match[str]) -> str:
+            return mo[0].capitalize()
         title = re.sub(r"\w[\w']*",
-                       lambda mo: mo.group(0)[0].upper() + mo.group(0)[1:].lower(),
+                       fix_capitalization,
                        os.path.splitext(fname)[0].replace('-', ' '))
         try:
             open(fullpath, 'a').close()
@@ -481,7 +489,7 @@ class IndexFrame(QtWidgets.QWidget):
                            f'matches {len(partialnames)} entries')
                 return
             elif len(partialnames) == 1:
-                arg = partialnames[0]
+                arg = str(partialnames[0])
         elif not int(arg) in range(len(self.visible_entries)):
             self.error('Index out of range')
             return
@@ -491,7 +499,7 @@ class IndexFrame(QtWidgets.QWidget):
         """
         Main count length method, called by terminal command.
         """
-        def print_length(targetstr, targetattr):
+        def print_length(targetstr: str, targetattr: str) -> None:
             self.print_('Total {}: {}'.format(targetstr,
                         sum(getattr(x, targetattr)
                             for x in self.visible_entries)))
@@ -520,7 +528,7 @@ class IndexFrame(QtWidgets.QWidget):
                            f'matches {len(partialnames)} entries')
                 return
             elif len(partialnames) == 1:
-                arg = partialnames[0]
+                arg = str(partialnames[0])
         elif not int(arg) in range(len(self.visible_entries)):
             self.error('Index out of range')
             return
@@ -532,13 +540,12 @@ class IndexFrame(QtWidgets.QWidget):
         self.print_(f'Opening entry with {self.settings["editor"]}')
 
 
-def load_html_templates():
+def load_html_templates() -> HtmlTemplates:
     def get_file(fname: str) -> str:
         return read_file(local_path(join('templates', fname)))
-    html = namedtuple('HTMLTemplates', 'entry index_page tags')
-    return html(get_file('entry_template.html'),
-                get_file('index_page_template.html'),
-                get_file('tags_template.html'))
+    return HtmlTemplates(get_file('entry_template.html'),
+                         get_file('index_page_template.html'),
+                         get_file('tags_template.html'))
 
 
 def get_backstory_data(fname: str) -> Dict[str, int]:
@@ -565,14 +572,15 @@ def get_backstory_data(fname: str) -> Dict[str, int]:
 
 
 @taggedlist.generate_entrylist
-def index_stories(path: str):
+def index_stories(path: str) -> Tuple[Tuple[Tuple[str, Dict[str, str]], ...],
+                                      Iterable]:
     """
     Find all files that match the filter, and return a sorted list
     of them with wordcount, paths and all data from the metadata file.
     """
     def metafile(dirpath: str, fname: str) -> str:
         return join(dirpath, f'.{fname}.metadata')
-    attributes = (
+    attributes: Tuple[Tuple[str, Dict[str, str]], ...] = (
         ('title', {'filter': 'text', 'parser': 'text'}),
         ('tags', {'filter': 'tags', 'parser': 'tags'}),
         ('description', {'filter': 'text', 'parser': 'text'}),
@@ -583,14 +591,16 @@ def index_stories(path: str):
         ('lastmodified', {'filter': 'number'}),
         ('metadatafile', {}),
     )
-    files = ((read_json(metafile(dirpath, fname)),
+    files: Iterable = (
+            (read_json(metafile(dirpath, fname)),
              join(dirpath, fname),
              metafile(dirpath, fname),
              get_backstory_data(join(dirpath, fname)))
-             for dirpath, _, filenames in os.walk(path)
-             for fname in filenames
-             if exists(metafile(dirpath, fname)))
-    entries = ((metadata['title'],
+            for dirpath, _, filenames in os.walk(path)
+            for fname in filenames
+            if exists(metafile(dirpath, fname)))
+    entries: Iterable = (
+               (metadata['title'],
                 frozenset(metadata['tags']),
                 metadata['description'],
                 len(re.findall(r'\S+', read_file(fname))),
@@ -603,12 +613,11 @@ def index_stories(path: str):
     return attributes, entries
 
 
-def generate_html_body(visible_entries,
+def generate_html_body(visible_entries: Entries,
                        tagstemplate: str,
                        entrytemplate: str,
                        entrylengthtemplate: str,
-                       tagcolors: Dict[str, str],
-                       deftagcolor: str
+                       tagcolors: Dict[str, str]
                        ) -> str:
     """
     Return html generated from the visible entries.
@@ -636,7 +645,7 @@ def generate_html_body(visible_entries,
     return '<hr />'.join(entries)
 
 
-def write_metadata(entries) -> None:
+def write_metadata(entries: Entries) -> None:
     for entry in entries:
         metadata = {
             'title': entry.title,
@@ -651,7 +660,7 @@ def write_metadata(entries) -> None:
 class TerminalInputBox(GenericTerminalInputBox):
     scroll_index = pyqtSignal(str)
 
-    def keyPressEvent(self, event: QtCore.QEvent) -> Any:
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> Any:
         if event.modifiers() == Qt.ControlModifier \
                 and event.key() in (Qt.Key_Up, Qt.Key_Down):
             # nev = QtGui.QKeyEvent(QEvent.KeyPress, event.key(), Qt.NoModifier)
@@ -660,7 +669,7 @@ class TerminalInputBox(GenericTerminalInputBox):
         else:
             return super().keyPressEvent(event)
 
-    def keyReleaseEvent(self, event: QtCore.QEvent) -> Any:
+    def keyReleaseEvent(self, event: QtGui.QKeyEvent) -> Any:
         if event.modifiers() == Qt.ControlModifier \
                 and event.key() in (Qt.Key_Up, Qt.Key_Down):
             pass
@@ -689,7 +698,7 @@ class Terminal(GenericTerminal):
         self.autocomplete_type = ''  # 'path' or 'tag'
         # These two are set in reload_settings() in sapfo.py
         self.rootpath = ''
-        self.tagmacros = {}
+        self.tagmacros: Dict[str, str] = {}
         self.commands = {
             'f': (self.filter_, 'Filter'),
             'e': (self.edit, 'Edit'),
@@ -721,6 +730,7 @@ class Terminal(GenericTerminal):
         if arg.isdigit():
             self.open_.emit(int(arg))
             return True
+        return None
 
     def autocomplete(self, reverse: bool) -> None:
         def get_interval(t: str, pos: int, separators: str) -> Tuple[int, int]:
@@ -740,7 +750,8 @@ class Terminal(GenericTerminal):
                               prefix: str = '') -> None:
             self.autocomplete_type = 'tag'
             start, end = get_interval(text, pos, separators)
-            ws_prefix, dash, target_text = re.match(r'(\s*)(-?)(.*)',
+
+            ws_prefix, dash, target_text = re.match(r'(\s*)(-?)(.*)',  # type: ignore
                                                     text[start:end]).groups()
             new_text = self.run_autocompletion(target_text, reverse)
             output = (prefix + text[:start] + ws_prefix
@@ -795,3 +806,4 @@ class Terminal(GenericTerminal):
             return [p.replace(root, '', 1).lstrip(os.path.sep)
                     + (os.path.sep*os.path.isdir(p))
                     for p in suggestions]
+        return []
