@@ -1,7 +1,8 @@
-from typing import Union, Mapping, Tuple, Iterable, Any
+from typing import Any, Iterable, Mapping, Optional, Tuple, TypeVar, Union
 
-from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QLayout
+from PyQt5 import QtWidgets
+from PyQt5.QtWidgets import (QBoxLayout, QGridLayout, QHBoxLayout, QLayout,
+                             QVBoxLayout, QWidget)
 
 from .flowlayout import FlowLayout
 __all__ = ['grid', 'hflow', 'hbox', 'vbox', 'label']
@@ -13,7 +14,7 @@ __all__ = ['grid', 'hflow', 'hbox', 'vbox', 'label']
 # vertical = 1
 
 class GridPosition:
-    def __getitem__(self, arg):
+    def __getitem__(self, arg: Tuple[int, int]) -> Tuple[int, int]:
         raw_row, raw_col = arg
         row_span, col_span = 1, 1
         if isinstance(raw_row, slice):
@@ -28,7 +29,10 @@ class GridPosition:
             col = raw_col
         return ((row, row_span))
 
-Item = QtWidgets.QLayoutItem
+
+Item = Union[QWidget, QLayout]
+Layout = Union[QBoxLayout, QGridLayout]
+
 
 # LAYOUTS
 
@@ -39,7 +43,7 @@ PosOrRange = Union[int, Tuple[int, int]]
 GridChildMap = Mapping[Tuple[PosOrRange, PosOrRange], Item]
 
 
-def _fix_layout(layout):
+def _fix_layout(layout: QLayout) -> None:
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(0)
 
@@ -52,52 +56,63 @@ def _parse_span(val: PosOrRange) -> Tuple[int, int]:
         return val, 1
 
 
-def _add_item(item, layout, *args):
-    add = layout.addLayout if isinstance(item, QLayout) else layout.addWidget
-    add(item, *args)
+def _add_item(item: Union[QLayout, QWidget], layout: Union[Layout, FlowLayout],
+              *args: Any) -> None:
+    if isinstance(item, QLayout):
+        if isinstance(layout, QGridLayout):
+            layout.addLayout(item, *args)
+        else:
+            layout.addLayout(item)
+    else:
+        if isinstance(layout, QGridLayout):
+            layout.addWidget(item, *args)
+        else:
+            layout.addWidget(item)
 
 
 def grid(child_map: GridChildMap,
-         col_stretch: StretchMap = None, row_stretch: StretchMap = None)\
-        -> QtWidgets.QGridLayout:
-    l = QtWidgets.QGridLayout()
-    _fix_layout(l)
+         col_stretch: Optional[StretchMap] = None,
+         row_stretch: Optional[StretchMap] = None) -> QGridLayout:
+    layout = QGridLayout()
+    _fix_layout(layout)
     if col_stretch:
         for pos, stretch in col_stretch.items():
-            l.setColumnStretch(pos, stretch)
+            layout.setColumnStretch(pos, stretch)
     if row_stretch:
         for pos, stretch in row_stretch.items():
-            l.setRowStretch(pos, stretch)
+            layout.setRowStretch(pos, stretch)
     for (row, col), item in child_map.items():
         row, row_span = _parse_span(row)
         col, col_span = _parse_span(col)
-        _add_item(item, l, row, col, row_span, col_span)
-    return l
+        _add_item(item, layout, row, col, row_span, col_span)
+    return layout
 
 
-def box(*children: Iterable[Item], horizontal: bool = True):
-    l = QtWidgets.QBoxLayout(QtWidgets.QBoxLayout.LeftToRight if horizontal
-                             else QtWidgets.QBoxLayout.TopToBottom)
-    _fix_layout(l)
+BoxT = TypeVar('BoxT', QHBoxLayout, QVBoxLayout)
+
+
+def init_box_layout(children: Iterable[Item],
+                    layout: BoxT) -> BoxT:
+    _fix_layout(layout)
     for item in children:
-        _add_item(item, l)
-    return l
+        _add_item(item, layout)
+    return layout
 
 
-def hbox(children: Iterable[Item]) -> QtWidgets.QHBoxLayout:
-    return box(*children, horizontal=True)
+def hbox(*children: Item) -> QtWidgets.QHBoxLayout:
+    return init_box_layout(children, QHBoxLayout())
 
 
-def vbox(children: Iterable[Item]) -> QtWidgets.QVBoxLayout:
-    return box(*children, horizontal=False)
+def vbox(*children: Item) -> QtWidgets.QVBoxLayout:
+    return init_box_layout(children, QVBoxLayout())
 
 
-def hflow(*children: Iterable[Item]) -> FlowLayout:
-    l = FlowLayout()
-    _fix_layout(l)
+def hflow(*children: Item) -> FlowLayout:
+    layout = FlowLayout()
+    _fix_layout(layout)
     for item in children:
-        _add_item(item, l)
-    return l
+        _add_item(item, layout)
+    return layout
 
 # def vflow(*children: Iterable[Item]) -> VFlowLayout:
 #     pass
@@ -106,7 +121,7 @@ def hflow(*children: Iterable[Item]) -> FlowLayout:
 # WIDGETS
 
 def label(data: Any, object_name: str, word_wrap: bool = False,
-          parent = None) -> QtWidgets.QLabel:
+          parent: Optional[QWidget] = None) -> QtWidgets.QLabel:
     lbl = QtWidgets.QLabel(str(data), parent=parent)
     lbl.setObjectName(object_name)
     lbl.setWordWrap(word_wrap)

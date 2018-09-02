@@ -7,7 +7,8 @@ from os.path import exists, join
 import pickle
 import re
 import subprocess
-from typing import Any, Callable, Dict, Iterable, List, Match, Optional, Tuple
+from typing import (cast, Any, Callable, Dict, Iterable, List, Match,
+                    Optional, Tuple)
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt
@@ -19,7 +20,7 @@ from libsyntyche.oldterminal import (GenericTerminalInputBox,
 
 from sapfo.common import local_path, ActiveFilters
 import sapfo.taggedlist as taggedlist
-from sapfo.taggedlist import Entries
+from sapfo.taggedlist import Entries, Entry
 from .declarative import grid, hflow, label
 
 
@@ -40,7 +41,7 @@ class IndexFrame(QtWidgets.QWidget):
         kill_theming(layout)
         self.scroll_area = QtWidgets.QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
-        self.entry_view = EntryList(self, [], EntryWidget)
+        self.entry_view = EntryList(self, [])
         self.scroll_area.setWidget(self.entry_view)
         layout.addWidget(self.scroll_area, stretch=1)
         self.terminal = Terminal(self, self.get_tags)
@@ -537,7 +538,8 @@ class IndexFrame(QtWidgets.QWidget):
 
 
 class EntryWidget(QtWidgets.QFrame):
-    def __init__(self, parent, number, entry_tuple, tag_colors):
+    def __init__(self, parent: QtWidgets.QWidget, number: int,
+                 entry_tuple: Entry, tag_colors: Dict[str, str]) -> None:
         super().__init__(parent)
         entry = entry_tuple._asdict()
         self.number_widget = label(number, 'number', parent=self)
@@ -548,7 +550,7 @@ class EntryWidget(QtWidgets.QFrame):
                                  ('description' if entry['description']
                                   else 'empty_description'),
                                  word_wrap=True, parent=self)
-        self.tag_widgets = []
+        self.tag_widgets: List[QtWidgets.QLabel] = []
         self.tag_colors = tag_colors
         for tag in entry['tags']:
             widget = label(tag, 'tag', parent=self)
@@ -565,7 +567,7 @@ class EntryWidget(QtWidgets.QFrame):
         }, col_stretch={1: 1})
         self.setLayout(layout)
 
-    def update_data(self, entry_tuple):
+    def update_data(self, entry_tuple: Entry) -> None:
         entry = entry_tuple._asdict()
         self.title_widget.setText(entry['title'])
         self.word_count_widget.setText(f'({entry["wordcount"]})')
@@ -596,67 +598,71 @@ class EntryWidget(QtWidgets.QFrame):
 
 class EntryList(QtWidgets.QFrame):
 
-    @QtCore.pyqtProperty(int)
-    def spacing(self):
+    def get_spacing(self) -> int:
         return self.layout().spacing()
 
-    @spacing.setter
-    def spacing(self, value):
+    def set_spacing(self, value: int) -> None:
         self._spacing = value
         self.update_spacing()
 
-    @QtCore.pyqtProperty(QtGui.QColor)
-    def separator_color(self):
+    spacing = QtCore.pyqtProperty(int, get_spacing, set_spacing)
+
+    def get_separator_color(self) -> QtGui.QColor:
         return self._separator_color
 
-    @separator_color.setter
-    def separator_color(self, value):
+    def set_separator_color(self, value: QtGui.QColor) -> None:
         self._separator_color = value
 
-    @QtCore.pyqtProperty(int)
-    def separator_h_margin(self):
+    separator_color = QtCore.pyqtProperty(QtGui.QColor, get_separator_color,
+                                          set_separator_color)
+
+    def get_separator_h_margin(self) -> int:
         return self._separator_h_margin
 
-    @separator_h_margin.setter
-    def separator_h_margin(self, value):
+    def set_separator_h_margin(self, value: int) -> None:
         self._separator_h_margin = value
 
-    @QtCore.pyqtProperty(int)
-    def separator_height(self):
+    separator_h_margin = QtCore.pyqtProperty(int, get_separator_h_margin,
+                                             set_separator_h_margin)
+
+    def get_separator_height(self) -> int:
         return self._separator_height
 
-    @separator_height.setter
-    def separator_height(self, value):
+    def set_separator_height(self, value: int) -> None:
         self._separator_height = value
         self.update_spacing()
 
-    def __init__(self, parent, entries, entry_class):
+    separator_height = QtCore.pyqtProperty(int, get_separator_height,
+                                           set_separator_height)
+
+    def __init__(self, parent: QtWidgets.QWidget,
+                 entries: Entries) -> None:
         super().__init__(parent)
         self._spacing: int = 0
-        self._separator_color = QtGui.QColor('black')
+        self._separator_color: QtGui.QColor = QtGui.QColor('black')
         self._separator_h_margin = 0
         self._separator_height = 1
-        self.entry_class = entry_class
-        self.entry_widgets = []
-        self.tag_colors = {}
+        self.entry_class = EntryWidget
+        self.entry_widgets: List[EntryWidget] = []
+        self.tag_colors: Dict[str, str] = {}
         layout = QtWidgets.QVBoxLayout(self)
         layout.setObjectName('entry_list_layout')
         layout.setContentsMargins(0, 0, 0, 0)
         self.add_entries(entries)
 
-    def add_entries(self, entries):
+    def add_entries(self, entries: Entries) -> None:
         self.entry_widgets = []
         for n, entry in enumerate(entries):
             entry_widget = self.entry_class(self, n, entry, self.tag_colors)
             self.entry_widgets.append(entry_widget)
             self.layout().addWidget(entry_widget)
-        self.layout().addStretch(1)
+        cast(QtWidgets.QVBoxLayout, self.layout()).addStretch(1)
 
-    def update_entries(self, new_entries):
+    def update_entries(self, new_entries: Entries) -> None:
         for widget, entry in zip(self.entry_widgets, new_entries):
             widget.update_data(entry)
 
-    def set_entries(self, new_entries):
+    def set_entries(self, new_entries: Entries) -> None:
         # Get rid of the extra stretch
         self.layout().takeAt(self.layout().count() - 1)
         for n, (widget, entry) in enumerate(zip_longest(self.entry_widgets, new_entries)):
@@ -675,7 +681,7 @@ class EntryList(QtWidgets.QFrame):
             self.entry_widgets = self.entry_widgets[:len(new_entries)]
         # print(len(new_entries), len(self.entry_widgets))
         # print(self.entry_widgets)
-        self.layout().addStretch(1)
+        cast(QtWidgets.QVBoxLayout, self.layout()).addStretch(1)
 
 
         # for widget in self.entry_widgets:
@@ -685,10 +691,10 @@ class EntryList(QtWidgets.QFrame):
         # self.layout().takeAt(0)
         # self.add_entries(new_entries)
 
-    def update_spacing(self):
+    def update_spacing(self) -> None:
         self.layout().setSpacing(self._spacing + self._separator_height)
 
-    def paintEvent(self, event: QtGui.QPaintEvent):
+    def paintEvent(self, event: QtGui.QPaintEvent) -> None:
         super().paintEvent(event)
         painter = QtGui.QPainter(self)
         # minus two here to skip the stretch at the end and the line below

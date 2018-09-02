@@ -35,17 +35,15 @@
 # https://doc.qt.io/qt-4.8/qt-layouts-flowlayout-example.html
 
 
-from typing import List
+from typing import List, Optional
 
-from PyQt5.QtCore import QPoint
-from PyQt5.QtCore import QRect
-from PyQt5.QtCore import QSize
+from PyQt5.QtCore import QPoint, QRect, QSize
 from PyQt5.QtWidgets import QLayout, QLayoutItem, QWidget
 
 
 class FlowLayout(QLayout):
-    def __init__(self, parent: QWidget = None, margin: int = 0,
-                 h_spacing: int = 0, v_spacing: int = 0):
+    def __init__(self, parent: Optional[QWidget] = None, margin: int = 0,
+                 h_spacing: int = 0, v_spacing: int = 0) -> None:
         super().__init__(parent)
         self._margin = margin
         self.setContentsMargins(margin, margin, margin, margin)
@@ -53,41 +51,41 @@ class FlowLayout(QLayout):
         self._h_spacing: int = h_spacing
         self._v_spacing: int = v_spacing
 
-    def spacing(self):
+    def spacing(self) -> int:
         return -1
 
-    def setSpacing(self, spacing):
+    def setSpacing(self, spacing: int) -> None:
         self._h_spacing = spacing
         self._v_spacing = spacing
 
-    def horizontalSpacing(self):
+    def horizontalSpacing(self) -> int:
         return self._h_spacing
 
-    def setHorizontalSpacing(self, spacing):
+    def setHorizontalSpacing(self, spacing: int) -> None:
         self._h_spacing = spacing
 
-    def verticalSpacing(self):
+    def verticalSpacing(self) -> int:
         return self._v_spacing
 
-    def setVerticalSpacing(self, spacing):
+    def setVerticalSpacing(self, spacing: int) -> None:
         self._v_spacing = spacing
 
-    def setGeometry(self, rect):
+    def setGeometry(self, rect: QRect) -> None:
         super().setGeometry(rect)
         self._do_layout(rect)
 
-    def heightForWidth(self, width):
+    def heightForWidth(self, width: int) -> int:
         height = self._do_layout(QRect(0, 0, width, 0), dry_run=True)
         return height
 
-    def hasHeightForWidth(self):
+    def hasHeightForWidth(self) -> bool:
         return True
 
     # def expandingDirections(self):
         # it can never use more space than its size hint
         # return Qt.Horizontal
 
-    def _do_layout(self, full_rect: QRect, dry_run: bool = False):
+    def _do_layout(self, full_rect: QRect, dry_run: bool = False) -> int:
         left, top, right, bottom = self.getContentsMargins()
         rect = full_rect.adjusted(left, top, -right, -bottom)
         x = rect.x()
@@ -110,35 +108,35 @@ class FlowLayout(QLayout):
             line_height = max(line_height, item.sizeHint().height())
         return y + line_height - rect.y() + bottom
 
-    def sizeHint(self):
+    def sizeHint(self) -> QSize:
         return self.minimumSize()
 
-    def minimumSize(self):
+    def minimumSize(self) -> QSize:
         size = QSize()
         for item in self._items:
             size = size.expandedTo(item.minimumSize())
         size += QSize(2*self._margin, 2*self._margin)
         return size
 
-    def itemAt(self, index):
+    def itemAt(self, index: int) -> Optional[QLayoutItem]:
         try:
             return self._items[index]
         except IndexError:
             return None
 
-    def takeAt(self, index):
+    def takeAt(self, index: int) -> Optional[QLayoutItem]:
         try:
             return self._items.pop(index)
         except IndexError:
             return None
 
-    def addItem(self, item):
+    def addItem(self, item: QLayoutItem) -> None:
         self._items.append(item)
 
-    def addLayout(self, layout):
+    def addLayout(self, layout: QLayout) -> None:
         self.addChildLayout(layout)
         self.addItem(layout)
 
-    def count(self):
+    def count(self) -> int:
         return len(self._items)
 
