@@ -1,8 +1,6 @@
 from datetime import datetime
 import json
-import os
-import os.path
-from os.path import join
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -12,7 +10,7 @@ from typing import (overload, Any, Callable, Dict, Iterable, List,
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5 import QtGui, QtWidgets
 
-from libsyntyche.common import kill_theming, read_file, write_file
+from libsyntyche.common import kill_theming
 from libsyntyche.oldterminal import (GenericTerminalInputBox,
                                      GenericTerminalOutputBox, GenericTerminal)
 from libsyntyche.texteditor import SearchAndReplaceable
@@ -22,15 +20,19 @@ from sapfo.taggedlist import Entry
 
 class Page(NamedTuple):
     title: str
-    fname: str
+    file: Path
     cursorpos: int = 0
     scrollpos: int = 0
 
 
-def fixtitle(fname: str) -> str:
+def fixtitle(file: Path) -> str:
     return re.sub(r"\w[\w']*",
                   lambda mo: mo.group(0)[0].upper() + mo.group(0)[1:].lower(),
-                  os.path.splitext(fname)[0].replace('-', ' '))
+                  file.stem.replace('-', ' '))
+
+
+def read_metadata(file: Path) -> Tuple[str, str]:
+    return tuple(file.read_text(encoding='utf-8').split('\n', 1))  # type: ignore
 
 
 @overload
@@ -71,14 +73,13 @@ def generate_page_metadata(title: str,  # noqa: F811
 
 
 def check_and_fix_page_metadata(jsondata: Dict[str, Any], payload: str,
-                                fname: str) -> Dict[str, Any]:
+                                file: Path) -> Dict[str, Any]:
     """
     Make sure that the page's metadata has all required keys. Fix and add
     them if some of them are missing.
     """
     fixed = False
-    defaultvalues = generate_page_metadata(fixtitle(os.path.basename(fname)),
-                                           asdict=True)
+    defaultvalues = generate_page_metadata(fixtitle(file), asdict=True)
     # Special case if date exists and revision date doesn't:
     if 'revision created' not in jsondata and 'date' in jsondata:
         jsondata['revision created'] = jsondata['date']
@@ -89,7 +90,7 @@ def check_and_fix_page_metadata(jsondata: Dict[str, Any], payload: str,
             jsondata[key] = value
             fixed = True
     if fixed:
-        write_file(fname, json.dumps(jsondata) + '\n' + payload)
+        file.write_text(json.dumps(jsondata) + '\n' + payload)
     return jsondata
 
 
@@ -168,12 +169,12 @@ class TabBar(QtWidgets.QTabBar):
                 self.removeTab(0)
         self.removeTab(0)
 
-    def current_page_fname(self) -> str:
+    def current_page_file(self) -> Path:
         i: int = self.currentIndex()
-        return self.pages[i].fname
+        return self.pages[i].file
 
-    def get_page_fname(self, i: int) -> str:
-        return self.pages[i].fname
+    def get_page_file(self, i: int) -> Path:
+        return self.pages[i].file
 
     def set_page_position(self, i: int, cursorpos: int,
                           scrollpos: int) -> None:
@@ -183,32 +184,31 @@ class TabBar(QtWidgets.QTabBar):
     def get_page_position(self, i: int) -> Tuple[int, int]:
         return self.pages[i][2:4]
 
-    def load_pages(self, root: str) -> Iterable[Page]:
+    def load_pages(self, root: Path) -> Iterable[Page]:
         """
         Read all pages from the specified directory and build a list of them.
         """
-        for fname in os.listdir(root):
-            if re.search(r'\.rev\d+$', fname) is not None:
+        for file in root.iterdir():
+            if re.search(r'\.rev\d+$', file.name) is not None:
                 continue
-            if os.path.isdir(join(root, fname)):
+            if file.is_dir():
                 continue
-            firstline, data = read_file(join(root, fname)).split('\n', 1)
+            firstline, data = file.read_text().split('\n', 1)
             try:
                 jsondata = json.loads(firstline)
             except ValueError:
-                self.print_(f'Bad/no properties found on page {fname}, '
+                self.print_(f'Bad/no properties found on page {file.name}, '
                             f'fixing...')
-                title = fixtitle(fname)
+                title = fixtitle(file)
                 jsondata = generate_page_metadata(title)
-                write_file(join(root, fname),
-                           '\n'.join([jsondata, firstline, data]))
-                yield Page(title, fname)
+                file.write_text('\n'.join([jsondata, firstline, data]))
+                yield Page(title, file)
             else:
                 fixedjsondata = check_and_fix_page_metadata(jsondata, data,
-                                                            join(root, fname))
-                yield Page(fixedjsondata['title'], fname)
+                                                            file)
+                yield Page(fixedjsondata['title'], file)
 
-    def open_entry(self, root: str) -> None:
+    def open_entry(self, root: Path) -> None:
         """
         Ready the tab bar for a new entry.
         """
@@ -218,19 +218,19 @@ class TabBar(QtWidgets.QTabBar):
         for title, _, _, _ in self.pages:
             self.addTab(title)
 
-    def add_page(self, title: str, fname: str) -> int:
+    def add_page(self, title: str, file: Path) -> int:
         """
         Add a new page to and then sort the tab bar. Return the index of the
         new tab.
         """
-        self.pages.append(Page(title, fname))
+        self.pages.append(Page(title, file))
         self.pages.sort()
         i = next(pos for pos, page in enumerate(self.pages)
-                 if page.fname == fname)
+                 if page.file == file)
         self.insertTab(i, title)
         return i
 
-    def remove_page(self) -> str:
+    def remove_page(self) -> Path:
         """
         Remove the active page from the tab bar and return the page's file name
 
@@ -243,7 +243,7 @@ class TabBar(QtWidgets.QTabBar):
         page = self.pages.pop(i)
         self.removeTab(i)
         self.print_(f'Page "{page.title}" deleted')
-        return page.fname
+        return page.file
 
     def rename_page(self, newtitle: str) -> None:
         """
@@ -259,7 +259,7 @@ class TabBar(QtWidgets.QTabBar):
 
 
 class BackstoryWindow(QtWidgets.QFrame):
-    closed = pyqtSignal(str)
+    closed = pyqtSignal(Path)
 
     def __init__(self, entry: Entry, settings: Dict) -> None:
         super().__init__()
@@ -303,8 +303,8 @@ class BackstoryWindow(QtWidgets.QFrame):
         }
         self.ignorewheelevent = False
         self.update_settings(settings)
-        self.entryfilename = entry.file
-        self.root = entry.file + '.metadir'
+        self.entryfile = entry.file
+        self.root = entry.file.with_name(entry.file.name + '.metadir')
         self.make_sure_metadir_exists(self.root)
         self.tabbar.open_entry(self.root)
         self.load_tab(0)
@@ -316,7 +316,7 @@ class BackstoryWindow(QtWidgets.QFrame):
     def closeEvent(self, ev: QtGui.QCloseEvent) -> None:
         success = self.save_tab()
         if success or self.forcequitflag:
-            self.closed.emit(self.entryfilename)
+            self.closed.emit(self.entryfile)
             ev.accept()
         else:
             ev.ignore()
@@ -424,10 +424,10 @@ class BackstoryWindow(QtWidgets.QFrame):
         currenttab = self.tabbar.currentIndex()
         if self.textarea.document().isModified():
             try:
-                fname = join(self.root, self.tabbar.current_page_fname())
-                firstline, _ = read_file(fname).split('\n', 1)
+                file = self.tabbar.current_page_file()
+                firstline = read_metadata(file)[0]
                 data = self.textarea.toPlainText()
-                write_file(fname, firstline + '\n' + data)
+                file.write_text(firstline + '\n' + data)
             except Exception as e:
                 print(str(e))
                 self.terminal.error('Something went wrong when saving! '
@@ -447,8 +447,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         """
         self.tabbar.setCurrentIndex(newtab)
         self.update_tabcounter()
-        fname = self.current_page_path()
-        _, data = read_file(fname).split('\n', 1)
+        data = read_metadata(self.current_page_path())[1]
         self.textarea.setPlainText(data)
         self.textarea.document().setModified(False)
         # Set the scrollbar/cursor positions
@@ -478,34 +477,34 @@ class BackstoryWindow(QtWidgets.QFrame):
                 # Load the new tab
                 self.load_tab(newtab)
 
-    def make_sure_metadir_exists(self, root: str) -> None:
+    def make_sure_metadir_exists(self, root: Path) -> None:
         """
         Create a directory with a stub page if none exist.
         """
-        if not os.path.exists(root):
-            os.mkdir(root)
+        if not root.exists():
+            root.mkdir()
             for fname, title in self.defaultpages.items():
                 jsondata = generate_page_metadata(title)
-                write_file(join(root, fname), jsondata + '\n')
+                (root / fname).write_text(jsondata + '\n', encoding='utf-8')
 
-    def current_page_path(self) -> str:
+    def current_page_path(self) -> Path:
         """ Return the current page's full path, including root dir """
-        return join(self.root, self.tabbar.current_page_fname())
+        return self.tabbar.current_page_file()
 
     # ======= COMMANDS ========================================================
 
     def cmd_new_page(self, fname: str) -> None:
-        f = join(self.root, fname)
-        if os.path.exists(f):
+        file = self.root / fname
+        if file.exists():
             self.terminal.error('File already exists')
             return
-        title = fixtitle(fname)
+        title = fixtitle(file)
         try:
-            newtab = self.tabbar.add_page(title, fname)
+            newtab = self.tabbar.add_page(title, file)
         except KeyError as e:
             self.terminal.error(e.args[0])
         else:
-            write_file(f, generate_page_metadata(title) + '\n')
+            file.write_text(generate_page_metadata(title) + '\n')
             # Do this afterwards to have something to load into textarea
             self.set_tab_index(newtab)
 
@@ -514,12 +513,12 @@ class BackstoryWindow(QtWidgets.QFrame):
             self.terminal.error('Use d! to confirm deletion')
             return
         try:
-            fname = self.tabbar.remove_page()
+            file = self.tabbar.remove_page()
         except IndexError as e:
             self.terminal.error(e.args[0])
         else:
             self.load_tab(self.tabbar.currentIndex())
-            os.remove(join(self.root, fname))
+            file.unlink()
 
     def cmd_rename_current_page(self, title: str) -> None:
         if not title.strip():
@@ -531,32 +530,30 @@ class BackstoryWindow(QtWidgets.QFrame):
         except KeyError as e:
             self.terminal.error(e.args[0])
         else:
-            fname = self.current_page_path()
-            firstline, data = read_file(fname).split('\n', 1)
+            file = self.current_page_path()
+            firstline, data = read_metadata(file)
             jsondata = json.loads(firstline)
             jsondata['title'] = title
-            write_file(fname, json.dumps(jsondata) + '\n' + data)
+            file.write_text(json.dumps(jsondata) + '\n' + data)
 
     def cmd_save_current_page(self, _: str) -> None:
         self.save_tab()
 
     def cmd_print_filename(self, arg: str) -> None:
-        fname = self.current_page_path()
+        file = self.current_page_path()
         if arg == 'c':
-            firstline, _ = read_file(fname).split('\n', 1)
-            date = json.loads(firstline)['created']
+            date = json.loads(read_metadata(file)[0])['created']
             self.terminal.print_('File created at ' + date)
         else:
-            self.terminal.print_(self.tabbar.current_page_fname())
+            self.terminal.print_(self.tabbar.current_page_file().name)
 
     def cmd_count_words(self, arg: str) -> None:
         wc = len(re.findall(r'\S+', self.textarea.document().toPlainText()))
         self.terminal.print_(f'Words: {wc}')
 
     def cmd_revision_control(self, arg: str) -> None:
-        fname = self.current_page_path()
-        firstline, _ = read_file(fname).split('\n', 1)
-        jsondata = json.loads(firstline)
+        file = self.current_page_path()
+        jsondata = json.loads(read_metadata(file)[0])
         if arg == '+':
             if self.revisionactive:
                 self.terminal.error('Can\'t create new revision '
@@ -565,25 +562,24 @@ class BackstoryWindow(QtWidgets.QFrame):
             saved = self.save_tab()
             if saved:
                 # Do this again in case something got saved before
-                _, data = read_file(fname).split('\n', 1)
-                f = join(self.root, fname)
+                data = read_metadata(file)[1]
                 rev = jsondata['revision']
-                shutil.copy2(f, f'{f}.rev{rev}')
+                shutil.copy2(file, file.with_name(file.name + f'.rev{rev}'))
                 jsondata['revision'] += 1
                 jsondata['revision created'] = datetime.now().isoformat()
-                write_file(f, json.dumps(jsondata) + '\n' + data)
+                file.write_text(json.dumps(jsondata) + '\n' + data)
                 self.terminal.print_(f'Revision increased to {rev + 1}')
         # Show a certain revision
         elif arg.isdigit():
-            revfname = join(self.root, f'{fname}.rev{arg}')
-            if not os.path.exists(revfname):
+            revfname = file.with_name(file.name + f'.rev{arg}')
+            if not revfname.exists():
                 self.terminal.error(f'Revision {arg} not found')
                 return
             saved = self.save_tab()
             if not saved:
                 return
             try:
-                _, data = read_file(revfname).split('\n', 1)
+                data = read_metadata(file)[1]
             except Exception as e:
                 print(str(e))
                 self.terminal.error('Something went wrong when loading the revision')
@@ -609,7 +605,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         if not self.externaleditor:
             self.terminal.error('No editor command defined')
             return
-        subprocess.Popen([self.externaleditor, self.entryfilename])
+        subprocess.Popen([self.externaleditor, str(self.entryfile)])
         self.terminal.print_(f'Opening entry with {self.externaleditor}')
 
 

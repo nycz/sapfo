@@ -1,13 +1,12 @@
-from os.path import join
 import re
 from typing import Dict, Iterable, List, Tuple, Union
 
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5 import QtGui, QtWidgets
 
-from libsyntyche.common import kill_theming, read_file
+from libsyntyche.common import kill_theming
 
-from sapfo.common import local_path
+from sapfo.common import LOCAL_DIR
 from sapfo.taggedlist import Entry
 
 
@@ -51,8 +50,9 @@ class ViewerFrame(QtWidgets.QFrame):
             key: QtWidgets.QShortcut(QtGui.QKeySequence(), self, callback)
             for key, callback in hotkeypairs
         }
-        self.template = read_file(local_path(
-                join('data', 'templates', 'viewer_page_template.html')))
+        self.template = (LOCAL_DIR / 'data' / 'templates'
+                         / 'viewer_page_template.html'
+                         ).read_text(encoding='utf-8')
         self.css = ''  # Is set every time the config is reloaded
         self.rawtext = ''
         self.formatconverters: FormatConverters = []
@@ -94,11 +94,11 @@ class ViewerFrame(QtWidgets.QFrame):
         self.setDisabled(True)
         self.show_index.emit()
 
-    def view_page(self, data: Entry) -> None:
+    def view_page(self, entry: Entry) -> None:
         self.setEnabled(True)
-        self.data = data
-        self.info_panel.set_data(data)
-        self.rawtext = format_rawtext(read_file(data.file),
+        self.data = entry
+        self.info_panel.set_data(entry)
+        self.rawtext = format_rawtext(entry.file.read_text(encoding='utf-8'),
                                       self.formatconverters,
                                       self.chapterstrings)
         self.set_html()

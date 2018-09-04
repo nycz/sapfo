@@ -1,32 +1,31 @@
 #!/usr/bin/env python3
-
 import copy
-from os import getenv
-from os.path import isdir, join
+import json
+from pathlib import Path
 import sys
 from typing import Any, Dict, Iterable, Optional, Tuple
 
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import Qt
 
-from libsyntyche.common import read_json, read_file, make_sure_config_exists
+from libsyntyche.common import make_sure_config_exists
 from libsyntyche.fileviewer import FileViewer
 from sapfo.indexframe import IndexFrame
 from sapfo.viewerframe import ViewerFrame
 from sapfo.backstorywindow import BackstoryWindow
 from sapfo.taggedlist import Entry
-from sapfo.common import local_path
+from sapfo.common import LOCAL_DIR
 
 
 class MainWindow(QtWidgets.QWidget):
-    def __init__(self, configdir: Optional[str],
+    def __init__(self, configdir: Optional[Path],
                  activation_event: QtCore.pyqtSignal, dry_run: bool) -> None:
         super().__init__()
         self.setWindowTitle('Sapfo')
         if configdir:
             self.configdir = configdir
         else:
-            self.configdir = join((getenv('HOME') or ''), '.config', 'sapfo')
+            self.configdir = Path.home() / '.config' / 'sapfo'
         activation_event.connect(self.reload_settings)
         self.force_quit_flag = False
 
@@ -35,7 +34,7 @@ class MainWindow(QtWidgets.QWidget):
 
         # Index viewer
         self.index_viewer = IndexFrame(self, dry_run,
-                                       join(self.configdir, 'state'))
+                                       self.configdir / 'state')
         self.stack.addWidget(self.index_viewer)
 
         # Story viewer
@@ -43,7 +42,7 @@ class MainWindow(QtWidgets.QWidget):
         self.stack.addWidget(self.story_viewer)
 
         # Backstory editor
-        self.backstorywindows: Dict[str, BackstoryWindow] = {}
+        self.backstorywindows: Dict[Path, BackstoryWindow] = {}
 
         # Popup viewer
         self.popup_viewer = FileViewer(self)
@@ -55,8 +54,8 @@ class MainWindow(QtWidgets.QWidget):
         # Load settings
         self.css_parts = ['qt', 'index_page', 'viewer_page']
         self.css_overrides = {x: '' for x in self.css_parts}
-        self.css = {x: read_file(local_path(join('data', 'templates',
-                                                 f'{x}.css')))
+        self.css = {x: (LOCAL_DIR / 'data' / 'templates' / f'{x}.css'
+                        ).read_text(encoding='utf-8')
                     for x in self.css_parts}
         self.settings: Dict[str, Any] = {}
         self.reload_settings()
@@ -108,7 +107,7 @@ class MainWindow(QtWidgets.QWidget):
         self.backstorywindows[entry.file] = bsw
         bsw.closed.connect(self.forget_backstory_window)
 
-    def forget_backstory_window(self, file: str) -> None:
+    def forget_backstory_window(self, file: Path) -> None:
         bsw = self.backstorywindows[file]
         bsw.deleteLater()
         del self.backstorywindows[file]
@@ -168,24 +167,26 @@ class MainWindow(QtWidgets.QWidget):
     # =================================================
 
 
-def read_config(configpath: str, cssnames: Iterable[str]
+def read_config(configpath: Path, cssnames: Iterable[str]
                 ) -> Tuple[Dict[str, Any], Dict[str, str]]:
-    configfile = join(configpath, 'settings.json')
+    configfile = configpath / 'settings.json'
     styles = {}
     for name in cssnames:
-        fullpath = join(configpath, f'{name}.css')
+        fullpath = configpath / f'{name}.css'
         try:
-            data = read_file(fullpath)
+            data = fullpath.read_text(encoding='utf-8')
         except Exception:
             data = ''
         finally:
             styles[name] = data
-    make_sure_config_exists(configfile, local_path(join('data', 'defaultconfig.json')))
-    return read_json(configfile), styles
+    make_sure_config_exists(str(configfile),
+                            str(LOCAL_DIR / 'data' / 'defaultconfig.json'))
+    return json.loads(configfile.read_text(encoding='utf-8')), styles
 
 
 def main() -> None:
     import argparse
+    from os.path import isdir
     parser = argparse.ArgumentParser()
 
     def valid_dir(dirname: str) -> Optional[str]:
@@ -210,8 +211,9 @@ def main() -> None:
             return False
     event_filter = AppEventFilter()
     app.installEventFilter(event_filter)
+    config_dir = Path(args.config_directory) if args.config_directory else None
 
-    window = MainWindow(args.config_directory,
+    window = MainWindow(config_dir,
                         event_filter.activation_event,
                         args.dry_run)
     app.setActiveWindow(window)

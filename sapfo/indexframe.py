@@ -1,9 +1,10 @@
 from collections import Counter
 from itertools import chain, zip_longest
+import json
 from operator import itemgetter
 import os
 import os.path
-from os.path import exists, join
+from pathlib import Path
 import pickle
 import re
 import subprocess
@@ -13,8 +14,7 @@ from typing import (cast, Any, Callable, Dict, Iterable, List, Match,
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt
 
-from libsyntyche.common import (read_file, read_json, write_json,
-                                kill_theming)
+from libsyntyche.common import kill_theming
 from libsyntyche.oldterminal import (GenericTerminalInputBox,
                                      GenericTerminalOutputBox, GenericTerminal)
 
@@ -34,20 +34,21 @@ class IndexFrame(QtWidgets.QWidget):
     quit = pyqtSignal(str)
 
     def __init__(self, parent: QtWidgets.QWidget, dry_run: bool,
-                 statepath: str) -> None:
+                 statepath: Path) -> None:
         super().__init__(parent)
         # Layout and shit
         layout = QtWidgets.QVBoxLayout(self)
         kill_theming(layout)
         self.scroll_area = QtWidgets.QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
-        self.entry_view = EntryList(self, ())
+        self.entry_view = EntryList(self, '({wordcount})', ())
         self.scroll_area.setWidget(self.entry_view)
         layout.addWidget(self.scroll_area, stretch=1)
         self.terminal = Terminal(self, self.get_tags)
         layout.addWidget(self.terminal)
         self.connect_signals()
         # Misc shizzle
+        self.rootpath = Path()
         self.print_ = self.terminal.print_
         self.error = self.terminal.error
         self.set_terminal_text = self.terminal.prompt
@@ -115,11 +116,13 @@ class IndexFrame(QtWidgets.QWidget):
 
     def update_settings(self, settings: Dict) -> None:
         self.settings = settings
+        self.rootpath = Path(settings['path']).expanduser().resolve()
         self.terminal.update_settings(settings)
         # Update hotkeys
         for key, shortcut in self.hotkeys.items():
             shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))
         self.entry_view.tag_colors = settings['tag colors']
+        self.entry_view.length_template = settings['entry length template']
         self.reload_view()
 
     def zoom_in(self) -> None:
@@ -139,7 +142,7 @@ class IndexFrame(QtWidgets.QWidget):
         Is also the method that generates the entrylist the first time.
         So don't look for a init_everything method/function or anything, kay?
         """
-        self.attributedata, self.entries = index_stories(self.settings['path'])
+        self.attributedata, self.entries = index_stories(self.rootpath)
         self.visible_entries = self.regenerate_visible_entries()
         print('reloaded')
         self.refresh_view(keep_position=True)
@@ -166,7 +169,9 @@ class IndexFrame(QtWidgets.QWidget):
         # TODO: html -> widget
         if arg.startswith('f'):
             if self.active_filters:
-                self.print_('; '.join(self.active_filters))
+                # TODO: also less shitty this
+                self.print_('; '.join(str(x or '')
+                                      for x in self.active_filters))
             else:
                 self.error('No active filters')
         elif arg.startswith('t'):
@@ -438,15 +443,14 @@ class IndexFrame(QtWidgets.QWidget):
             self.error('Invalid new entry command')
             return
         tagstr, path = new_entry_rx.groups()
-        fullpath = os.path.expanduser(join(self.settings['path'], path))
-        dirname, fname = os.path.split(fullpath)
-        metadatafile = join(dirname, '.' + fname + '.metadata')
+        fullpath = self.rootpath / path
+        metadatafile = fullpath.with_name(f'.{fullpath.name}.metadata')
         if tagstr:
             tags = list({tag.strip() for tag in tagstr.split(',')})
-        if exists(metadatafile):
+        if metadatafile.exists():
             self.error('Metadata already exists for that file')
             return
-        if exists(fullpath):
+        if fullpath.exists():
             file_exists = True
 
         # Fix the capitalization
@@ -454,11 +458,12 @@ class IndexFrame(QtWidgets.QWidget):
             return mo[0].capitalize()
         title = re.sub(r"\w[\w']*",
                        fix_capitalization,
-                       os.path.splitext(fname)[0].replace('-', ' '))
+                       fullpath.stem.replace('-', ' '))
         try:
-            open(fullpath, 'a').close()
-            write_json(metadatafile, {'title': title, 'description': '',
-                                      'tags': tags})
+            fullpath.touch()
+            metadatafile.write_text(json.dumps({'title': title,
+                                                'description': '',
+                                                'tags': tags}))
         except Exception as e:
             self.error(f'Couldn\'t create the files: {e}')
         else:
@@ -539,12 +544,18 @@ class IndexFrame(QtWidgets.QWidget):
 
 class EntryWidget(QtWidgets.QFrame):
     def __init__(self, parent: QtWidgets.QWidget, number: int,
-                 entry: Entry, tag_colors: Dict[str, str]) -> None:
+                 entry: Entry, length_template: str,
+                 tag_colors: Dict[str, str]) -> None:
         super().__init__(parent)
+        self.length_template = length_template
         self.number_widget = label(number, 'number', parent=self)
         self.title_widget = label(entry.title, 'title', parent=self)
-        self.word_count_widget = label(f'({entry.wordcount})',
-                                       'wordcount', parent=self)
+        self.word_count_widget = label(
+            self.length_template.format(
+                wordcount=entry.wordcount,
+                backstorypages=entry.backstorypages,
+                backstorywordcount=entry.backstorywordcount
+            ), 'wordcount', parent=self)
         self.desc_widget = label(entry.description or '[no desc]',
                                  ('description' if entry.description
                                   else 'empty_description'),
@@ -568,7 +579,12 @@ class EntryWidget(QtWidgets.QFrame):
 
     def update_data(self, entry: Entry) -> None:
         self.title_widget.setText(entry.title)
-        self.word_count_widget.setText(f'({entry.wordcount})')
+        self.word_count_widget.setText(
+            self.length_template.format(
+                wordcount=entry.wordcount,
+                backstorypages=entry.backstorypages,
+                backstorywordcount=entry.backstorywordcount
+            ))
         self.desc_widget.setText(entry.description or '[no desc]')
         desc_class = ('description' if entry.description
                       else 'empty_description')
@@ -586,12 +602,13 @@ class EntryWidget(QtWidgets.QFrame):
         elif old_tag_count < new_tag_count:
             for tag in list(entry.tags)[old_tag_count:]:
                 tag_widget = label(tag, 'tag', parent=self)
-                if tag in self.tag_colors:
-                    tag_widget.setStyleSheet(f'background: {self.tag_colors[tag]};')
-                else:
-                    tag_widget.setStyleSheet('background: #444;')
                 self.tag_widgets.append(tag_widget)
                 self.top_row.addWidget(tag_widget)
+        for tag_widget, tag in zip(self.tag_widgets, entry.tags):
+            if tag in self.tag_colors:
+                tag_widget.setStyleSheet(f'background: {self.tag_colors[tag]};')
+            else:
+                tag_widget.setStyleSheet('background: #667;')
 
 
 class EntryList(QtWidgets.QFrame):
@@ -633,13 +650,14 @@ class EntryList(QtWidgets.QFrame):
     separator_height = QtCore.pyqtProperty(int, get_separator_height,
                                            set_separator_height)
 
-    def __init__(self, parent: QtWidgets.QWidget,
+    def __init__(self, parent: QtWidgets.QWidget, length_template: str,
                  entries: Entries) -> None:
         super().__init__(parent)
         self._spacing: int = 0
         self._separator_color: QtGui.QColor = QtGui.QColor('black')
         self._separator_h_margin = 0
         self._separator_height = 1
+        self.length_template = length_template
         self.entry_class = EntryWidget
         self.entry_widgets: List[EntryWidget] = []
         self.tag_colors: Dict[str, str] = {}
@@ -651,7 +669,9 @@ class EntryList(QtWidgets.QFrame):
     def add_entries(self, entries: Entries) -> None:
         self.entry_widgets = []
         for n, entry in enumerate(entries):
-            entry_widget = self.entry_class(self, n, entry, self.tag_colors)
+            entry_widget = self.entry_class(self, n, entry,
+                                            self.length_template,
+                                            self.tag_colors)
             self.entry_widgets.append(entry_widget)
             self.layout().addWidget(entry_widget)
         cast(QtWidgets.QVBoxLayout, self.layout()).addStretch(1)
@@ -666,6 +686,7 @@ class EntryList(QtWidgets.QFrame):
         for n, (widget, entry) in enumerate(zip_longest(self.entry_widgets, new_entries)):
             if widget is None:
                 entry_widget = self.entry_class(self, n, entry,
+                                                self.length_template,
                                                 self.tag_colors)
                 self.entry_widgets.append(entry_widget)
                 self.layout().addWidget(entry_widget)
@@ -698,8 +719,8 @@ class EntryList(QtWidgets.QFrame):
         # minus two here to skip the stretch at the end and the line below
         # the bottom item
         for n in range(self.layout().count() - 2):
-            item: QtWidgets.QLayoutItem = self.layout().itemAt(n)
-            if isinstance(item, QtWidgets.QSpacerItem):
+            item = self.layout().itemAt(n)
+            if not item or isinstance(item, QtWidgets.QSpacerItem):
                 continue
             # print(item)
             bottom: int = item.widget().geometry().bottom()
@@ -710,69 +731,71 @@ class EntryList(QtWidgets.QFrame):
                              self._separator_color)
 
 
-def get_backstory_data(fname: str) -> Dict[str, int]:
-    out = {'wordcount': 0, 'pages': 0}
-    root = f'{fname}.metadir'
-    if not os.path.isdir(root):
-        return out
+def get_backstory_data(file: Path) -> Tuple[int, int]:
+    root = file.with_name(file.name + '.metadir')
+    if not root.is_dir():
+        return 0, 0
+    wordcount = 0
+    pages = 0
     for dirpath, _, filenames in os.walk(root):
-        for f in filenames:
+        dir_root = Path(dirpath)
+        for fname in filenames:
             # Skip old revision files
-            if re.search(r'\.rev\d+$', f) is not None:
+            if re.search(r'\.rev\d+$', fname) is not None:
                 continue
             try:
-                data = read_file(join(dirpath, f)).split('\n', 1)[1]
-                words = len(re.findall(r'\S+', data))
+                words = len((dir_root / fname)
+                            .read_text().split('\n', 1)[1].split())
             except Exception:
                 # Just ignore the file if something went wrong
                 # TODO: add something here if being verbose?
                 pass
             else:
-                out['wordcount'] += words
-                out['pages'] += 1
-    return out
+                wordcount += words
+                pages += 1
+    return wordcount, pages
 
 
-@taggedlist.generate_entrylist
-def index_stories(path: str) -> Tuple[Tuple[Tuple[str, Dict[str, str]], ...],
-                                      Iterable]:
-    """
-    Find all files that match the filter, and return a sorted list
-    of them with wordcount, paths and all data from the metadata file.
-    """
-    def metafile(dirpath: str, fname: str) -> str:
-        return join(dirpath, f'.{fname}.metadata')
-    attributes: Tuple[Tuple[str, Dict[str, str]], ...] = (
-        ('title', {'filter': 'text', 'parser': 'text'}),
-        ('tags', {'filter': 'tags', 'parser': 'tags'}),
-        ('description', {'filter': 'text', 'parser': 'text'}),
-        ('wordcount', {'filter': 'number'}),
-        ('backstorywordcount', {'filter': 'number'}),
-        ('backstorypages', {'filter': 'number'}),
-        ('file', {}),
-        ('lastmodified', {'filter': 'number'}),
-        ('metadatafile', {}),
-    )
-    files: Iterable = (
-            (read_json(metafile(dirpath, fname)),
-             join(dirpath, fname),
-             metafile(dirpath, fname),
-             get_backstory_data(join(dirpath, fname)))
-            for dirpath, _, filenames in os.walk(path)
-            for fname in filenames
-            if exists(metafile(dirpath, fname)))
-    entries: Iterable = (
-               (metadata['title'],
+def index_stories(root: Path) -> Tuple[taggedlist.AttributeData, Entries]:
+    entries = []
+    i = 0
+    for dirpath, _, filenames in os.walk(root):
+        dir_root = Path(dirpath)
+        for fname in filenames:
+            metafile = dir_root / f'.{fname}.metadata'
+            if not metafile.exists():
+                continue
+            metadata = json.loads(metafile.read_text(encoding='utf-8'))
+            file = dir_root / fname
+            backstory_wordcount, backstory_pages = get_backstory_data(file)
+            entry = Entry(
+                i,
+                metadata['title'],
                 frozenset(metadata['tags']),
                 metadata['description'],
-                len(re.findall(r'\S+', read_file(fname))),
-                backstorydata['wordcount'],
-                backstorydata['pages'],
-                fname,
-                os.path.getmtime(fname),
-                metadatafile)
-               for metadata, fname, metadatafile, backstorydata in files)
-    return attributes, entries
+                len(file.read_text().split()),
+                backstory_wordcount,
+                backstory_pages,
+                file,
+                file.stat().st_mtime,
+                metafile
+            )
+            entries.append(entry)
+            i += 1
+    f = taggedlist.FilterFuncs
+    p = taggedlist.ParseFuncs
+    attributes: Dict[str, Dict[str, Callable]] = {
+        'title': {'filter': f.text, 'parser': p.text},
+        'tags': {'filter': f.tags, 'parser': p.tags},
+        'description': {'filter': f.text, 'parser': p.text},
+        'wordcount': {'filter': f.number},
+        'backstorywordcount': {'filter': f.number},
+        'backstorypages': {'filter': f.number},
+        'file': {},
+        'lastmodified': {'filter': f.number},
+        'metadatafile': {},
+    }
+    return attributes, tuple(entries)
 
 
 def write_metadata(entries: Entries) -> None:
@@ -782,7 +805,7 @@ def write_metadata(entries: Entries) -> None:
             'description': entry.description,
             'tags': list(entry.tags)
         }
-        write_json(entry.metadatafile, metadata)
+        entry.metadatafile.write_text(json.dumps(metadata), encoding='utf-8')
 
 
 # TERMINAL
@@ -827,7 +850,7 @@ class Terminal(GenericTerminal):
         self.get_tags = get_tags
         self.autocomplete_type = ''  # 'path' or 'tag'
         # These two are set in reload_settings() in sapfo.py
-        self.rootpath = ''
+        self.rootpath = Path()
         self.tagmacros: Dict[str, str] = {}
         self.commands = {
             'f': (self.filter_, 'Filter'),
@@ -847,7 +870,7 @@ class Terminal(GenericTerminal):
         self.show_readme.emit('', local_path('README.md'), None, 'markdown')
 
     def update_settings(self, settings: Dict) -> None:
-        self.rootpath = settings['path']
+        self.rootpath = Path(settings['path']).expanduser()
         self.tagmacros = settings['tag macros']
         # Terminal animation settings
         self.output_term.animate = settings['animate terminal output']
@@ -919,17 +942,18 @@ class Terminal(GenericTerminal):
                 autocomplete_tags(text, pos, '(),')
 
     def get_ac_suggestions(self, prefix: str) -> List[str]:
+        # TODO: tests, and then replace os.path with pathlib prolly
         if self.autocomplete_type == 'tag':
             tags = next(zip(*sorted(self.get_tags(),
                                     key=itemgetter(1), reverse=True)))
             macros = ('@' + x for x in sorted(self.tagmacros.keys()))
             return [x for x in chain(tags, macros) if x.startswith(prefix)]
         elif self.autocomplete_type == 'path':
-            root = os.path.expanduser(self.rootpath)
-            dirpath, namepart = os.path.split(join(root, prefix))
+            root = str(self.rootpath)
+            dirpath, namepart = os.path.split(os.path.join(root, prefix))
             if not os.path.isdir(dirpath):
                 return []
-            suggestions = [join(dirpath, p)
+            suggestions = [os.path.join(dirpath, p)
                            for p in sorted(os.listdir(dirpath))
                            if p.lower().startswith(namepart.lower())]
             # Remove the root prefix and add a / at the end if it's a directory

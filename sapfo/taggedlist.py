@@ -1,4 +1,5 @@
 from operator import attrgetter
+from pathlib import Path
 import re
 from typing import (Any, Callable, Dict, FrozenSet, Iterable, NamedTuple,
                     Optional, Tuple)
@@ -14,9 +15,9 @@ class Entry(NamedTuple):
     wordcount: int
     backstorywordcount: int
     backstorypages: int
-    file: str
-    lastmodified: int
-    metadatafile: str
+    file: Path
+    lastmodified: float
+    metadatafile: Path
 
 
 Entries = Tuple[Entry, ...]
@@ -170,25 +171,12 @@ def generate_visible_entries(entries: Entries,
     return sort_entries(filtered_entries, sort_by, reverse)
 
 
-# Decoratorstuff
+class ParseFuncs:
+    text = parse_text
+    tags = parse_tags
 
-def generate_entrylist(fn: Callable) -> Callable:
-    filterfuncs = {'text': filter_text, 'number': filter_number,
-                   'tags': filter_tags}
-    parserfuncs = {'text': parse_text, 'tags': parse_tags}
 
-    def makedict(d: Dict[str, Callable]) -> Optional[Callable]:
-        if 'filter' in d:
-            d['filter'] = filterfuncs[d['filter']]
-        if 'parser' in d:
-            d['parser'] = parserfuncs[d['parser']]
-        return {x: d.get(x, None) for x in ('filter', 'parser')}
-
-    def entrywrapper(*args: Any, **kwargs: Any
-                     ) -> Tuple[Dict[str, Dict[str, str]], Entries]:
-        attributes, entries = fn(*args, **kwargs)
-        attributedata = {name: makedict(attr) for name, attr in attributes}
-        # Entry = namedtuple('Entry', ('index',) + next(zip(*attributes)))
-        entrylist = (Entry(n, *args) for n, args in enumerate(entries))
-        return attributedata, tuple(entrylist)
-    return entrywrapper
+class FilterFuncs:
+    text = filter_text
+    number = filter_number
+    tags = filter_tags
