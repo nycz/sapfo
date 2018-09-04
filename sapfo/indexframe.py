@@ -3,7 +3,6 @@ from itertools import chain, zip_longest
 import json
 from operator import itemgetter
 import os
-import os.path
 from pathlib import Path
 import pickle
 import re
@@ -949,15 +948,13 @@ class Terminal(GenericTerminal):
             macros = ('@' + x for x in sorted(self.tagmacros.keys()))
             return [x for x in chain(tags, macros) if x.startswith(prefix)]
         elif self.autocomplete_type == 'path':
-            root = str(self.rootpath)
-            dirpath, namepart = os.path.split(os.path.join(root, prefix))
-            if not os.path.isdir(dirpath):
+            root = self.rootpath / (prefix or ' ')
+            if not root.parent.is_dir():
                 return []
-            suggestions = [os.path.join(dirpath, p)
-                           for p in sorted(os.listdir(dirpath))
-                           if p.lower().startswith(namepart.lower())]
+            suggestions = [root.parent / p
+                           for p in sorted(os.listdir(root.parent))
+                           if p.lower().startswith(root.name.rstrip().lower())]
             # Remove the root prefix and add a / at the end if it's a directory
-            return [p.replace(root, '', 1).lstrip(os.path.sep)
-                    + (os.path.sep*os.path.isdir(p))
+            return [p.name + (os.sep * p.is_dir())
                     for p in suggestions]
         return []
