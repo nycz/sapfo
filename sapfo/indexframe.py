@@ -143,7 +143,6 @@ class IndexFrame(QtWidgets.QWidget):
         """
         self.attributedata, self.entries = index_stories(self.rootpath)
         self.visible_entries = self.regenerate_visible_entries()
-        print('reloaded')
         self.refresh_view(keep_position=True)
 
     def refresh_view(self, keep_position: bool = False) -> None:
@@ -152,8 +151,6 @@ class IndexFrame(QtWidgets.QWidget):
         The full entrylist is not touched by this.
         """
         # TODO: keep position?
-        print('refreshed')
-        # TODO: also dont bruteforce the update
         self.entry_view.set_entries(self.visible_entries)
 
     def get_tags(self) -> List[Tuple[str, int]]:

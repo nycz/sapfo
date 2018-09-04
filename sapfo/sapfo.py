@@ -133,8 +133,8 @@ class MainWindow(QtWidgets.QWidget):
                 bsw.update_settings(settings)
             self.popuphomekey.setKey(QtGui.QKeySequence(
                     settings['hotkeys']['home']))
-        # if self.css_overrides != css_overrides:
-        self.update_style(css_overrides)
+        if self.css_overrides != css_overrides:
+            self.update_style(css_overrides)
 
     def update_style(self, css_overrides: Dict[str, str]) -> None:
         css = self.css['qt'] + '\n' + css_overrides['qt']
