@@ -41,7 +41,7 @@ EntryList {
   qproperty-separator_height: 1;
 }
 
-Entry {
+EntryWidget {
 }
 
 QLabel {
@@ -50,18 +50,18 @@ QLabel {
   border: 0;
 }
 
-#description, #empty_description, #word_count {
-  font-size: 17px;
+#description, #empty_description {
+  font-size: 16px;
 }
 #number, #tag {
   font-size: 13px;
 }
 
-#number, #word_count, #empty_description {
+#number, #wordcount, #empty_description {
   font-style: italic;
 }
 
-#number, #word_count {
+#number, #wordcount {
   color: #677;
 }
 
@@ -91,48 +91,15 @@ QLabel {
   color: #011;
   font-family: "Monospace";
   margin-right: 4px;
+  margin-top: 2px;
   padding: 2px 0px;
+  font-size: 12px;
 }
 
-#word_count {
-  margin: 0px 5px;
+#wordcount {
+  font-size: 14px;
+  margin: 3px 5px;
 }
-
-/* VERTICAL SCROLLBAR */
-QScrollBar:vertical {
-    background: #233;
-    width: 15px;
-}
-QScrollBar::handle:vertical {
-    background: #111c1c;
-    min-height: 20px;
-}
-QScrollBar::sub-line:vertical, QScrollBar::add-line:vertical {
-    height: 0px;
-}
-
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-    background: none;
-}
-
-/* TEMP DEBUG */
-
-/*EntryList {
-  background: #236;
-}
-
-Entry {
-  background: #263;
-}
-*/
-
-QLabel {
-  /*border: 1px solid white;*/
-}
-
-
-
-/* OLD CSS */
 
 
 InfoPanel {
@@ -241,13 +208,9 @@ QScrollBar::handle:vertical {
     background: #111;
     min-height: 20px;
 }
-QScrollBar::sub-line:vertical {
+QScrollBar::sub-line:vertical, QScrollBar::add-line:vertical {
     height: 0px;
 }
-QScrollBar::add-line:vertical {
-    height: 0px;
-}
-
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
     background: none;
 }
