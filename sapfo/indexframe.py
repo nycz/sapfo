@@ -77,8 +77,7 @@ class IndexFrame(QtWidgets.QWidget):
 
     def load_state(self) -> Dict[str, Any]:
         try:
-            with open(self.statepath, 'rb') as f:
-                state: Dict[str, Any] = pickle.load(f)
+            state: Dict[str, Any] = pickle.loads(self.statepath.read_bytes())
             return state
         except FileNotFoundError:
             return {
@@ -91,8 +90,7 @@ class IndexFrame(QtWidgets.QWidget):
             'active filters': self.active_filters._asdict(),
             'sorted by': self.sorted_by
         }
-        with open(self.statepath, 'wb') as f:
-            pickle.dump(state, f)
+        self.statepath.write_bytes(pickle.dumps(state))
 
     def connect_signals(self) -> None:
         t = self.terminal
