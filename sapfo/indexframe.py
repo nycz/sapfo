@@ -17,7 +17,7 @@ from libsyntyche.common import kill_theming
 from libsyntyche.oldterminal import (GenericTerminalInputBox,
                                      GenericTerminalOutputBox, GenericTerminal)
 
-from sapfo.common import local_path, ActiveFilters
+from sapfo.common import CACHE_DIR, local_path, ActiveFilters
 import sapfo.taggedlist as taggedlist
 from sapfo.taggedlist import Entries, Entry
 from .declarative import grid, hflow, label
@@ -725,7 +725,7 @@ class EntryList(QtWidgets.QFrame):
                              self._separator_color)
 
 
-def get_backstory_data(file: Path) -> Tuple[int, int]:
+def get_backstory_data(file: Path, cached_data: Dict) -> Tuple[int, int]:
     root = file.with_name(file.name + '.metadir')
     if not root.is_dir():
         return 0, 0
@@ -751,6 +751,12 @@ def get_backstory_data(file: Path) -> Tuple[int, int]:
 
 
 def index_stories(root: Path) -> Tuple[taggedlist.AttributeData, Entries]:
+    cache_file = CACHE_DIR / 'index.pickle'
+    if cache_file.exists():
+        cached_data = pickle.loads(cache_file.read_bytes())
+    else:
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cached_data = {}
     entries = []
     i = 0
     for dirpath, _, filenames in os.walk(root):
@@ -761,21 +767,30 @@ def index_stories(root: Path) -> Tuple[taggedlist.AttributeData, Entries]:
                 continue
             metadata = json.loads(metafile.read_text(encoding='utf-8'))
             file = dir_root / fname
-            backstory_wordcount, backstory_pages = get_backstory_data(file)
+            stat = file.stat()
+            if file in cached_data \
+                    and cached_data[file]['modified'] == stat.st_mtime:
+                wordcount = cached_data[file]['wordcount']
+            else:
+                wordcount = len(file.read_text().split())
+                cached_data[file] = {'modified': stat.st_mtime,
+                                     'wordcount': wordcount}
+            backstory_wordcount, backstory_pages = get_backstory_data(file, cached_data)
             entry = Entry(
                 i,
                 metadata['title'],
                 frozenset(metadata['tags']),
                 metadata['description'],
-                len(file.read_text().split()),
+                wordcount,
                 backstory_wordcount,
                 backstory_pages,
                 file,
-                file.stat().st_mtime,
+                stat.st_mtime,
                 metafile
             )
             entries.append(entry)
             i += 1
+    cache_file.write_bytes(pickle.dumps(cached_data))
     f = taggedlist.FilterFuncs
     p = taggedlist.ParseFuncs
     attributes: Dict[str, Dict[str, Callable]] = {

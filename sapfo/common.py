@@ -4,6 +4,8 @@ from typing import Optional, FrozenSet, NamedTuple
 
 LOCAL_DIR = Path(__file__).resolve().parent
 
+CACHE_DIR = Path.home() / '.cache' / 'sapfo'
+
 
 class ActiveFilters(NamedTuple):
     title: Optional[str]
