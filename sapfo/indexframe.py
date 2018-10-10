@@ -42,6 +42,7 @@ class IndexFrame(QtWidgets.QWidget):
         self.scroll_area.setWidgetResizable(True)
         self.entry_view = EntryList(self, '({wordcount})', ())
         self.scroll_area.setWidget(self.entry_view)
+        self.scroll_area.setFocusPolicy(Qt.NoFocus)
         layout.addWidget(self.scroll_area, stretch=1)
         self.terminal = Terminal(self, self.get_tags)
         layout.addWidget(self.terminal)
