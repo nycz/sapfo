@@ -585,6 +585,8 @@ class EntryWidget(QtWidgets.QFrame):
                       else 'empty_description')
         if desc_class != self.desc_widget.objectName():
             self.desc_widget.setObjectName(desc_class)
+            # Force the style to update
+            self.desc_widget.style().polish(self.desc_widget)
         for tag_widget, tag in zip(self.tag_widgets, entry.tags):
             tag_widget.setText(tag)
         old_tag_count = len(self.tag_widgets)
