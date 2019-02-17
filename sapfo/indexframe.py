@@ -17,7 +17,7 @@ from libsyntyche.common import kill_theming
 from libsyntyche.oldterminal import (GenericTerminalInputBox,
                                      GenericTerminalOutputBox, GenericTerminal)
 
-from sapfo.common import CACHE_DIR, local_path, ActiveFilters
+from sapfo.common import CACHE_DIR, ActiveFilters
 import sapfo.taggedlist as taggedlist
 from sapfo.taggedlist import Entries, Entry
 from .declarative import grid, hflow, label
@@ -107,7 +107,6 @@ class IndexFrame(QtWidgets.QWidget):
             (t.external_edit,           self.external_run_entry),
             (t.open_meta,               self.open_meta),
             (t.quit,                    self.quit.emit),
-            (t.show_readme,             self.show_popup.emit),
         )
         for signal, slot in connects:
             signal.connect(slot)
@@ -844,6 +843,119 @@ class TerminalInputBox(GenericTerminalInputBox):
             return super().keyReleaseEvent(event)
 
 
+class HelpView(QtWidgets.QLabel):
+    def __init__(self, parent, commands) -> None:
+        super().__init__(parent)
+        self.command_help = {
+            'f': ('Filter entries (aka show only entries matching the filter)',
+                  [('', 'List the active filters.'),
+                   ('-', 'Reset all filters.'),
+                   ('[ndtcbp]-', 'Reset the specified filter.'),
+                   ('[ndtcbp]', 'Don\'t apply any filter, instead set the '
+                                'terminal\'s input text to the specified '
+                                'filter\'s current value.'),
+                   ('n', 'Filter on titles (case insensitive).'),
+                   ('n_', 'Show only entries with empty titles.'),
+                   ('d', 'Filter on descriptions (case insensitive).'),
+                   ('d_', 'Show only entries with empty descriptions.'),
+                   ('t', 'Filter on tags. Supports AND (comma , ), '
+                         'OR (vertical bar | ), NOT prefix (dash - ), and tag '
+                         'macros (use @ as prefix) specified in the config. '
+                         'AND and OR can\'t be used mixed without explicit '
+                         'parentheses to specify precedence. Spaces are '
+                         'allowed in tag names, but not (),| . Tags are case '
+                         'sensitive.'),
+                   ('c', 'Filter on wordcount. Supports the operators '
+                         '> < >= <= followed by the target number. A "k" '
+                         'suffix in the number is replaced by 000. Operator '
+                         'expressions can be combined without any delimiters. '
+                         'Eg.: >900<=50k'),
+                   ('b', 'Filter on backstory wordcount. This uses '
+                         'the same syntax as the wordcount filter.'),
+                   ('p', 'Filter on number of backstory pages. This uses '
+                         'the same syntax as the wordcount filter.')]),
+            'e': ('Edit entry',
+                  [('u', 'Undo last edit.'),
+                   ('[ndt]123', "Don't edit anything, instead set the "
+                                "terminal's input text to the current value "
+                                "of the specified attribute in entry 123."),
+                   ('[nd]123 text', 'Set the value of the specified '
+                                    'attribute in entry 123 to "text".'),
+                   ('t123 tag1, tag2',
+                    'Set the tags of entry 123 to tag1 and tag2. The list is '
+                    'comma separated and all tags are stripped of '
+                    'surrounding whitespace before saved.'),
+                   ('t* tag1, tag2', 'Replace all instances of tag1 with '
+                                     'tag2 in all visible entries.'),
+                   ('t* tag1,', 'Remove all instances of tag1 '
+                                'from all visible entries.'),
+                   ('t* ,tag2', 'Add tag2 to all visible entries.')]),
+            's': ('Sort entries',
+                  [('', 'Show current sort key and order.'),
+                   ('[ncbpm]-', 'Sort descending instead of ascending.'),
+                   ('n', 'Sort by title.'),
+                   ('c', 'Sort by wordcount.'),
+                   ('b', 'Sort by backstory wordcount.'),
+                   ('p', 'Sort by number of backstory pages.'),
+                   ('m', 'Sort by last modified date.')]),
+            'q': ('Quit sapfo', []),
+            '?': ('Print simple help',
+                  [('', 'Print list of all commands.'),
+                   ('<any valid command>',
+                    'Print short description of this command.')]),
+            'x': ('Open entry file in external editor.',
+                  [('123', "Open entry 123's file (note: not sapfo's json "
+                           "metadata file) in an external editor.")]),
+            'm': ('Open backstory (meta) editor',
+                  [('123', 'Open the backstory/meta editor for entry 123.')]),
+            'l': ('Show various lists',
+                  [('t', 'List all available tags.'),
+                   ('f', 'List the active filters.')]),
+            'n': ('Create new entry',
+                  [('(tag1, tag2, ..) path',
+                    ('Create a new entry with the tags at the path. '
+                     'The title is generate automatically from the path.'))]),
+            'c': ('Show combined size of wordcount and more',
+                  [('c', 'Show combined wordcount for all visible entries.'),
+                   ('b', 'Show combined backstory wordcount '
+                         'for all visible entries.'),
+                   ('p', 'Show combined number of backstory pages '
+                         'for all visible entries.')]),
+            'h': ('Show extended help',
+                  ([('', 'Toggle extended help view.')]
+                   + [(cmd, f'Show help for {desc!r}')
+                      for cmd, (_, desc) in sorted(commands.items())]))
+        }
+
+        def escape(s: str) -> str:
+            return s.replace('<', '&lt;').replace('>', '&gt;')
+
+        main_template = ('<h2 style="margin:0">{command}: {desc}</h2>'
+                         '<hr><table>{rows}</table>')
+        row_template = ('<tr><td><b>{command}{arg}</b></td>'
+                        '<td style="padding-left:10px">{subdesc}</td></tr>')
+        self.help_html = {
+            command: main_template.format(
+                command=command,
+                desc=desc,
+                rows=''.join(row_template.format(command=command,
+                                                 arg=escape(arg),
+                                                 subdesc=escape(subdesc))
+                             for arg, subdesc in args)
+            )
+            for command, (desc, args) in self.command_help.items()
+        }
+        assert sorted(commands.keys()) == sorted(self.command_help.keys())
+        self.setWordWrap(True)
+        self.hide()
+
+    def show_help(self, arg: str) -> bool:
+        if arg not in self.help_html:
+            return False
+        self.setText(self.help_html[arg])
+        return True
+
+
 class Terminal(GenericTerminal):
     filter_ = pyqtSignal(str)
     sort = pyqtSignal(str)
@@ -855,7 +967,6 @@ class Terminal(GenericTerminal):
     list_ = pyqtSignal(str)
     new_entry = pyqtSignal(str)
     count_length = pyqtSignal(str)
-    show_readme = pyqtSignal(str, str, str, str)
 
     def __init__(self, parent: QtWidgets.QWidget, get_tags: Callable) -> None:
         super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox)
@@ -875,11 +986,23 @@ class Terminal(GenericTerminal):
             'l': (self.list_, 'List'),
             'n': (self.new_entry, 'New entry'),
             'c': (self.count_length, 'Count total length'),
-            'h': (self.cmd_show_readme, 'Show readme')
+            'h': (self.cmd_show_extended_help, 'Show extended help')
         }
+        self.help_view = HelpView(self, self.commands)
+        # Default to show help about itself
+        self.help_view.show_help('h')
+        self.layout().insertWidget(0, self.help_view)
 
-    def cmd_show_readme(self, arg: Any) -> None:
-        self.show_readme.emit('', local_path('README.md'), None, 'markdown')
+    def cmd_show_extended_help(self, arg: str) -> None:
+        if not arg:
+            self.help_view.setVisible(not self.help_view.isVisible())
+        else:
+            success = self.help_view.show_help(arg)
+            if success:
+                self.help_view.show()
+            else:
+                self.error('Unknown command')
+                self.help_view.hide()
 
     def update_settings(self, settings: Dict) -> None:
         self.rootpath = Path(settings['path']).expanduser()

@@ -128,6 +128,20 @@ GenericTerminalInputBox {
 GenericTerminalOutputBox {
     background: #191919;
 }
+HelpView {
+    background: #333;
+    color: #ddd;
+    font-family: "Monospace";
+    font-size: 12px;
+    padding: 10px 6px;
+    border-top: 2px solid #111;
+}
+HelpView QScrollBar:vertical {
+    background: #333;
+}
+HelpView QScrollBar::handle:vertical {
+    background: #111;
+}
 
 /* BACKSTORY */
 BackstoryWindow {
