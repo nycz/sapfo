@@ -113,8 +113,13 @@ class MainWindow(QtWidgets.QWidget):
         del self.backstorywindows[file]
 
     def show_popup(self, *args: Any) -> None:
-        self.popup_viewer.set_page(*args)
-        self.stack.setCurrentWidget(self.popup_viewer)
+        try:
+            self.popup_viewer.set_page(*args)
+        except Exception as e:
+            print(f'Failed to show popup with args: {args!r}')
+            print(e)
+        else:
+            self.stack.setCurrentWidget(self.popup_viewer)
 
     def reload_settings(self) -> None:
         settings, css_overrides = read_config(self.configdir, self.css_parts)
