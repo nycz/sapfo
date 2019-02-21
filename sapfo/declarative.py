@@ -43,7 +43,7 @@ PosOrRange = Union[int, Tuple[int, int]]
 GridChildMap = Mapping[Tuple[PosOrRange, PosOrRange], Item]
 
 
-def _fix_layout(layout: QLayout) -> None:
+def fix_layout(layout: QLayout) -> None:
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(0)
 
@@ -74,7 +74,7 @@ def grid(child_map: GridChildMap,
          col_stretch: Optional[StretchMap] = None,
          row_stretch: Optional[StretchMap] = None) -> QGridLayout:
     layout = QGridLayout()
-    _fix_layout(layout)
+    fix_layout(layout)
     if col_stretch:
         for pos, stretch in col_stretch.items():
             layout.setColumnStretch(pos, stretch)
@@ -93,7 +93,7 @@ BoxT = TypeVar('BoxT', QHBoxLayout, QVBoxLayout)
 
 def init_box_layout(children: Iterable[Item],
                     layout: BoxT) -> BoxT:
-    _fix_layout(layout)
+    fix_layout(layout)
     for item in children:
         _add_item(item, layout)
     return layout
@@ -109,7 +109,7 @@ def vbox(*children: Item) -> QtWidgets.QVBoxLayout:
 
 def hflow(*children: Item) -> FlowLayout:
     layout = FlowLayout()
-    _fix_layout(layout)
+    fix_layout(layout)
     for item in children:
         _add_item(item, layout)
     return layout

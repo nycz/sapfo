@@ -112,6 +112,29 @@ InfoPanelLabel {
     font-size: 16px;
 }
 
+TagInfoList {
+    border-top: 2px solid #111;
+}
+TagInfoList, TagInfoList * {
+    background-color: #292f3f;
+    color: #ddd;
+}
+TagInfoList QScrollBar::handle:vertical {
+    background-color: #101929;
+}
+#tag_info_count {
+    font-size: 12px;
+    font-family: "Monospace";
+    font-weight: bold;
+}
+TagCountBar {
+    background-color: #bbd;
+}
+#tag_info_macro_expression {
+    font-size: 12px;
+    font-family: "Monospace";
+}
+
 /* TERMINAL */
 GenericTerminalInputBox, GenericTerminalOutputBox {
     border: 0px;

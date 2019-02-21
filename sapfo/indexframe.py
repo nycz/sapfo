@@ -20,7 +20,7 @@ from libsyntyche.oldterminal import (GenericTerminalInputBox,
 from sapfo.common import CACHE_DIR, ActiveFilters
 import sapfo.taggedlist as taggedlist
 from sapfo.taggedlist import Entries, Entry
-from .declarative import grid, hflow, label
+from .declarative import fix_layout, grid, hflow, label
 
 
 SortBy = Tuple[str, bool]
@@ -38,12 +38,17 @@ class IndexFrame(QtWidgets.QWidget):
         # Layout and shit
         layout = QtWidgets.QVBoxLayout(self)
         kill_theming(layout)
+        # Main view
         self.scroll_area = QtWidgets.QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
         self.entry_view = EntryList(self, '({wordcount})', ())
         self.scroll_area.setWidget(self.entry_view)
         self.scroll_area.setFocusPolicy(Qt.NoFocus)
         layout.addWidget(self.scroll_area, stretch=1)
+        # Tag info list
+        self.tag_info = TagInfoList(self)
+        layout.addWidget(self.tag_info)
+        # Terminal
         self.terminal = Terminal(self, self.get_tags)
         layout.addWidget(self.terminal)
         self.connect_signals()
@@ -93,6 +98,20 @@ class IndexFrame(QtWidgets.QWidget):
         }
         self.statepath.write_bytes(pickle.dumps(state))
 
+    def on_external_key_event(self, ev: QtGui.QKeyEvent, press: bool) -> None:
+        target = None
+        if ev.modifiers() == Qt.NoModifier:
+            target = self.scroll_area
+        elif ev.modifiers() & Qt.ShiftModifier and self.tag_info.isVisible():
+            target = self.tag_info
+            ev = QtGui.QKeyEvent(ev.type(), ev.key(), Qt.NoModifier,
+                                 autorep=ev.isAutoRepeat(), count=ev.count())
+        if target:
+            if press:
+                target.keyPressEvent(ev)
+            else:
+                target.keyReleaseEvent(ev)
+
     def connect_signals(self) -> None:
         t = self.terminal
         connects = (
@@ -102,11 +121,13 @@ class IndexFrame(QtWidgets.QWidget):
             (t.edit,                    self.edit_entry),
             (t.new_entry,               self.new_entry),
             # (t.input_term.scroll_index, self.entry_view.event),
-            (t.list_,                   self.list_),
+            (t.manage_tags,             self.manage_tags),
             (t.count_length,            self.count_length),
             (t.external_edit,           self.external_run_entry),
             (t.open_meta,               self.open_meta),
             (t.quit,                    self.quit.emit),
+            (self.tag_info.print_,      t.print_),
+            (self.tag_info.error,       t.error),
         )
         for signal, slot in connects:
             signal.connect(slot)
@@ -120,6 +141,8 @@ class IndexFrame(QtWidgets.QWidget):
             shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))
         self.entry_view.tag_colors = settings['tag colors']
         self.entry_view.length_template = settings['entry length template']
+        self.tag_info.tag_colors = settings['tag colors']
+        self.tag_info.tag_macros = settings['tag macros']
         self.reload_view()
 
     def zoom_in(self) -> None:
@@ -159,35 +182,32 @@ class IndexFrame(QtWidgets.QWidget):
         return Counter(tag for entry in self.entries
                        for tag in entry.tags).most_common()
 
-    def list_(self, arg: str) -> None:
-        # TODO: html -> widget
-        if arg.startswith('f'):
-            if self.active_filters:
-                # TODO: also less shitty this
-                self.print_('; '.join(str(x or '')
-                                      for x in self.active_filters))
-            else:
-                self.error('No active filters')
-        elif arg.startswith('t'):
-            # Sort alphabetically or after uses
-            sortarg = 1
-            if len(arg) == 2 and arg[1] == 'a':
-                sortarg = 0
-            entry_template = (
-                '<div class="list_entry">'
-                '<span class="tag" style="background-color:{color};">'
-                '{tagname}</span><span class="length">({count:,})'
-                '</span></div>')
-            defcol = self.defaulttagcolor
-            t_entries = (entry_template.format(color=self.settings['tag colors'].get(tag, defcol),
-                                               tagname=tag, count=num)
-                         for tag, num in sorted(self.get_tags(),
-                                                key=itemgetter(sortarg),
-                                                reverse=bool(sortarg)))
-            body = '<br>'.join(t_entries)
-            html = (f'<style type="text/css">{self.css}</style>'
-                    f'<body><div id="taglist">{body}</div></body>')
-            self.show_popup.emit(html, '', '', 'html')
+    def manage_tags(self, arg: str) -> None:
+        # self.tag_info.view_tags(self.get_tags())
+        """
+        t - (when visible) hide
+        t[ac][-][/tagname]
+            a - sort alphabetically
+            - - reverse order
+            / - show/search for tags
+        t@ - list macros
+        """
+        if not arg and self.tag_info.isVisible():
+            self.tag_info.hide()
+            return
+        if arg == '@':
+            self.tag_info.view_macros()
+            return
+        rx = re.fullmatch(r'(?P<alpha>[ac])?(?P<reverse>-)?(?P<search>/.*)?',
+                          arg)
+        if rx is None:
+            self.error('invalid arg')
+            return
+        match = rx.groupdict()
+        sort_alphabetically = match.get('alpha', 'c') == 'a'
+        search = match['search'][1:] if match['search'] else None
+        self.tag_info.view_tags(self.get_tags(), sort_alphabetically,
+                                bool(match['reverse']), search)
 
     def regenerate_visible_entries(self,
                                    entries: Optional[Entries] = None,
@@ -536,6 +556,101 @@ class IndexFrame(QtWidgets.QWidget):
         self.print_(f'Opening entry with {self.settings["editor"]}')
 
 
+class TagInfoList(QtWidgets.QScrollArea):
+    error = pyqtSignal(str)
+    print_ = pyqtSignal(str)
+
+    class TagCountBar(QtWidgets.QWidget):
+        def __init__(self, parent: QtWidgets.QWidget,
+                     percentage: float) -> None:
+            super().__init__(parent)
+            self.percentage = percentage
+
+        def paintEvent(self, ev: QtGui.QPaintEvent) -> None:
+            left_width = self.percentage * ev.rect().width()
+            right_width = ev.rect().width() - left_width
+            painter = QtGui.QPainter(self)
+            painter.fillRect(ev.rect().adjusted(0, 0, -right_width, 0),
+                             painter.background())
+            painter.end()
+
+    def __init__(self, parent: QtWidgets.QWidget) -> None:
+        super().__init__(parent)
+        self.setSizeAdjustPolicy(self.AdjustToContents)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                           QtWidgets.QSizePolicy.Expanding)
+        self.tag_colors: Dict[str, str] = {}
+        self.tag_macros: Dict[str, str] = {}
+        self.panel = QtWidgets.QWidget(self)
+        self.panel.setObjectName('tag_info_list_panel')
+        self.panel.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                                 QtWidgets.QSizePolicy.Maximum)
+        layout = QtWidgets.QGridLayout(self.panel)
+        layout.setColumnStretch(2, 1)
+        layout.setHorizontalSpacing(10)
+        # layout.setSizeConstraint(layout.SetMinAndMaxSize)
+        # TODO: something less ugly than this
+        self.setFixedHeight(200)
+        self.panel.setLayout(layout)
+        self.setWidget(self.panel)
+        self.setWidgetResizable(True)
+        self.hide()
+
+    def clear(self) -> None:
+        layout = self.panel.layout()
+        while not layout.isEmpty():
+            item = layout.takeAt(0)
+            item.widget().deleteLater()
+
+    def _make_tag(self, tag: str) -> QtWidgets.QWidget:
+        tag_label_wrapper = QtWidgets.QWidget(self)
+        tag_label = label(tag, 'tag', parent=tag_label_wrapper)
+        if tag in self.tag_colors:
+            tag_label.setStyleSheet(f'background: {self.tag_colors[tag]};')
+        else:
+            tag_label.setStyleSheet('background: #667;')
+        sub_layout = QtWidgets.QHBoxLayout(tag_label_wrapper)
+        fix_layout(sub_layout)
+        sub_layout.addWidget(tag_label)
+        sub_layout.addStretch()
+        return tag_label_wrapper
+
+    def view_tags(self, tags, sort_alphabetically, reverse,
+                  name_filter) -> None:
+        self.clear()
+        max_count = max(t[1] for t in tags)
+        tags.sort(key=itemgetter(0 if sort_alphabetically else 1))
+        # If alphabetically, we want to default to ascending,
+        # but if we're sorting by usage count, we want it descending.
+        if reverse or (not sort_alphabetically and not reverse):
+            tags.reverse()
+        if name_filter:
+            tags = [t for t in tags if name_filter in t[0]]
+        layout = self.panel.layout()
+        for n, (tag, count) in enumerate(tags):
+            # Tag name
+            layout.addWidget(self._make_tag(tag), n, 0)
+            # Tag count
+            layout.addWidget(label(str(count), 'tag_info_count', parent=self),
+                             n, 1, alignment=Qt.AlignBottom)
+            # Tag bar
+            count_bar = self.TagCountBar(self, count / max_count)
+            layout.addWidget(count_bar, n, 2)
+        self.show()
+
+    def view_macros(self) -> None:
+        # TODO: better view of this
+        self.clear()
+        layout = self.panel.layout()
+        for n, (tag, macro) in enumerate(sorted(self.tag_macros.items())):
+            # Tag macro name
+            layout.addWidget(self._make_tag('@' + tag), n, 0)
+            # Tag macro expression
+            layout.addWidget(label(macro, 'tag_info_macro_expression',
+                                   parent=self, word_wrap=True), n, 1)
+        self.show()
+
+
 class EntryWidget(QtWidgets.QFrame):
     def __init__(self, parent: QtWidgets.QWidget, number: int,
                  entry: Entry, length_template: str,
@@ -555,7 +670,7 @@ class EntryWidget(QtWidgets.QFrame):
                                   else 'empty_description'),
                                  word_wrap=True, parent=self)
         self.tag_widgets: List[QtWidgets.QLabel] = []
-        self.tag_colors = tag_colors
+        self._tag_colors = tag_colors
         for tag in entry.tags:
             widget = label(tag, 'tag', parent=self)
             if tag in tag_colors:
@@ -570,6 +685,23 @@ class EntryWidget(QtWidgets.QFrame):
             (1, (0, 1)): self.desc_widget
         }, col_stretch={1: 1})
         self.setLayout(layout)
+
+    @property
+    def tag_colors(self) -> Dict[str, str]:
+        return self._tag_colors
+
+    @tag_colors.setter
+    def tag_colors(self, new_colors: Dict[str, str]) -> None:
+        self._tag_colors = new_colors
+        self.refresh_tag_colors()
+
+    def refresh_tag_colors(self) -> None:
+        for tag_widget in self.tag_widgets:
+            tag = tag_widget.text()
+            if tag in self.tag_colors:
+                tag_widget.setStyleSheet(f'background: {self.tag_colors[tag]};')
+            else:
+                tag_widget.setStyleSheet('background: #667;')
 
     def update_data(self, entry: Entry) -> None:
         self.title_widget.setText(entry.title)
@@ -600,11 +732,7 @@ class EntryWidget(QtWidgets.QFrame):
                 tag_widget = label(tag, 'tag', parent=self)
                 self.tag_widgets.append(tag_widget)
                 self.top_row.addWidget(tag_widget)
-        for tag_widget, tag in zip(self.tag_widgets, entry.tags):
-            if tag in self.tag_colors:
-                tag_widget.setStyleSheet(f'background: {self.tag_colors[tag]};')
-            else:
-                tag_widget.setStyleSheet('background: #667;')
+        self.refresh_tag_colors()
 
 
 class EntryList(QtWidgets.QFrame):
@@ -656,11 +784,22 @@ class EntryList(QtWidgets.QFrame):
         self.length_template = length_template
         self.entry_class = EntryWidget
         self.entry_widgets: List[EntryWidget] = []
-        self.tag_colors: Dict[str, str] = {}
+        self._tag_colors: Dict[str, str] = {}
         layout = QtWidgets.QVBoxLayout(self)
         layout.setObjectName('entry_list_layout')
         layout.setContentsMargins(0, 0, 0, 0)
         self.add_entries(entries)
+
+    @property
+    def tag_colors(self) -> Dict[str, str]:
+        return self._tag_colors
+
+    @tag_colors.setter
+    def tag_colors(self, new_colors: Dict[str, str]) -> None:
+        if self._tag_colors != new_colors:
+            self._tag_colors = new_colors
+            for entry in self.entry_widgets:
+                entry.tag_colors = new_colors
 
     def add_entries(self, entries: Entries) -> None:
         self.entry_widgets = []
@@ -679,7 +818,8 @@ class EntryList(QtWidgets.QFrame):
     def set_entries(self, new_entries: Entries) -> None:
         # Get rid of the extra stretch
         self.layout().takeAt(self.layout().count() - 1)
-        for n, (widget, entry) in enumerate(zip_longest(self.entry_widgets, new_entries)):
+        for n, (widget, entry) in enumerate(zip_longest(self.entry_widgets,
+                                                        new_entries)):
             if widget is None:
                 entry_widget = self.entry_class(self, n, entry,
                                                 self.length_template,
@@ -908,9 +1048,14 @@ class HelpView(QtWidgets.QLabel):
                            "metadata file) in an external editor.")]),
             'm': ('Open backstory (meta) editor',
                   [('123', 'Open the backstory/meta editor for entry 123.')]),
-            'l': ('Show various lists',
-                  [('t', 'List all available tags.'),
-                   ('f', 'List the active filters.')]),
+            't': ('Manage tags',
+                  [('', 'Hide tag list if visible, otherwise show '
+                        'tag list in default order, sorted by usage count.'),
+                   ('[ac]-[/tagname]', 'Show tags in reverse order.'),
+                   ('a[-][/tagname]', 'Show tags alphabetically sorted.'),
+                   ('c[-][/tagname]', 'Show tags sorted by usage count.'),
+                   ('[ac][-]/tagname', 'Show tags that includes "tagname".'),
+                   ('@', 'List tag macros.')]),
             'n': ('Create new entry',
                   [('(tag1, tag2, ..) path',
                     ('Create a new entry with the tags at the path. '
@@ -964,7 +1109,7 @@ class Terminal(GenericTerminal):
     edit = pyqtSignal(str)
     external_edit = pyqtSignal(str)
     open_meta = pyqtSignal(str)
-    list_ = pyqtSignal(str)
+    manage_tags = pyqtSignal(str)
     new_entry = pyqtSignal(str)
     count_length = pyqtSignal(str)
 
@@ -983,7 +1128,7 @@ class Terminal(GenericTerminal):
             '?': (self.cmd_help, 'List commands or help for [command]'),
             'x': (self.external_edit, 'Open in external program/editor'),
             'm': (self.open_meta, 'Open in meta viewer'),
-            'l': (self.list_, 'List'),
+            't': (self.manage_tags, 'Manage tags'),
             'n': (self.new_entry, 'New entry'),
             'c': (self.count_length, 'Count total length'),
             'h': (self.cmd_show_extended_help, 'Show extended help')

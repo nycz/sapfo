@@ -9,7 +9,6 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import Qt
 
 from libsyntyche.common import make_sure_config_exists
-from libsyntyche.fileviewer import FileViewer
 from sapfo.indexframe import IndexFrame
 from sapfo.viewerframe import ViewerFrame
 from sapfo.backstorywindow import BackstoryWindow
@@ -44,13 +43,6 @@ class MainWindow(QtWidgets.QWidget):
         # Backstory editor
         self.backstorywindows: Dict[Path, BackstoryWindow] = {}
 
-        # Popup viewer
-        self.popup_viewer = FileViewer(self)
-        self.stack.addWidget(self.popup_viewer)
-        self.popuphomekey = QtWidgets.QShortcut(QtGui.QKeySequence(),
-                                                self.popup_viewer,
-                                                self.show_index)
-
         # Load settings
         self.css_parts = ['qt', 'index_page', 'viewer_page']
         self.css_overrides = {x: '' for x in self.css_parts}
@@ -84,7 +76,6 @@ class MainWindow(QtWidgets.QWidget):
             (self.index_viewer.quit,        self.close),
             (self.index_viewer.view_entry,  self.view_entry),
             (self.index_viewer.view_meta,   self.open_backstory_editor),
-            (self.index_viewer.show_popup,  self.show_popup),
         )
         for signal, slot in connects:
             signal.connect(slot)
@@ -112,15 +103,6 @@ class MainWindow(QtWidgets.QWidget):
         bsw.deleteLater()
         del self.backstorywindows[file]
 
-    def show_popup(self, *args: Any) -> None:
-        try:
-            self.popup_viewer.set_page(*args)
-        except Exception as e:
-            print(f'Failed to show popup with args: {args!r}')
-            print(e)
-        else:
-            self.stack.setCurrentWidget(self.popup_viewer)
-
     def reload_settings(self) -> None:
         settings, css_overrides = read_config(self.configdir, self.css_parts)
         # TODO: FIX THIS UGLY ASS SHIT
@@ -136,8 +118,6 @@ class MainWindow(QtWidgets.QWidget):
             self.story_viewer.update_settings(settings)
             for bsw in self.backstorywindows.values():
                 bsw.update_settings(settings)
-            self.popuphomekey.setKey(QtGui.QKeySequence(
-                    settings['hotkeys']['home']))
         if self.css_overrides != css_overrides:
             self.update_style(css_overrides)
 
@@ -159,14 +139,14 @@ class MainWindow(QtWidgets.QWidget):
     def keyPressEvent(self, ev: QtGui.QKeyEvent) -> Any:
         if self.stack.currentWidget() == self.index_viewer \
                 and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.scroll_area.keyPressEvent(ev)
+            self.index_viewer.on_external_key_event(ev, True)
         else:
             return super().keyPressEvent(ev)
 
     def keyReleaseEvent(self, ev: QtGui.QKeyEvent) -> Any:
         if self.stack.currentWidget() == self.index_viewer \
                 and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.scroll_area.keyReleaseEvent(ev)
+            self.index_viewer.on_external_key_event(ev, False)
         else:
             return super().keyReleaseEvent(ev)
     # =================================================
