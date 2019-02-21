@@ -13,14 +13,13 @@ from typing import (cast, Any, Callable, Dict, Iterable, List, Match,
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt
 
-from libsyntyche.common import kill_theming
 from libsyntyche.oldterminal import (GenericTerminalInputBox,
                                      GenericTerminalOutputBox, GenericTerminal)
 
-from sapfo.common import CACHE_DIR, ActiveFilters
-import sapfo.taggedlist as taggedlist
-from sapfo.taggedlist import Entries, Entry
-from .declarative import fix_layout, grid, hflow, label
+from . import taggedlist
+from .common import CACHE_DIR, ActiveFilters
+from .declarative import fix_layout, grid, hflow, label, vbox
+from .taggedlist import Entries, Entry
 
 
 SortBy = Tuple[str, bool]
@@ -35,22 +34,19 @@ class IndexFrame(QtWidgets.QWidget):
     def __init__(self, parent: QtWidgets.QWidget, dry_run: bool,
                  statepath: Path) -> None:
         super().__init__(parent)
-        # Layout and shit
-        layout = QtWidgets.QVBoxLayout(self)
-        kill_theming(layout)
         # Main view
         self.scroll_area = QtWidgets.QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
         self.entry_view = EntryList(self, '({wordcount})', ())
         self.scroll_area.setWidget(self.entry_view)
         self.scroll_area.setFocusPolicy(Qt.NoFocus)
-        layout.addWidget(self.scroll_area, stretch=1)
         # Tag info list
         self.tag_info = TagInfoList(self)
-        layout.addWidget(self.tag_info)
         # Terminal
         self.terminal = Terminal(self, self.get_tags)
-        layout.addWidget(self.terminal)
+        # Layout
+        self.setLayout(vbox(self.scroll_area, self.tag_info, self.terminal))
+        self.layout().setStretchFactor(self.scroll_area, 1)
         self.connect_signals()
         # Misc shizzle
         self.rootpath = Path()
@@ -679,12 +675,11 @@ class EntryWidget(QtWidgets.QFrame):
         self.top_row = hflow(self.title_widget,
                              self.word_count_widget,
                              *self.tag_widgets)
-        layout = grid({
+        self.setLayout(grid({
             (0, 0): self.number_widget,
             (0, 1): self.top_row,
             (1, (0, 1)): self.desc_widget
-        }, col_stretch={1: 1})
-        self.setLayout(layout)
+        }, col_stretch={1: 1}))
 
     @property
     def tag_colors(self) -> Dict[str, str]:

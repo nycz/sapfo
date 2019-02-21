@@ -1,13 +1,12 @@
 import re
 from typing import Dict, Iterable, List, Tuple, Union
 
-from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtCore import pyqtSignal
 from PyQt5 import QtGui, QtWidgets
 
-from libsyntyche.common import kill_theming
-
-from sapfo.common import LOCAL_DIR
-from sapfo.taggedlist import Entry
+from .common import LOCAL_DIR
+from .declarative import hbox, Stretch, vbox
+from .taggedlist import Entry
 
 
 FormatConverters = List[Union[Tuple[str, str, str], Tuple[str, str]]]
@@ -17,13 +16,11 @@ ChapterStrings = List[Tuple[str, str]]
 class InfoPanel(QtWidgets.QFrame):
     def __init__(self, parent: QtWidgets.QWidget) -> None:
         super().__init__(parent)
-        layout = QtWidgets.QGridLayout(self)
-        kill_theming(layout)
 
         class InfoPanelLabel(QtWidgets.QLabel):
             pass
         self.label = InfoPanelLabel()
-        layout.addWidget(self.label, 1, 0, Qt.AlignHCenter)
+        self.setLayout(hbox(Stretch, self.label, Stretch))
         self.show()
 
     def set_data(self, data: Entry) -> None:
@@ -58,17 +55,10 @@ class ViewerFrame(QtWidgets.QFrame):
         self.formatconverters: FormatConverters = []
         self.chapterstrings: ChapterStrings = []
 
-        # Layout
-        layout = QtWidgets.QVBoxLayout(self)
-        kill_theming(layout)
-
-        self.webview = QtWidgets.QTextEdit(self)
-        self.webview.setReadOnly(True)
-        layout.addWidget(self.webview)
-        layout.setStretchFactor(self.webview, 1)
-
+        self.textview = QtWidgets.QTextEdit(self)
+        self.textview.setReadOnly(True)
         self.info_panel = InfoPanel(self)
-        layout.addWidget(self.info_panel, 0)
+        self.setLayout(vbox(Stretch(self.textview), self.info_panel))
 
     def update_settings(self, settings: Dict) -> None:
         self.formatconverters = settings['formatting converters']
@@ -82,10 +72,10 @@ class ViewerFrame(QtWidgets.QFrame):
         self.info_panel.setHidden(self.fullscreen)
 
     def zoom_in(self) -> None:
-        self.webview.zoomIn()
+        self.textview.zoomIn()
 
     def zoom_out(self) -> None:
-        self.webview.zoomOut()
+        self.textview.zoomOut()
 
     def zoom_reset(self) -> None:
         pass
@@ -104,14 +94,14 @@ class ViewerFrame(QtWidgets.QFrame):
         self.set_html()
 
     def update_css(self) -> None:
-        pos = self.webview.verticalScrollBar().value()
+        pos = self.textview.verticalScrollBar().value()
         self.set_html()
-        self.webview.verticalScrollBar().setValue(pos)
+        self.textview.verticalScrollBar().setValue(pos)
 
     def set_html(self) -> None:
         html = self.template.format(title=self.data.title, body=self.rawtext,
                                     css=self.css)
-        self.webview.setHtml(html)
+        self.textview.setHtml(html)
 
 
 def format_rawtext(text: str,

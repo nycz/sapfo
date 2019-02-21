@@ -30,8 +30,18 @@ class GridPosition:
         return ((row, row_span))
 
 
-Item = Union[QWidget, QLayout]
+_Item = Union[QWidget, QLayout]
+_BoxItem = Union[_Item, 'Stretch']
 Layout = Union[QBoxLayout, QGridLayout]
+
+
+class Stretch:
+    value = 1
+
+    def __init__(self, payload: Optional[_Item] = None,
+                 value: int = 1) -> None:
+        self.payload = payload
+        self.value = value
 
 
 # LAYOUTS
@@ -40,7 +50,7 @@ StretchMap = Mapping[int, int]
 
 PosOrRange = Union[int, Tuple[int, int]]
 
-GridChildMap = Mapping[Tuple[PosOrRange, PosOrRange], Item]
+GridChildMap = Mapping[Tuple[PosOrRange, PosOrRange], _Item]
 
 
 def fix_layout(layout: QLayout) -> None:
@@ -59,15 +69,9 @@ def _parse_span(val: PosOrRange) -> Tuple[int, int]:
 def _add_item(item: Union[QLayout, QWidget], layout: Union[Layout, FlowLayout],
               *args: Any) -> None:
     if isinstance(item, QLayout):
-        if isinstance(layout, QGridLayout):
-            layout.addLayout(item, *args)
-        else:
-            layout.addLayout(item)
+        layout.addLayout(item, *args)
     else:
-        if isinstance(layout, QGridLayout):
-            layout.addWidget(item, *args)
-        else:
-            layout.addWidget(item)
+        layout.addWidget(item, *args)
 
 
 def grid(child_map: GridChildMap,
@@ -91,30 +95,36 @@ def grid(child_map: GridChildMap,
 BoxT = TypeVar('BoxT', QHBoxLayout, QVBoxLayout)
 
 
-def init_box_layout(children: Iterable[Item],
+def init_box_layout(children: Iterable[_BoxItem],
                     layout: BoxT) -> BoxT:
     fix_layout(layout)
     for item in children:
-        _add_item(item, layout)
+        if item == Stretch or isinstance(item, Stretch):
+            if isinstance(item, Stretch) and item.payload is not None:
+                _add_item(item.payload, layout, item.value)
+            else:
+                layout.addStretch(item.value)
+        else:
+            _add_item(item, layout)
     return layout
 
 
-def hbox(*children: Item) -> QtWidgets.QHBoxLayout:
+def hbox(*children: _BoxItem) -> QtWidgets.QHBoxLayout:
     return init_box_layout(children, QHBoxLayout())
 
 
-def vbox(*children: Item) -> QtWidgets.QVBoxLayout:
+def vbox(*children: _BoxItem) -> QtWidgets.QVBoxLayout:
     return init_box_layout(children, QVBoxLayout())
 
 
-def hflow(*children: Item) -> FlowLayout:
+def hflow(*children: _Item) -> FlowLayout:
     layout = FlowLayout()
     fix_layout(layout)
     for item in children:
         _add_item(item, layout)
     return layout
 
-# def vflow(*children: Iterable[Item]) -> VFlowLayout:
+# def vflow(*children: Iterable[_Item]) -> VFlowLayout:
 #     pass
 
 

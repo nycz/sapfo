@@ -9,11 +9,12 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import Qt
 
 from libsyntyche.common import make_sure_config_exists
-from sapfo.indexframe import IndexFrame
-from sapfo.viewerframe import ViewerFrame
-from sapfo.backstorywindow import BackstoryWindow
-from sapfo.taggedlist import Entry
-from sapfo.common import LOCAL_DIR
+
+from .backstorywindow import BackstoryWindow
+from .common import LOCAL_DIR
+from .indexframe import IndexFrame
+from .taggedlist import Entry
+from .viewerframe import ViewerFrame
 
 
 class MainWindow(QtWidgets.QWidget):

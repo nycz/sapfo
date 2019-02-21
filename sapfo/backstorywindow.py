@@ -10,12 +10,12 @@ from typing import (overload, Any, Callable, Dict, Iterable, List,
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5 import QtGui, QtWidgets
 
-from libsyntyche.common import kill_theming
 from libsyntyche.oldterminal import (GenericTerminalInputBox,
                                      GenericTerminalOutputBox, GenericTerminal)
 from libsyntyche.texteditor import SearchAndReplaceable
 
-from sapfo.taggedlist import Entry
+from .declarative import hbox, vbox, Stretch
+from .taggedlist import Entry
 
 
 class Page(NamedTuple):
@@ -338,29 +338,15 @@ class BackstoryWindow(QtWidgets.QFrame):
                       revisionnotice: QtWidgets.QLabel,
                       textarea: QtWidgets.QTextEdit,
                       terminal: 'BackstoryTerminal') -> None:
-        layout = QtWidgets.QVBoxLayout(self)
-        kill_theming(layout)
-        # Title label
         titlelabel.setAlignment(Qt.AlignCenter)
-        layout.addWidget(titlelabel)
-        # Tab bar and tab counter
-        tab_layout = QtWidgets.QHBoxLayout()
         tabbar.setDrawBase(False)
-        tab_layout.addWidget(tabbar, stretch=1)
-        tab_layout.addWidget(tabcounter, stretch=0)
-        layout.addLayout(tab_layout)
-        # Revision notice label
         revisionnotice.setAlignment(Qt.AlignCenter)
-        layout.addWidget(revisionnotice)
         revisionnotice.hide()
-        # Textarea
-        textarea_layout = QtWidgets.QHBoxLayout()
-        textarea_layout.addStretch()
-        textarea_layout.addWidget(textarea, stretch=1)
-        textarea_layout.addStretch()
-        layout.addLayout(textarea_layout)
-        # Terminal
-        layout.addWidget(self.terminal)
+        self.setLayout(vbox(titlelabel,
+                            hbox(Stretch(tabbar), tabcounter),
+                            revisionnotice,
+                            hbox(Stretch, Stretch(textarea), Stretch),
+                            self.terminal))
 
     def cmd_quit(self, arg: str) -> None:
         self.forcequitflag = arg == '!'
