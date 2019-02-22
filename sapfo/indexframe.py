@@ -13,13 +13,12 @@ from typing import (cast, Any, Callable, Dict, Iterable, List, Match,
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt
 
-from libsyntyche.oldterminal import (GenericTerminalInputBox,
-                                     GenericTerminalOutputBox, GenericTerminal)
-
 from . import taggedlist
 from .common import CACHE_DIR, ActiveFilters
 from .declarative import fix_layout, grid, hflow, label, vbox
 from .taggedlist import Entries, Entry
+from .terminal import (GenericTerminalInputBox,
+                       GenericTerminalOutputBox, GenericTerminal)
 
 
 SortBy = Tuple[str, bool]

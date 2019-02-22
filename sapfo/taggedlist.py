@@ -4,7 +4,7 @@ import re
 from typing import (Any, Callable, Dict, FrozenSet, Iterable, NamedTuple,
                     Optional, Tuple)
 
-from libsyntyche.oldtagsystem import compile_tag_filter, match_tag_filter
+from .tagsystem import compile_tag_filter, match_tag_filter
 
 
 class Entry(NamedTuple):

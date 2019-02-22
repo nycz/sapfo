@@ -10,12 +10,12 @@ from typing import (overload, Any, Callable, Dict, Iterable, List,
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5 import QtGui, QtWidgets
 
-from libsyntyche.oldterminal import (GenericTerminalInputBox,
-                                     GenericTerminalOutputBox, GenericTerminal)
 from libsyntyche.texteditor import SearchAndReplaceable
 
 from .declarative import hbox, vbox, Stretch
 from .taggedlist import Entry
+from .terminal import (GenericTerminalInputBox,
+                       GenericTerminalOutputBox, GenericTerminal)
 
 
 class Page(NamedTuple):

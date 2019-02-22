@@ -2,13 +2,12 @@
 import copy
 import json
 from pathlib import Path
+import shutil
 import sys
 from typing import Any, Dict, Iterable, Optional, Tuple
 
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import Qt
-
-from libsyntyche.common import make_sure_config_exists
 
 from .backstorywindow import BackstoryWindow
 from .common import LOCAL_DIR
@@ -165,8 +164,12 @@ def read_config(configpath: Path, cssnames: Iterable[str]
             data = ''
         finally:
             styles[name] = data
-    make_sure_config_exists(str(configfile),
-                            str(LOCAL_DIR / 'data' / 'defaultconfig.json'))
+    if not configfile.exists():
+        path = configfile.parent
+        if not path.exists():
+            path.mkdir(mode=0o755, parents=True, exist_ok=True)
+        shutil.copyfile(LOCAL_DIR / 'data' / 'defaultconfig.json', configfile)
+        print(f'No config found, copied the default to {configfile!r}.')
     return json.loads(configfile.read_text(encoding='utf-8')), styles
 
 
