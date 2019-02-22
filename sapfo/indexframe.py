@@ -615,7 +615,11 @@ class TagInfoList(QtWidgets.QScrollArea):
                   name_filter) -> None:
         self.clear()
         max_count = max(t[1] for t in tags)
-        tags.sort(key=itemgetter(0 if sort_alphabetically else 1))
+        if sort_alphabetically:
+            tags.sort(key=itemgetter(0))
+        else:
+            tags.sort(key=itemgetter(0), reverse=True)
+            tags.sort(key=itemgetter(1))
         # If alphabetically, we want to default to ascending,
         # but if we're sorting by usage count, we want it descending.
         if reverse or (not sort_alphabetically and not reverse):
