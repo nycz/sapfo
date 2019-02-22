@@ -13,7 +13,9 @@ from .backstorywindow import BackstoryWindow
 from .common import LOCAL_DIR
 from .indexview import IndexView
 from .taggedlist import Entry
-from .storyview import StoryView
+
+
+CSS_FILE = 'qt.css'
 
 
 class MainWindow(QtWidgets.QWidget):
@@ -37,10 +39,6 @@ class MainWindow(QtWidgets.QWidget):
                                     self.configdir / 'terminal_history')
         self.stack.addWidget(self.index_view)
 
-        # Story viewer
-        self.story_view = StoryView(self)
-        self.stack.addWidget(self.story_view)
-
         # Backstory editor
         self.backstory_termhistory_path = self.configdir / 'backstory_history'
         if not self.backstory_termhistory_path.exists():
@@ -48,11 +46,8 @@ class MainWindow(QtWidgets.QWidget):
         self.backstorywindows: Dict[Path, BackstoryWindow] = {}
 
         # Load settings
-        self.css_parts = ['qt', 'viewer_page']
-        self.css_overrides = {x: '' for x in self.css_parts}
-        self.css = {x: (LOCAL_DIR / 'data' / 'templates' / f'{x}.css'
-                        ).read_text(encoding='utf-8')
-                    for x in self.css_parts}
+        self.css = (LOCAL_DIR / 'data' / CSS_FILE).read_text(encoding='utf-8')
+        self.css_override = ''
         self.settings: Dict[str, Any] = {}
         self.reload_settings()
 
@@ -76,9 +71,7 @@ class MainWindow(QtWidgets.QWidget):
 
     def connect_signals(self) -> None:
         connects = (
-            (self.story_view.show_index,  self.show_index),
             (self.index_view.quit,        self.close),
-            (self.index_view.view_entry,  self.view_entry),
             (self.index_view.view_meta,   self.open_backstory_editor),
         )
         for signal, slot in connects:
@@ -87,10 +80,6 @@ class MainWindow(QtWidgets.QWidget):
     def show_index(self) -> None:
         self.stack.setCurrentWidget(self.index_view)
         self.index_view.terminal.setFocus()
-
-    def view_entry(self, entry: Entry) -> None:
-        self.story_view.view_page(entry)
-        self.stack.setCurrentWidget(self.story_view)
 
     def open_backstory_editor(self, entry: Entry) -> None:
         if entry.file in self.backstorywindows:
@@ -109,7 +98,7 @@ class MainWindow(QtWidgets.QWidget):
         del self.backstorywindows[file]
 
     def reload_settings(self) -> None:
-        settings, css_overrides = read_config(self.configdir, self.css_parts)
+        settings, css_override = read_config(self.configdir)
         # TODO: FIX THIS UGLY ASS SHIT
         # Something somewhere fucks up and changes the settings dict,
         # therefor the deepcopy(). Fix pls.
@@ -117,22 +106,14 @@ class MainWindow(QtWidgets.QWidget):
             self.setWindowTitle(settings['title'] or 'Sapfo')
             self.settings = copy.deepcopy(settings)
             self.index_view.update_settings(settings)
-            self.story_view.update_settings(settings)
             for bsw in self.backstorywindows.values():
                 bsw.update_settings(settings)
-        if self.css_overrides != css_overrides:
-            self.update_style(css_overrides)
-
-    def update_style(self, css_overrides: Dict[str, str]) -> None:
-        css = self.css['qt'] + '\n' + css_overrides['qt']
-        self.setStyleSheet(css)
-        for bsw in self.backstorywindows.values():
-            bsw.setStyleSheet(css)
-        self.story_view.css = '\n'.join([self.css['viewer_page'],
-                                         css_overrides['viewer_page']])
-        if self.story_view.isEnabled():
-            self.story_view.update_css()
-        self.css_overrides = css_overrides
+        if self.css_override != css_override:
+            self.css_override = css_override
+            css = self.css + self.css_override
+            self.setStyleSheet(css)
+            for bsw in self.backstorywindows.values():
+                bsw.setStyleSheet(css)
 
     # ===== Input overrides ===========================
     def keyPressEvent(self, ev: QtGui.QKeyEvent) -> Any:
@@ -151,25 +132,19 @@ class MainWindow(QtWidgets.QWidget):
     # =================================================
 
 
-def read_config(configpath: Path, cssnames: Iterable[str]
-                ) -> Tuple[Dict[str, Any], Dict[str, str]]:
+def read_config(configpath: Path) -> Tuple[Dict[str, Any], str]:
+    try:
+        style = (configpath / CSS_FILE).read_text(encoding='utf-8')
+    except Exception:
+        style = ''
     configfile = configpath / 'settings.json'
-    styles = {}
-    for name in cssnames:
-        fullpath = configpath / f'{name}.css'
-        try:
-            data = fullpath.read_text(encoding='utf-8')
-        except Exception:
-            data = ''
-        finally:
-            styles[name] = data
     if not configfile.exists():
         path = configfile.parent
         if not path.exists():
             path.mkdir(mode=0o755, parents=True, exist_ok=True)
         shutil.copyfile(LOCAL_DIR / 'data' / 'defaultconfig.json', configfile)
         print(f'No config found, copied the default to {configfile!r}.')
-    return json.loads(configfile.read_text(encoding='utf-8')), styles
+    return json.loads(configfile.read_text(encoding='utf-8')), style
 
 
 def main() -> int:

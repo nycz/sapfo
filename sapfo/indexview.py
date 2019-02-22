@@ -25,9 +25,7 @@ SortBy = Tuple[str, bool]
 
 
 class IndexView(QtWidgets.QWidget):
-    view_entry = pyqtSignal(tuple)
     view_meta = pyqtSignal(tuple)
-    show_popup = pyqtSignal(str, str, str, str)
     quit = pyqtSignal(str)
 
     def __init__(self, parent: QtWidgets.QWidget, dry_run: bool,
@@ -110,7 +108,6 @@ class IndexView(QtWidgets.QWidget):
         connects = (
             (t.filter_,                 self.filter_entries),
             (t.sort,                    self.sort_entries),
-            (t.open_,                   self.open_entry),
             (t.edit,                    self.edit_entry),
             (t.new_entry,               self.new_entry),
             # (t.input_term.scroll_index, self.entry_view.event),
@@ -421,20 +418,6 @@ class IndexView(QtWidgets.QWidget):
                     self.print_('Entry edited')
         else:
             self.error('Invalid edit command')
-
-    def open_entry(self, arg: int) -> None:
-        """
-        Main open entry method, called by the terminal.
-
-        arg should be the index of the entry to be viewed.
-        """
-        if not isinstance(arg, int):
-            raise AssertionError('BAD CODE: the open entry arg '
-                                 'should be an int')
-        if arg not in range(len(self.visible_entries)):
-            self.error('Index out of range')
-            return
-        self.view_entry.emit(self.visible_entries[arg])
 
     def new_entry(self, arg: str) -> None:
         """
@@ -1043,7 +1026,12 @@ class HelpView(QtWidgets.QLabel):
                     'Print short description of this command.')]),
             'x': ('Open entry file in external editor.',
                   [('123', "Open entry 123's file (note: not sapfo's json "
-                           "metadata file) in an external editor.")]),
+                           "metadata file) in an external editor. "
+                           "This is the same as entering 123 without any "
+                           "command at all."),
+                   ('foobar', "If there is only one entry with a name "
+                              "\"foobar\", open that entry in an external "
+                              "editor.")]),
             'm': ('Open backstory (meta) editor',
                   [('123', 'Open the backstory/meta editor for entry 123.')]),
             't': ('Manage tags',
@@ -1102,7 +1090,6 @@ class HelpView(QtWidgets.QLabel):
 class Terminal(GenericTerminal):
     filter_ = pyqtSignal(str)
     sort = pyqtSignal(str)
-    open_ = pyqtSignal(int)
     quit = pyqtSignal(str)
     edit = pyqtSignal(str)
     external_edit = pyqtSignal(str)
@@ -1162,7 +1149,7 @@ class Terminal(GenericTerminal):
 
     def command_parsing_injection(self, arg: str) -> Optional[bool]:
         if arg.isdigit():
-            self.open_.emit(int(arg))
+            self.external_edit.emit(arg)
             return True
         return None
 
