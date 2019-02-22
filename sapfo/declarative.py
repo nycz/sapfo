@@ -1,4 +1,5 @@
-from typing import Any, Iterable, Mapping, Optional, Tuple, TypeVar, Union
+from typing import (Any, cast, Iterable, Mapping, Optional,
+                    Tuple, Type, TypeVar, Union)
 
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import (QBoxLayout, QGridLayout, QHBoxLayout, QLayout,
@@ -31,7 +32,7 @@ class GridPosition:
 
 
 _Item = Union[QWidget, QLayout]
-_BoxItem = Union[_Item, 'Stretch']
+_BoxItem = Union[_Item, 'Stretch', Type['Stretch']]
 Layout = Union[QBoxLayout, QGridLayout]
 
 
@@ -69,9 +70,15 @@ def _parse_span(val: PosOrRange) -> Tuple[int, int]:
 def _add_item(item: Union[QLayout, QWidget], layout: Union[Layout, FlowLayout],
               *args: Any) -> None:
     if isinstance(item, QLayout):
-        layout.addLayout(item, *args)
+        if isinstance(layout, FlowLayout):
+            layout.addLayout(item)
+        else:
+            layout.addLayout(item, *args)
     else:
-        layout.addWidget(item, *args)
+        if isinstance(layout, FlowLayout):
+            layout.addWidget(item)
+        else:
+            layout.addWidget(item, *args)
 
 
 def grid(child_map: GridChildMap,
@@ -99,13 +106,15 @@ def init_box_layout(children: Iterable[_BoxItem],
                     layout: BoxT) -> BoxT:
     fix_layout(layout)
     for item in children:
-        if item == Stretch or isinstance(item, Stretch):
-            if isinstance(item, Stretch) and item.payload is not None:
+        if item is Stretch:
+            layout.addStretch(cast(Type['Stretch'], item).value)
+        elif isinstance(item, Stretch):
+            if item.payload is not None:
                 _add_item(item.payload, layout, item.value)
             else:
                 layout.addStretch(item.value)
         else:
-            _add_item(item, layout)
+            _add_item(cast(_Item, item), layout)
     return layout
 
 

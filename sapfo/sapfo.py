@@ -173,7 +173,7 @@ def read_config(configpath: Path, cssnames: Iterable[str]
     return json.loads(configfile.read_text(encoding='utf-8')), styles
 
 
-def main() -> None:
+def main() -> int:
     import argparse
     from os.path import isdir
     parser = argparse.ArgumentParser()

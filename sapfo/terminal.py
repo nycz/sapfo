@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, cast, Dict, List, Tuple, Union
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt, QEvent, pyqtBoundSignal, QTimer
 
 from .declarative import vbox
@@ -15,8 +15,9 @@ class GenericTerminalInputBox(QtWidgets.QLineEdit):
     history_down = pyqtSignal()
 
     # This has to be here, keyPressEvent does not capture tab press
-    def event(self, ev) -> bool:
-        if ev.type() == QEvent.KeyPress:
+    def event(self, raw_ev: QEvent) -> bool:
+        if raw_ev.type() == QEvent.KeyPress:
+            ev = cast(QtGui.QKeyEvent, raw_ev)
             if ev.key() == Qt.Key_Backtab \
                     and ev.modifiers() == Qt.ShiftModifier:
                 self.tab_pressed.emit(True)
@@ -24,9 +25,9 @@ class GenericTerminalInputBox(QtWidgets.QLineEdit):
             elif ev.key() == Qt.Key_Tab and ev.modifiers() == Qt.NoModifier:
                 self.tab_pressed.emit(False)
                 return True
-        return super().event(ev)
+        return super().event(raw_ev)
 
-    def keyPressEvent(self, event) -> None:
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
         if event.text() or event.key() in (Qt.Key_Left, Qt.Key_Right):
             QtWidgets.QLineEdit.keyPressEvent(self, event)
             self.reset_ac_suggestions.emit()
@@ -98,7 +99,8 @@ class GenericTerminal(QtWidgets.QWidget):
         self.input_term.reset_ac_suggestions.connect(self.reset_ac_suggestions)
         # Each post in self.commands is (callback/signal, helptext[, options])
         # options is an optional dict with - surprise - options
-        self.commands: Any = {}
+        self.commands: Dict[str, Union[Tuple[Any, str],
+                                       Tuple[Any, str, Dict]]] = {}
 
     def add_to_log(self, msgtype: str, msg: str) -> None:
         self.log.append((datetime.now(), msgtype, msg))
@@ -107,7 +109,7 @@ class GenericTerminal(QtWidgets.QWidget):
         return self.log
 
     def get_formatted_log(self) -> str:
-        def format_log_entry(msgtype: str, msg: str):
+        def format_log_entry(msgtype: str, msg: str) -> str:
             if msgtype == 'cmd':
                 return '   >>  ' + msg
             elif msgtype == 'error':

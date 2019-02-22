@@ -35,27 +35,11 @@ def read_metadata(file: Path) -> Tuple[str, str]:
     return tuple(file.read_text(encoding='utf-8').split('\n', 1))  # type: ignore
 
 
-@overload
-def generate_page_metadata(title: str, created: Optional[datetime] = None,
-                           revision: Optional[int] = None,
-                           revcreated: Optional[datetime] = None,
-                           asdict: bool = True) -> Dict[str, Any]:
-    pass
-
-
-@overload  # noqa: F811
-def generate_page_metadata(title: str, created: Optional[datetime] = None,
-                           revision: Optional[int] = None,
-                           revcreated: Optional[datetime] = None,
-                           asdict: bool = False) -> str:
-    pass
-
-
 def generate_page_metadata(title: str,  # noqa: F811
                            created: Optional[datetime] = None,
                            revision: Optional[int] = None,
-                           revcreated: Optional[datetime] = None,
-                           asdict: bool = False) -> Union[str, Dict[str, Any]]:
+                           revcreated: Optional[datetime] = None
+                           ) -> Dict[str, Any]:
     """
     Return a JSON string with the default metadata for a single backstory page.
     """
@@ -66,10 +50,7 @@ def generate_page_metadata(title: str,  # noqa: F811
         'revision': 0 if revision is None else revision,
         'revision created': now if revcreated is None else revcreated,
     }
-    if asdict:
-        return d
-    else:
-        return json.dumps(d)
+    return d
 
 
 def check_and_fix_page_metadata(jsondata: Dict[str, Any], payload: str,
@@ -79,7 +60,7 @@ def check_and_fix_page_metadata(jsondata: Dict[str, Any], payload: str,
     them if some of them are missing.
     """
     fixed = False
-    defaultvalues = generate_page_metadata(fixtitle(file), asdict=True)
+    defaultvalues = generate_page_metadata(fixtitle(file))
     # Special case if date exists and revision date doesn't:
     if 'revision created' not in jsondata and 'date' in jsondata:
         jsondata['revision created'] = jsondata['date']
@@ -200,7 +181,7 @@ class TabBar(QtWidgets.QTabBar):
                 self.print_(f'Bad/no properties found on page {file.name}, '
                             f'fixing...')
                 title = fixtitle(file)
-                jsondata = generate_page_metadata(title)
+                jsondata = json.dumps(generate_page_metadata(title))
                 file.write_text('\n'.join([jsondata, firstline, data]))
                 yield Page(title, file)
             else:
@@ -470,7 +451,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         if not root.exists():
             root.mkdir()
             for fname, title in self.defaultpages.items():
-                jsondata = generate_page_metadata(title)
+                jsondata = json.dumps(generate_page_metadata(title))
                 (root / fname).write_text(jsondata + '\n', encoding='utf-8')
 
     def current_page_path(self) -> Path:
@@ -490,7 +471,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         except KeyError as e:
             self.terminal.error(e.args[0])
         else:
-            file.write_text(generate_page_metadata(title) + '\n')
+            file.write_text(json.dumps(generate_page_metadata(title)) + '\n')
             # Do this afterwards to have something to load into textarea
             self.set_tab_index(newtab)
 

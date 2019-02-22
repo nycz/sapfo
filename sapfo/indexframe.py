@@ -15,7 +15,7 @@ from PyQt5.QtCore import pyqtSignal, Qt
 
 from . import taggedlist
 from .common import CACHE_DIR, ActiveFilters
-from .declarative import fix_layout, grid, hflow, label, vbox
+from .declarative import fix_layout, grid, hflow, label, Stretch, vbox
 from .taggedlist import Entries, Entry
 from .terminal import (GenericTerminalInputBox,
                        GenericTerminalOutputBox, GenericTerminal)
@@ -44,8 +44,8 @@ class IndexFrame(QtWidgets.QWidget):
         # Terminal
         self.terminal = Terminal(self, self.get_tags)
         # Layout
-        self.setLayout(vbox(self.scroll_area, self.tag_info, self.terminal))
-        self.layout().setStretchFactor(self.scroll_area, 1)
+        self.setLayout(vbox(Stretch(self.scroll_area), self.tag_info,
+                            self.terminal))
         self.connect_signals()
         # Misc shizzle
         self.rootpath = Path()
@@ -562,10 +562,9 @@ class TagInfoList(QtWidgets.QScrollArea):
             self.percentage = percentage
 
         def paintEvent(self, ev: QtGui.QPaintEvent) -> None:
-            left_width = self.percentage * ev.rect().width()
-            right_width = ev.rect().width() - left_width
+            right_offset = (1 - self.percentage) * ev.rect().width()
             painter = QtGui.QPainter(self)
-            painter.fillRect(ev.rect().adjusted(0, 0, -right_width, 0),
+            painter.fillRect(ev.rect().adjusted(0, 0, -int(right_offset), 0),
                              painter.background())
             painter.end()
 
@@ -595,7 +594,8 @@ class TagInfoList(QtWidgets.QScrollArea):
         layout = self.panel.layout()
         while not layout.isEmpty():
             item = layout.takeAt(0)
-            item.widget().deleteLater()
+            if item and item.widget() is not None:
+                item.widget().deleteLater()
 
     def _make_tag(self, tag: str) -> QtWidgets.QWidget:
         tag_label_wrapper = QtWidgets.QWidget(self)
@@ -610,8 +610,8 @@ class TagInfoList(QtWidgets.QScrollArea):
         sub_layout.addStretch()
         return tag_label_wrapper
 
-    def view_tags(self, tags, sort_alphabetically, reverse,
-                  name_filter) -> None:
+    def view_tags(self, tags: List[Tuple[str, int]], sort_alphabetically: bool,
+                  reverse: bool, name_filter: Optional[str]) -> None:
         self.clear()
         max_count = max(t[1] for t in tags)
         if sort_alphabetically:
@@ -625,7 +625,7 @@ class TagInfoList(QtWidgets.QScrollArea):
             tags.reverse()
         if name_filter:
             tags = [t for t in tags if name_filter in t[0]]
-        layout = self.panel.layout()
+        layout = cast(QtWidgets.QGridLayout, self.panel.layout())
         for n, (tag, count) in enumerate(tags):
             # Tag name
             layout.addWidget(self._make_tag(tag), n, 0)
@@ -640,7 +640,7 @@ class TagInfoList(QtWidgets.QScrollArea):
     def view_macros(self) -> None:
         # TODO: better view of this
         self.clear()
-        layout = self.panel.layout()
+        layout = cast(QtWidgets.QGridLayout, self.panel.layout())
         for n, (tag, macro) in enumerate(sorted(self.tag_macros.items())):
             # Tag macro name
             layout.addWidget(self._make_tag('@' + tag), n, 0)
@@ -982,9 +982,10 @@ class TerminalInputBox(GenericTerminalInputBox):
 
 
 class HelpView(QtWidgets.QLabel):
-    def __init__(self, parent, commands) -> None:
+    def __init__(self, parent: QtWidgets.QWidget,
+                 commands: Dict[str, Tuple[Any, str]]) -> None:
         super().__init__(parent)
-        self.command_help = {
+        self.command_help: Dict[str, Tuple[str, List[Tuple[str, str]]]] = {
             'f': ('Filter entries (aka show only entries matching the filter)',
                   [('', 'List the active filters.'),
                    ('-', 'Reset all filters.'),
@@ -1134,7 +1135,8 @@ class Terminal(GenericTerminal):
         self.help_view = HelpView(self, self.commands)
         # Default to show help about itself
         self.help_view.show_help('h')
-        self.layout().insertWidget(0, self.help_view)
+        cast(QtWidgets.QBoxLayout,
+             self.layout()).insertWidget(0, self.help_view)
 
     def cmd_show_extended_help(self, arg: str) -> None:
         if not arg:
