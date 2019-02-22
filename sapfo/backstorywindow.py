@@ -4,8 +4,8 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-from typing import (overload, Any, Callable, Dict, Iterable, List,
-                    NamedTuple, Optional, Tuple, Union)
+from typing import (Any, Callable, Dict, Iterable, List,
+                    NamedTuple, Optional, Tuple)
 
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5 import QtGui, QtWidgets

@@ -48,7 +48,7 @@ class MainWindow(QtWidgets.QWidget):
         self.backstorywindows: Dict[Path, BackstoryWindow] = {}
 
         # Load settings
-        self.css_parts = ['qt', 'index_page', 'viewer_page']
+        self.css_parts = ['qt', 'viewer_page']
         self.css_overrides = {x: '' for x in self.css_parts}
         self.css = {x: (LOCAL_DIR / 'data' / 'templates' / f'{x}.css'
                         ).read_text(encoding='utf-8')
@@ -114,10 +114,7 @@ class MainWindow(QtWidgets.QWidget):
         # Something somewhere fucks up and changes the settings dict,
         # therefor the deepcopy(). Fix pls.
         if settings != self.settings:
-            if settings['title']:
-                self.setWindowTitle(settings['title'])
-            else:
-                self.setWindowTitle('Sapfo')
+            self.setWindowTitle(settings['title'] or 'Sapfo')
             self.settings = copy.deepcopy(settings)
             self.index_view.update_settings(settings)
             self.story_view.update_settings(settings)
@@ -131,11 +128,8 @@ class MainWindow(QtWidgets.QWidget):
         self.setStyleSheet(css)
         for bsw in self.backstorywindows.values():
             bsw.setStyleSheet(css)
-        self.index_view.css = '\n'.join([self.css['index_page'],
-                                         css_overrides['index_page']])
         self.story_view.css = '\n'.join([self.css['viewer_page'],
                                          css_overrides['viewer_page']])
-        self.index_view.refresh_view(keep_position=True)
         if self.story_view.isEnabled():
             self.story_view.update_css()
         self.css_overrides = css_overrides

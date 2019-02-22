@@ -53,8 +53,6 @@ class IndexView(QtWidgets.QWidget):
         self.error = self.terminal.error
         self.set_terminal_text = self.terminal.prompt
         self.dry_run = dry_run
-        self.css: Optional[str] = None  # Is set every time the config is reloaded
-        self.defaulttagcolor: Optional[str] = None  # Is set every time the style is reloaded
         # Hotkeys
         hotkeypairs = (
             ('reload', self.reload_view),
@@ -696,6 +694,7 @@ class EntryWidget(QtWidgets.QFrame):
     def refresh_tag_colors(self) -> None:
         for tag_widget in self.tag_widgets:
             tag = tag_widget.text()
+            # TODO: centralize default tag color
             if tag in self.tag_colors:
                 tag_widget.setStyleSheet(f'background: {self.tag_colors[tag]};')
             else:
