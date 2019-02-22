@@ -1139,10 +1139,10 @@ class Terminal(GenericTerminal):
              self.layout()).insertWidget(0, self.help_view)
 
     def cmd_show_extended_help(self, arg: str) -> None:
-        if not arg:
-            self.help_view.setVisible(not self.help_view.isVisible())
+        if not arg and self.help_view.isVisible():
+            self.help_view.hide()
         else:
-            success = self.help_view.show_help(arg)
+            success = self.help_view.show_help(arg or 'h')
             if success:
                 self.help_view.show()
             else:
