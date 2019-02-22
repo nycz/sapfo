@@ -24,7 +24,7 @@ from .terminal import (GenericTerminalInputBox,
 SortBy = Tuple[str, bool]
 
 
-class IndexFrame(QtWidgets.QWidget):
+class IndexView(QtWidgets.QWidget):
     view_entry = pyqtSignal(tuple)
     view_meta = pyqtSignal(tuple)
     show_popup = pyqtSignal(str, str, str, str)

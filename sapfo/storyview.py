@@ -28,7 +28,7 @@ class InfoPanel(QtWidgets.QFrame):
                            f'<em>({data.wordcount:,})</em>')
 
 
-class ViewerFrame(QtWidgets.QFrame):
+class StoryView(QtWidgets.QFrame):
     set_fullscreen = pyqtSignal(bool)
     show_index = pyqtSignal()
 

@@ -11,9 +11,9 @@ from PyQt5.QtCore import Qt
 
 from .backstorywindow import BackstoryWindow
 from .common import LOCAL_DIR
-from .indexframe import IndexFrame
+from .indexview import IndexView
 from .taggedlist import Entry
-from .viewerframe import ViewerFrame
+from .storyview import StoryView
 
 
 class MainWindow(QtWidgets.QWidget):
@@ -32,14 +32,14 @@ class MainWindow(QtWidgets.QWidget):
         self.stack = QtWidgets.QStackedLayout(self)
 
         # Index viewer
-        self.index_viewer = IndexFrame(self, dry_run,
-                                       self.configdir / 'state',
-                                       self.configdir / 'terminal_history')
-        self.stack.addWidget(self.index_viewer)
+        self.index_view = IndexView(self, dry_run,
+                                    self.configdir / 'state',
+                                    self.configdir / 'terminal_history')
+        self.stack.addWidget(self.index_view)
 
         # Story viewer
-        self.story_viewer = ViewerFrame(self)
-        self.stack.addWidget(self.story_viewer)
+        self.story_view = StoryView(self)
+        self.stack.addWidget(self.story_view)
 
         # Backstory editor
         self.backstory_termhistory_path = self.configdir / 'backstory_history'
@@ -63,8 +63,8 @@ class MainWindow(QtWidgets.QWidget):
     def closeEvent(self, event: QtCore.QEvent) -> None:
         # Don't quit if any backstory windows are open
         if self.backstorywindows:
-            self.index_viewer.terminal.error('One or more backstory windows '
-                                             'are still open!')
+            self.index_view.terminal.error('One or more backstory windows '
+                                           'are still open!')
             event.ignore()
         else:
             event.accept()
@@ -76,21 +76,21 @@ class MainWindow(QtWidgets.QWidget):
 
     def connect_signals(self) -> None:
         connects = (
-            (self.story_viewer.show_index,  self.show_index),
-            (self.index_viewer.quit,        self.close),
-            (self.index_viewer.view_entry,  self.view_entry),
-            (self.index_viewer.view_meta,   self.open_backstory_editor),
+            (self.story_view.show_index,  self.show_index),
+            (self.index_view.quit,        self.close),
+            (self.index_view.view_entry,  self.view_entry),
+            (self.index_view.view_meta,   self.open_backstory_editor),
         )
         for signal, slot in connects:
             signal.connect(slot)
 
     def show_index(self) -> None:
-        self.stack.setCurrentWidget(self.index_viewer)
-        self.index_viewer.terminal.setFocus()
+        self.stack.setCurrentWidget(self.index_view)
+        self.index_view.terminal.setFocus()
 
     def view_entry(self, entry: Entry) -> None:
-        self.story_viewer.view_page(entry)
-        self.stack.setCurrentWidget(self.story_viewer)
+        self.story_view.view_page(entry)
+        self.stack.setCurrentWidget(self.story_view)
 
     def open_backstory_editor(self, entry: Entry) -> None:
         if entry.file in self.backstorywindows:
@@ -119,8 +119,8 @@ class MainWindow(QtWidgets.QWidget):
             else:
                 self.setWindowTitle('Sapfo')
             self.settings = copy.deepcopy(settings)
-            self.index_viewer.update_settings(settings)
-            self.story_viewer.update_settings(settings)
+            self.index_view.update_settings(settings)
+            self.story_view.update_settings(settings)
             for bsw in self.backstorywindows.values():
                 bsw.update_settings(settings)
         if self.css_overrides != css_overrides:
@@ -131,27 +131,27 @@ class MainWindow(QtWidgets.QWidget):
         self.setStyleSheet(css)
         for bsw in self.backstorywindows.values():
             bsw.setStyleSheet(css)
-        self.index_viewer.css = '\n'.join([self.css['index_page'],
-                                           css_overrides['index_page']])
-        self.story_viewer.css = '\n'.join([self.css['viewer_page'],
-                                           css_overrides['viewer_page']])
-        self.index_viewer.refresh_view(keep_position=True)
-        if self.story_viewer.isEnabled():
-            self.story_viewer.update_css()
+        self.index_view.css = '\n'.join([self.css['index_page'],
+                                         css_overrides['index_page']])
+        self.story_view.css = '\n'.join([self.css['viewer_page'],
+                                         css_overrides['viewer_page']])
+        self.index_view.refresh_view(keep_position=True)
+        if self.story_view.isEnabled():
+            self.story_view.update_css()
         self.css_overrides = css_overrides
 
     # ===== Input overrides ===========================
     def keyPressEvent(self, ev: QtGui.QKeyEvent) -> Any:
-        if self.stack.currentWidget() == self.index_viewer \
+        if self.stack.currentWidget() == self.index_view \
                 and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.on_external_key_event(ev, True)
+            self.index_view.on_external_key_event(ev, True)
         else:
             return super().keyPressEvent(ev)
 
     def keyReleaseEvent(self, ev: QtGui.QKeyEvent) -> Any:
-        if self.stack.currentWidget() == self.index_viewer \
+        if self.stack.currentWidget() == self.index_view \
                 and ev.key() in (Qt.Key_PageUp, Qt.Key_PageDown):
-            self.index_viewer.on_external_key_event(ev, False)
+            self.index_view.on_external_key_event(ev, False)
         else:
             return super().keyReleaseEvent(ev)
     # =================================================
