@@ -33,7 +33,8 @@ class MainWindow(QtWidgets.QWidget):
 
         # Index viewer
         self.index_viewer = IndexFrame(self, dry_run,
-                                       self.configdir / 'state')
+                                       self.configdir / 'state',
+                                       self.configdir / 'terminal_history')
         self.stack.addWidget(self.index_viewer)
 
         # Story viewer
@@ -41,6 +42,9 @@ class MainWindow(QtWidgets.QWidget):
         self.stack.addWidget(self.story_viewer)
 
         # Backstory editor
+        self.backstory_termhistory_path = self.configdir / 'backstory_history'
+        if not self.backstory_termhistory_path.exists():
+            self.backstory_termhistory_path.mkdir(mode=0o755, parents=True)
         self.backstorywindows: Dict[Path, BackstoryWindow] = {}
 
         # Load settings
@@ -93,7 +97,8 @@ class MainWindow(QtWidgets.QWidget):
             self.backstorywindows[entry.file].activateWindow()
             self.backstorywindows[entry.file].raise_()
             return
-        bsw = BackstoryWindow(entry, self.settings)
+        bsw = BackstoryWindow(entry, self.settings,
+                              self.backstory_termhistory_path)
         bsw.setStyleSheet(self.styleSheet())
         self.backstorywindows[entry.file] = bsw
         bsw.closed.connect(self.forget_backstory_window)

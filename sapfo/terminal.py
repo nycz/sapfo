@@ -1,5 +1,6 @@
 from datetime import datetime
-from typing import Any, Callable, cast, Dict, List, Tuple, Union
+from pathlib import Path
+from typing import Any, Callable, cast, Dict, List, Optional, Tuple, Union
 
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt, QEvent, pyqtBoundSignal, QTimer
@@ -73,7 +74,8 @@ class GenericTerminal(QtWidgets.QWidget):
     def __init__(self,
                  parent: QtWidgets.QWidget,
                  input_term_constructor: Callable[[], GenericTerminalInputBox],
-                 output_term_constructor: Callable[[], GenericTerminalOutputBox]) -> None:
+                 output_term_constructor: Callable[[], GenericTerminalOutputBox],
+                 history_file: Optional[Path] = None) -> None:
         super().__init__(parent)
         # Input field
         self.input_term = input_term_constructor()
@@ -88,6 +90,10 @@ class GenericTerminal(QtWidgets.QWidget):
         # History
         self.history = ['']
         self.history_index = 0
+        self.history_file = history_file
+        if history_file is not None and history_file.exists():
+            self.history.extend(
+                reversed(history_file.read_text().splitlines()))
         self.input_term.reset_history_travel.connect(self.reset_history_travel)
         self.input_term.history_up.connect(self.history_up)
         self.input_term.history_down.connect(self.history_down)
@@ -197,6 +203,9 @@ class GenericTerminal(QtWidgets.QWidget):
     def add_history(self, text: str) -> None:
         self.history[0] = text
         self.history.insert(0, '')
+        if self.history_file is not None:
+            with self.history_file.open('a') as f:
+                f.write(text + '\n')
 
     def reset_history_travel(self) -> None:
         self.history_index = 0

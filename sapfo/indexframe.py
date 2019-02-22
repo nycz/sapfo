@@ -31,7 +31,7 @@ class IndexFrame(QtWidgets.QWidget):
     quit = pyqtSignal(str)
 
     def __init__(self, parent: QtWidgets.QWidget, dry_run: bool,
-                 statepath: Path) -> None:
+                 statepath: Path, history_file: Path) -> None:
         super().__init__(parent)
         # Main view
         self.scroll_area = QtWidgets.QScrollArea(self)
@@ -42,7 +42,7 @@ class IndexFrame(QtWidgets.QWidget):
         # Tag info list
         self.tag_info = TagInfoList(self)
         # Terminal
-        self.terminal = Terminal(self, self.get_tags)
+        self.terminal = Terminal(self, self.get_tags, history_file)
         # Layout
         self.setLayout(vbox(Stretch(self.scroll_area), self.tag_info,
                             self.terminal))
@@ -1112,8 +1112,10 @@ class Terminal(GenericTerminal):
     new_entry = pyqtSignal(str)
     count_length = pyqtSignal(str)
 
-    def __init__(self, parent: QtWidgets.QWidget, get_tags: Callable) -> None:
-        super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox)
+    def __init__(self, parent: QtWidgets.QWidget, get_tags: Callable,
+                 history_file: Path) -> None:
+        super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox,
+                         history_file=history_file)
         self.get_tags = get_tags
         self.autocomplete_type = ''  # 'path' or 'tag'
         # These two are set in reload_settings() in sapfo.py

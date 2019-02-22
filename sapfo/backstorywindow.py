@@ -242,7 +242,8 @@ class TabBar(QtWidgets.QTabBar):
 class BackstoryWindow(QtWidgets.QFrame):
     closed = pyqtSignal(Path)
 
-    def __init__(self, entry: Entry, settings: Dict) -> None:
+    def __init__(self, entry: Entry, settings: Dict,
+                 history_path: Path) -> None:
         super().__init__()
 
         class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):
@@ -262,7 +263,8 @@ class BackstoryWindow(QtWidgets.QFrame):
         class BackstoryRevisionNotice(QtWidgets.QLabel):
             pass
         self.revisionnotice = BackstoryRevisionNotice(self)
-        self.terminal = BackstoryTerminal(self)
+        history_file = history_path / (entry.file.name + '.history')
+        self.terminal = BackstoryTerminal(self, history_file)
         self.textarea.initialize_search_and_replace(self.terminal.error,
                                                     self.terminal.print_)
         self.tabbar = TabBar(self, self.terminal.print_)
@@ -589,9 +591,9 @@ class BackstoryTerminal(GenericTerminal):
     search_and_replace = pyqtSignal(str)
     print_help = pyqtSignal(str)
 
-    def __init__(self, parent: QtWidgets.QWidget) -> None:
+    def __init__(self, parent: QtWidgets.QWidget, history_file: Path) -> None:
         super().__init__(parent, GenericTerminalInputBox,
-                         GenericTerminalOutputBox)
+                         GenericTerminalOutputBox, history_file=history_file)
         self.commands = {
             'n': (self.new_page, 'New page'),
             'd': (self.delete_page, 'Delete page'),
