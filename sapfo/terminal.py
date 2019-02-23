@@ -1,11 +1,14 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, cast, Dict, List, Optional, Tuple, Union
+from typing import (Any, Callable, cast, Dict, FrozenSet,
+                    List, Optional, Tuple, Union)
 
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt, QEvent, pyqtBoundSignal, QTimer
 
 from .declarative import vbox
+from .settings import Key as CFG
+from .settings import Settings
 
 
 class GenericTerminalInputBox(QtWidgets.QLineEdit):
@@ -75,8 +78,10 @@ class GenericTerminal(QtWidgets.QWidget):
                  parent: QtWidgets.QWidget,
                  input_term_constructor: Callable[[], GenericTerminalInputBox],
                  output_term_constructor: Callable[[], GenericTerminalOutputBox],
+                 settings: Settings,
                  history_file: Optional[Path] = None) -> None:
         super().__init__(parent)
+        self.settings = settings
         # Input field
         self.input_term = input_term_constructor()
         self.input_term.setFocus()
@@ -107,6 +112,16 @@ class GenericTerminal(QtWidgets.QWidget):
         # options is an optional dict with - surprise - options
         self.commands: Dict[str, Union[Tuple[Any, str],
                                        Tuple[Any, str, Dict]]] = {}
+
+    def update_settings(self, updated_keys: FrozenSet[CFG],
+                        force: bool = False) -> None:
+        if CFG.terminal_animation_interval in updated_keys or force:
+            interval = self.settings.terminal_animation_interval
+            if interval < 1:
+                self.error('Too low animation interval')
+            self.output_term.set_timer_interval(max(1, interval))
+        if CFG.animate_terminal_output in updated_keys or force:
+            self.output_term.animate = self.settings.animate_terminal_output
 
     def add_to_log(self, msgtype: str, msg: str) -> None:
         self.log.append((datetime.now(), msgtype, msg))

@@ -1,58 +1,44 @@
 #!/usr/bin/env python3
-import copy
-import json
 from pathlib import Path
-import shutil
 import sys
-from typing import Any, Dict, Iterable, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import Qt
 
 from .backstorywindow import BackstoryWindow
-from .common import LOCAL_DIR
 from .indexview import IndexView
+from .settings import Settings
 from .taggedlist import Entry
 
 
-CSS_FILE = 'qt.css'
-
-
 class MainWindow(QtWidgets.QWidget):
-    def __init__(self, configdir: Optional[Path],
+    def __init__(self, config_dir: Optional[Path],
                  activation_event: QtCore.pyqtSignal, dry_run: bool) -> None:
         super().__init__()
         self.setWindowTitle('Sapfo')
-        if configdir:
-            self.configdir = configdir
-        else:
-            self.configdir = Path.home() / '.config' / 'sapfo'
-        activation_event.connect(self.reload_settings)
+        self.settings = Settings(config_dir)
+        activation_event.connect(self.settings.reload)
         self.force_quit_flag = False
 
         # Create layouts
         self.stack = QtWidgets.QStackedLayout(self)
 
         # Index viewer
-        self.index_view = IndexView(self, dry_run,
-                                    self.configdir / 'state',
-                                    self.configdir / 'terminal_history')
+        self.index_view = IndexView(self, dry_run, self.settings,
+                                    self.settings.config_dir / 'state',
+                                    self.settings.config_dir / 'terminal_history')
         self.stack.addWidget(self.index_view)
 
         # Backstory editor
-        self.backstory_termhistory_path = self.configdir / 'backstory_history'
+        self.backstory_termhistory_path = self.settings.config_dir / 'backstory_history'
         if not self.backstory_termhistory_path.exists():
             self.backstory_termhistory_path.mkdir(mode=0o755, parents=True)
         self.backstorywindows: Dict[Path, BackstoryWindow] = {}
 
-        # Load settings
-        self.css = (LOCAL_DIR / 'data' / CSS_FILE).read_text(encoding='utf-8')
-        self.css_override = ''
-        self.settings: Dict[str, Any] = {}
-        self.reload_settings()
-
         # Misc
         self.connect_signals()
+        self.settings.reload()
         self.show()
 
     def closeEvent(self, event: QtCore.QEvent) -> None:
@@ -73,6 +59,7 @@ class MainWindow(QtWidgets.QWidget):
         connects = (
             (self.index_view.quit,        self.close),
             (self.index_view.view_meta,   self.open_backstory_editor),
+            (self.settings.update_style,  self.setStyleSheet),
         )
         for signal, slot in connects:
             signal.connect(slot)
@@ -91,29 +78,12 @@ class MainWindow(QtWidgets.QWidget):
         bsw.setStyleSheet(self.styleSheet())
         self.backstorywindows[entry.file] = bsw
         bsw.closed.connect(self.forget_backstory_window)
+        self.settings.update_style.connect(bsw.setStyleSheet)
 
     def forget_backstory_window(self, file: Path) -> None:
         bsw = self.backstorywindows[file]
         bsw.deleteLater()
         del self.backstorywindows[file]
-
-    def reload_settings(self) -> None:
-        settings, css_override = read_config(self.configdir)
-        # TODO: FIX THIS UGLY ASS SHIT
-        # Something somewhere fucks up and changes the settings dict,
-        # therefor the deepcopy(). Fix pls.
-        if settings != self.settings:
-            self.setWindowTitle(settings['title'] or 'Sapfo')
-            self.settings = copy.deepcopy(settings)
-            self.index_view.update_settings(settings)
-            for bsw in self.backstorywindows.values():
-                bsw.update_settings(settings)
-        if self.css_override != css_override:
-            self.css_override = css_override
-            css = self.css + self.css_override
-            self.setStyleSheet(css)
-            for bsw in self.backstorywindows.values():
-                bsw.setStyleSheet(css)
 
     # ===== Input overrides ===========================
     def keyPressEvent(self, ev: QtGui.QKeyEvent) -> Any:
@@ -130,21 +100,6 @@ class MainWindow(QtWidgets.QWidget):
         else:
             return super().keyReleaseEvent(ev)
     # =================================================
-
-
-def read_config(configpath: Path) -> Tuple[Dict[str, Any], str]:
-    try:
-        style = (configpath / CSS_FILE).read_text(encoding='utf-8')
-    except Exception:
-        style = ''
-    configfile = configpath / 'settings.json'
-    if not configfile.exists():
-        path = configfile.parent
-        if not path.exists():
-            path.mkdir(mode=0o755, parents=True, exist_ok=True)
-        shutil.copyfile(LOCAL_DIR / 'data' / 'defaultconfig.json', configfile)
-        print(f'No config found, copied the default to {configfile!r}.')
-    return json.loads(configfile.read_text(encoding='utf-8')), style
 
 
 def main() -> int:

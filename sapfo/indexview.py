@@ -1,4 +1,5 @@
 from collections import Counter
+import enum
 from itertools import chain, zip_longest
 import json
 from operator import itemgetter
@@ -7,8 +8,8 @@ from pathlib import Path
 import pickle
 import re
 import subprocess
-from typing import (cast, Any, Callable, Dict, Iterable, List, Match,
-                    Optional, Tuple)
+from typing import (cast, Any, Callable, Dict, FrozenSet, Iterable, List,
+                    Match, Optional, Tuple)
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt
@@ -16,6 +17,8 @@ from PyQt5.QtCore import pyqtSignal, Qt
 from . import taggedlist
 from .common import CACHE_DIR, ActiveFilters
 from .declarative import fix_layout, grid, hflow, label, Stretch, vbox
+from .settings import Key as CFG
+from .settings import Settings
 from .taggedlist import Entries, Entry
 from .terminal import (GenericTerminalInputBox,
                        GenericTerminalOutputBox, GenericTerminal)
@@ -29,18 +32,21 @@ class IndexView(QtWidgets.QWidget):
     quit = pyqtSignal(str)
 
     def __init__(self, parent: QtWidgets.QWidget, dry_run: bool,
-                 statepath: Path, history_file: Path) -> None:
+                 settings: Settings, statepath: Path,
+                 history_file: Path) -> None:
         super().__init__(parent)
+        self.settings = settings
+        self.settings.register(self.update_settings)
         # Main view
         self.scroll_area = QtWidgets.QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
-        self.entry_view = EntryList(self, '({wordcount})', ())
+        self.entry_view = EntryList(self, settings)
         self.scroll_area.setWidget(self.entry_view)
         self.scroll_area.setFocusPolicy(Qt.NoFocus)
         # Tag info list
-        self.tag_info = TagInfoList(self)
+        self.tag_info = TagInfoList(self, settings)
         # Terminal
-        self.terminal = Terminal(self, self.get_tags, history_file)
+        self.terminal = Terminal(self, settings, self.get_tags, history_file)
         # Layout
         self.setLayout(vbox(Stretch(self.scroll_area), self.tag_info,
                             self.terminal))
@@ -52,15 +58,12 @@ class IndexView(QtWidgets.QWidget):
         self.set_terminal_text = self.terminal.prompt
         self.dry_run = dry_run
         # Hotkeys
-        hotkeypairs = (
-            ('reload', self.reload_view),
-            ('zoom in', self.zoom_in),
-            ('zoom out', self.zoom_out),
-            ('reset zoom', self.zoom_reset)
-        )
         self.hotkeys = {
             key: QtWidgets.QShortcut(QtGui.QKeySequence(), self, callback)
-            for key, callback in hotkeypairs
+            for key, callback in [('reload', self.reload_view),
+                                  ('zoom in', self.zoom_in),
+                                  ('zoom out', self.zoom_out),
+                                  ('reset zoom', self.zoom_reset)]
         }
         # State
         self.statepath = statepath
@@ -71,6 +74,14 @@ class IndexView(QtWidgets.QWidget):
         self.active_filters: ActiveFilters = ActiveFilters(**state['active filters'])
         self.sorted_by: SortBy = state['sorted by']
         self.undostack: Tuple[Entries, ...] = ()
+
+    def update_settings(self, updated_keys: FrozenSet[CFG]) -> None:
+        if CFG.path in updated_keys:
+            self.rootpath = Path(self.settings.path).expanduser()
+            self.reload_view()
+        if CFG.hotkeys in updated_keys:
+            for key, shortcut in self.hotkeys.items():
+                shortcut.setKey(QtGui.QKeySequence(self.settings.hotkeys[key]))
 
     def load_state(self) -> Dict[str, Any]:
         try:
@@ -121,19 +132,6 @@ class IndexView(QtWidgets.QWidget):
         )
         for signal, slot in connects:
             signal.connect(slot)
-
-    def update_settings(self, settings: Dict) -> None:
-        self.settings = settings
-        self.rootpath = Path(settings['path']).expanduser().resolve()
-        self.terminal.update_settings(settings)
-        # Update hotkeys
-        for key, shortcut in self.hotkeys.items():
-            shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))
-        self.entry_view.tag_colors = settings['tag colors']
-        self.entry_view.length_template = settings['entry length template']
-        self.tag_info.tag_colors = settings['tag colors']
-        self.tag_info.tag_macros = settings['tag macros']
-        self.reload_view()
 
     def zoom_in(self) -> None:
         pass
@@ -229,7 +227,7 @@ class IndexView(QtWidgets.QWidget):
             self.attributedata if attributedata is None else attributedata,
             self.sorted_by[0] if sort_by is None else sort_by,
             self.sorted_by[1] if reverse is None else reverse,
-            self.settings['tag macros'] if tagmacros is None else tagmacros,
+            self.settings.tag_macros if tagmacros is None else tagmacros,
         )
 
     def filter_entries(self, arg: str) -> None:
@@ -524,12 +522,17 @@ class IndexView(QtWidgets.QWidget):
         elif not int(arg) in range(len(self.visible_entries)):
             self.error('Index out of range')
             return
-        if not self.settings.get('editor', None):
+        if not self.settings.editor:
             self.error('No editor command defined')
             return
-        subprocess.Popen([self.settings['editor'],
+        subprocess.Popen([self.settings.editor,
                           self.visible_entries[int(arg)].file])
-        self.print_(f'Opening entry with {self.settings["editor"]}')
+        self.print_(f'Opening entry with {self.settings.editor}')
+
+
+class TagInfoListMode(enum.Enum):
+    TAGS = enum.auto()
+    MACROS = enum.auto()
 
 
 class TagInfoList(QtWidgets.QScrollArea):
@@ -549,13 +552,14 @@ class TagInfoList(QtWidgets.QScrollArea):
                              painter.background())
             painter.end()
 
-    def __init__(self, parent: QtWidgets.QWidget) -> None:
+    def __init__(self, parent: QtWidgets.QWidget, settings: Settings) -> None:
         super().__init__(parent)
         self.setSizeAdjustPolicy(self.AdjustToContents)
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
                            QtWidgets.QSizePolicy.Expanding)
-        self.tag_colors: Dict[str, str] = {}
-        self.tag_macros: Dict[str, str] = {}
+        self.settings = settings
+        self.settings.register(self.update_settings)
+        self.mode: TagInfoListMode = TagInfoListMode.TAGS
         self.panel = QtWidgets.QWidget(self)
         self.panel.setObjectName('tag_info_list_panel')
         self.panel.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
@@ -571,6 +575,15 @@ class TagInfoList(QtWidgets.QScrollArea):
         self.setWidgetResizable(True)
         self.hide()
 
+    def update_settings(self, updated_keys: FrozenSet[CFG]) -> None:
+        if CFG.tag_macros in updated_keys and self.isVisible() \
+                and self.mode == TagInfoListMode.MACROS:
+            self.view_macros()
+        if CFG.tag_colors in updated_keys and self.isVisible() \
+                and self.mode == TagInfoListMode.TAGS:
+            # TODO: update tag colors?
+            pass
+
     def clear(self) -> None:
         layout = self.panel.layout()
         while not layout.isEmpty():
@@ -581,8 +594,9 @@ class TagInfoList(QtWidgets.QScrollArea):
     def _make_tag(self, tag: str) -> QtWidgets.QWidget:
         tag_label_wrapper = QtWidgets.QWidget(self)
         tag_label = label(tag, 'tag', parent=tag_label_wrapper)
-        if tag in self.tag_colors:
-            tag_label.setStyleSheet(f'background: {self.tag_colors[tag]};')
+        if tag in self.settings.tag_colors:
+            tag_label.setStyleSheet(f'background: '
+                                    f'{self.settings.tag_colors[tag]};')
         else:
             tag_label.setStyleSheet('background: #667;')
         sub_layout = QtWidgets.QHBoxLayout(tag_label_wrapper)
@@ -593,6 +607,7 @@ class TagInfoList(QtWidgets.QScrollArea):
 
     def view_tags(self, tags: List[Tuple[str, int]], sort_alphabetically: bool,
                   reverse: bool, name_filter: Optional[str]) -> None:
+        self.mode = TagInfoListMode.TAGS
         self.clear()
         max_count = max(t[1] for t in tags)
         if sort_alphabetically:
@@ -619,10 +634,12 @@ class TagInfoList(QtWidgets.QScrollArea):
         self.show()
 
     def view_macros(self) -> None:
+        self.mode = TagInfoListMode.MACROS
         # TODO: better view of this
         self.clear()
         layout = cast(QtWidgets.QGridLayout, self.panel.layout())
-        for n, (tag, macro) in enumerate(sorted(self.tag_macros.items())):
+        for n, (tag, macro) in enumerate(sorted(
+                self.settings.tag_macros.items())):
             # Tag macro name
             layout.addWidget(self._make_tag('@' + tag), n, 0)
             # Tag macro expression
@@ -754,39 +771,31 @@ class EntryList(QtWidgets.QFrame):
     separator_height = QtCore.pyqtProperty(int, get_separator_height,
                                            set_separator_height)
 
-    def __init__(self, parent: QtWidgets.QWidget, length_template: str,
-                 entries: Entries) -> None:
+    def __init__(self, parent: QtWidgets.QWidget, settings: Settings) -> None:
         super().__init__(parent)
+        self.settings = settings
+        self.settings.register(self.update_settings)
         self._spacing: int = 0
         self._separator_color: QtGui.QColor = QtGui.QColor('black')
         self._separator_h_margin = 0
         self._separator_height = 1
-        self.length_template = length_template
         self.entry_class = EntryWidget
         self.entry_widgets: List[EntryWidget] = []
-        self._tag_colors: Dict[str, str] = {}
         layout = QtWidgets.QVBoxLayout(self)
         layout.setObjectName('entry_list_layout')
         layout.setContentsMargins(0, 0, 0, 0)
-        self.add_entries(entries)
 
-    @property
-    def tag_colors(self) -> Dict[str, str]:
-        return self._tag_colors
-
-    @tag_colors.setter
-    def tag_colors(self, new_colors: Dict[str, str]) -> None:
-        if self._tag_colors != new_colors:
-            self._tag_colors = new_colors
+    def update_settings(self, updated_keys: FrozenSet[CFG]) -> None:
+        if CFG.tag_colors in updated_keys:
             for entry in self.entry_widgets:
-                entry.tag_colors = new_colors
+                entry.tag_colors = self.settings.tag_colors
 
     def add_entries(self, entries: Entries) -> None:
         self.entry_widgets = []
         for n, entry in enumerate(entries):
-            entry_widget = self.entry_class(self, n, entry,
-                                            self.length_template,
-                                            self.tag_colors)
+            entry_widget = self.entry_class(
+                self, n, entry, self.settings.entry_length_template,
+                self.settings.tag_colors)
             self.entry_widgets.append(entry_widget)
             self.layout().addWidget(entry_widget)
         cast(QtWidgets.QVBoxLayout, self.layout()).addStretch(1)
@@ -801,9 +810,9 @@ class EntryList(QtWidgets.QFrame):
         for n, (widget, entry) in enumerate(zip_longest(self.entry_widgets,
                                                         new_entries)):
             if widget is None:
-                entry_widget = self.entry_class(self, n, entry,
-                                                self.length_template,
-                                                self.tag_colors)
+                entry_widget = self.entry_class(
+                    self, n, entry, self.settings.entry_length_template,
+                    self.settings.tag_colors)
                 self.entry_widgets.append(entry_widget)
                 self.layout().addWidget(entry_widget)
             elif entry is None:
@@ -1098,15 +1107,16 @@ class Terminal(GenericTerminal):
     new_entry = pyqtSignal(str)
     count_length = pyqtSignal(str)
 
-    def __init__(self, parent: QtWidgets.QWidget, get_tags: Callable,
-                 history_file: Path) -> None:
+    def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
+                 get_tags: Callable, history_file: Path) -> None:
         super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox,
-                         history_file=history_file)
+                         settings, history_file=history_file)
+        self.settings = settings
+        self.settings.register(self.update_settings)
         self.get_tags = get_tags
         self.autocomplete_type = ''  # 'path' or 'tag'
         # These two are set in reload_settings() in sapfo.py
         self.rootpath = Path()
-        self.tagmacros: Dict[str, str] = {}
         self.commands = {
             'f': (self.filter_, 'Filter'),
             'e': (self.edit, 'Edit'),
@@ -1126,6 +1136,12 @@ class Terminal(GenericTerminal):
         cast(QtWidgets.QBoxLayout,
              self.layout()).insertWidget(0, self.help_view)
 
+    def update_settings(self, updated_keys: FrozenSet[CFG],
+                        force: bool = False) -> None:
+        super().update_settings(updated_keys, force=force)
+        if CFG.path in updated_keys:
+            self.rootpath = Path(self.settings.path).expanduser()
+
     def cmd_show_extended_help(self, arg: str) -> None:
         if not arg and self.help_view.isVisible():
             self.help_view.hide()
@@ -1136,16 +1152,6 @@ class Terminal(GenericTerminal):
             else:
                 self.error('Unknown command')
                 self.help_view.hide()
-
-    def update_settings(self, settings: Dict) -> None:
-        self.rootpath = Path(settings['path']).expanduser()
-        self.tagmacros = settings['tag macros']
-        # Terminal animation settings
-        self.output_term.animate = settings['animate terminal output']
-        interval = settings['terminal animation interval']
-        if interval < 1:
-            self.error('Too low animation interval')
-        self.output_term.set_timer_interval(max(1, interval))
 
     def command_parsing_injection(self, arg: str) -> Optional[bool]:
         if arg.isdigit():
@@ -1214,7 +1220,7 @@ class Terminal(GenericTerminal):
         if self.autocomplete_type == 'tag':
             tags = next(zip(*sorted(self.get_tags(),
                                     key=itemgetter(1), reverse=True)))
-            macros = ('@' + x for x in sorted(self.tagmacros.keys()))
+            macros = ('@' + x for x in sorted(self.settings.tag_macros.keys()))
             return [x for x in chain(tags, macros) if x.startswith(prefix)]
         elif self.autocomplete_type == 'path':
             root = self.rootpath / (prefix or ' ')
