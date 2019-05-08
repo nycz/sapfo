@@ -1,4 +1,5 @@
 from collections import Counter
+from datetime import datetime
 from itertools import chain, zip_longest
 import json
 from operator import itemgetter
@@ -652,6 +653,9 @@ class EntryWidget(QtWidgets.QFrame):
         self.length_template = length_template
         self.number_widget = label(number, 'number', parent=self)
         self.title_widget = label(entry.title, 'title', parent=self)
+        self.last_modified_widget = label(
+            datetime.fromtimestamp(entry.lastmodified).strftime('%Y-%m-%d'),
+            'last_modified', parent=self)
         self.word_count_widget = label(
             self.length_template.format(
                 wordcount=entry.wordcount,
@@ -675,6 +679,7 @@ class EntryWidget(QtWidgets.QFrame):
             self.tag_widgets.append(widget)
         self.top_row = hflow(self.title_widget,
                              self.word_count_widget,
+                             self.last_modified_widget,
                              *self.tag_widgets)
         self.setLayout(grid({
             (0, 0): self.number_widget,
@@ -709,6 +714,8 @@ class EntryWidget(QtWidgets.QFrame):
                 backstorypages=entry.backstorypages,
                 backstorywordcount=entry.backstorywordcount
             ))
+        self.last_modified_widget.setText(
+            datetime.fromtimestamp(entry.lastmodified).strftime('%Y-%m-%d'))
         self.desc_widget.setText(entry.description or '[no desc]')
         desc_class = ('description' if entry.description
                       else 'empty_description')

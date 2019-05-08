@@ -57,7 +57,7 @@ QLabel {
   font-size: 13px;
 }
 
-#number, #wordcount, #empty_description, #recap {
+#number, #wordcount, #empty_description, #recap, #last_modified {
   font-style: italic;
 }
 
@@ -104,9 +104,18 @@ QLabel {
   font-size: 12px;
 }
 
-#wordcount {
+#wordcount, #last_modified {
   font-size: 14px;
-  margin: 3px 5px;
+  margin-top: 3px;
+  margin-bottom: 3px;
+}
+#wordcount {
+  margin-left: 5px;
+  margin-right: 3px;
+}
+#last_modified {
+  color: #7799a5;
+  margin-right: 6px;
 }
 
 
