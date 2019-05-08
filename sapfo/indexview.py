@@ -668,7 +668,7 @@ class EntryWidget(QtWidgets.QFrame):
             self.recap_widget.hide()
         self.tag_widgets: List[QtWidgets.QLabel] = []
         self._tag_colors = tag_colors
-        for tag in entry.tags:
+        for tag in sorted(entry.tags):
             widget = label(tag, 'tag', parent=self)
             if tag in tag_colors:
                 widget.setStyleSheet(f'background: {tag_colors[tag]};')
@@ -721,17 +721,18 @@ class EntryWidget(QtWidgets.QFrame):
             self.recap_widget.show()
         elif not entry.recap and self.recap_widget.isVisible():
             self.recap_widget.hide()
-        for tag_widget, tag in zip(self.tag_widgets, entry.tags):
+        tags = sorted(entry.tags)
+        for tag_widget, tag in zip(self.tag_widgets, tags):
             tag_widget.setText(tag)
         old_tag_count = len(self.tag_widgets)
-        new_tag_count = len(entry.tags)
+        new_tag_count = len(tags)
         if old_tag_count > new_tag_count:
             for tag_widget in self.tag_widgets[new_tag_count:]:
                 self.top_row.removeWidget(tag_widget)
                 tag_widget.deleteLater()
             self.tag_widgets = self.tag_widgets[:new_tag_count]
         elif old_tag_count < new_tag_count:
-            for tag in list(entry.tags)[old_tag_count:]:
+            for tag in tags[old_tag_count:]:
                 tag_widget = label(tag, 'tag', parent=self)
                 self.tag_widgets.append(tag_widget)
                 self.top_row.addWidget(tag_widget)
