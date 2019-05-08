@@ -18,6 +18,7 @@ class Entry(NamedTuple):
     file: Path
     lastmodified: float
     metadatafile: Path
+    recap: str
 
 
 Entries = Tuple[Entry, ...]

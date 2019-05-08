@@ -62,12 +62,17 @@ class IndexView(QtWidgets.QWidget):
             key: QtWidgets.QShortcut(QtGui.QKeySequence(), self, callback)
             for key, callback in hotkeypairs
         }
+        # Attribute data
+        self.attributedata = entry_attributes()
         # State
         self.statepath = statepath
         state = self.load_state()
         # Entries and stuff
         self.entries: Entries = ()
         self.visible_entries: Entries = ()
+        for k, d in self.attributedata.items():
+            if 'filter' in d and k not in state['active filters']:
+                state['active filters'][k] = None
         self.active_filters: ActiveFilters = ActiveFilters(**state['active filters'])
         self.sorted_by: SortBy = state['sorted by']
         self.undostack: Tuple[Entries, ...] = ()
@@ -78,7 +83,10 @@ class IndexView(QtWidgets.QWidget):
             return state
         except FileNotFoundError:
             return {
-                'active filters': {k: None for k in 'title description tags wordcount backstorywordcount backstorypages'.split()},
+                'active filters': {
+                    k: None for k, d in self.attributedata.items()
+                    if 'filter' in d
+                },
                 'sorted by': ('title', False)
             }
 
@@ -152,7 +160,7 @@ class IndexView(QtWidgets.QWidget):
         Is also the method that generates the entrylist the first time.
         So don't look for a init_everything method/function or anything, kay?
         """
-        self.attributedata, self.entries = index_stories(self.rootpath)
+        self.entries = index_stories(self.rootpath)
         self.visible_entries = self.regenerate_visible_entries()
         self.refresh_view(keep_position=True)
 
@@ -245,6 +253,7 @@ class IndexView(QtWidgets.QWidget):
         """
         filters = {'n': 'title',
                    'd': 'description',
+                   'r': 'recap',
                    't': 'tags',
                    'c': 'wordcount',
                    'b': 'backstorywordcount',
@@ -281,7 +290,7 @@ class IndexView(QtWidgets.QWidget):
                 self.set_terminal_text('f' + arg.strip() + ' ' + payload)
                 return
             # Filter empty entries
-            if re.fullmatch(r'[dt]_\s*', arg):
+            if re.fullmatch(r'[rdt]_\s*', arg):
                 cmd = arg[0]
                 payload = ''
             # Regular filter command
@@ -364,7 +373,7 @@ class IndexView(QtWidgets.QWidget):
             self.print_(f'{len(undoitem)} edits reverted')
             return
         replace_tags = re.fullmatch(r't\*\s*(.*?)\s*,\s*(.*?)\s*', arg)
-        main_data = re.fullmatch(r'[dtn](\d+)(.*)', arg)
+        main_data = re.fullmatch(r'[rdtn](\d+)(.*)', arg)
         # Replace/add/remove a bunch of tags
         if replace_tags:
             oldtag, newtag = replace_tags.groups()
@@ -394,13 +403,17 @@ class IndexView(QtWidgets.QWidget):
                 self.error('Index out of range')
                 return
             payload = main_data.group(2).strip()
-            category = {'d': 'description', 'n': 'title', 't': 'tags'}[arg[0]]
+            category = {'d': 'description', 'n': 'title', 'r': 'recap',
+                        't': 'tags'}[arg[0]]
             # No data specified, so the current is provided instead
             if not payload:
                 data = getattr(self.visible_entries[entry_id], category)
                 new = ', '.join(sorted(data)) if arg[0] == 't' else data
                 self.set_terminal_text('e' + arg.strip() + ' ' + new)
             else:
+                if arg[0] == 'r' and payload == '-':
+                    # Clear recap if the arg is -
+                    payload = ''
                 index = self.visible_entries[entry_id][0]
                 entries = taggedlist.edit_entry(index,
                                                 self.entries,
@@ -649,6 +662,10 @@ class EntryWidget(QtWidgets.QFrame):
                                  ('description' if entry.description
                                   else 'empty_description'),
                                  word_wrap=True, parent=self)
+        self.recap_widget = label(entry.recap, 'recap', word_wrap=True,
+                                  parent=self)
+        if not entry.recap:
+            self.recap_widget.hide()
         self.tag_widgets: List[QtWidgets.QLabel] = []
         self._tag_colors = tag_colors
         for tag in entry.tags:
@@ -662,7 +679,8 @@ class EntryWidget(QtWidgets.QFrame):
         self.setLayout(grid({
             (0, 0): self.number_widget,
             (0, 1): self.top_row,
-            (1, (0, 1)): self.desc_widget
+            (1, (0, 1)): self.desc_widget,
+            (2, (0, 1)): self.recap_widget,
         }, col_stretch={1: 1}))
 
     @property
@@ -698,6 +716,11 @@ class EntryWidget(QtWidgets.QFrame):
             self.desc_widget.setObjectName(desc_class)
             # Force the style to update
             self.desc_widget.style().polish(self.desc_widget)
+        self.recap_widget.setText(entry.recap)
+        if entry.recap and not self.recap_widget.isVisible():
+            self.recap_widget.show()
+        elif not entry.recap and self.recap_widget.isVisible():
+            self.recap_widget.hide()
         for tag_widget, tag in zip(self.tag_widgets, entry.tags):
             tag_widget.setText(tag)
         old_tag_count = len(self.tag_widgets)
@@ -900,20 +923,27 @@ def index_stories(root: Path) -> Tuple[taggedlist.AttributeData, Entries]:
                                      'wordcount': wordcount}
             backstory_wordcount, backstory_pages = get_backstory_data(file, cached_data)
             entry = Entry(
-                i,
-                metadata['title'],
-                frozenset(metadata['tags']),
-                metadata['description'],
-                wordcount,
-                backstory_wordcount,
-                backstory_pages,
-                file,
-                stat.st_mtime,
-                metafile
+                index_=i,
+                title=metadata['title'],
+                tags=frozenset(metadata['tags']),
+                description=metadata['description'],
+                wordcount=wordcount,
+                backstorywordcount=backstory_wordcount,
+                backstorypages=backstory_pages,
+                file=file,
+                lastmodified=stat.st_mtime,
+                metadatafile=metafile,
+                recap=metadata.get('recap', ''),
             )
             entries.append(entry)
             i += 1
     cache_file.write_bytes(pickle.dumps(cached_data))
+    return tuple(entries)
+
+
+def entry_attributes():
+    # Keep this down here only to make it easier to see if we're missing
+    # something in index_stories
     f = taggedlist.FilterFuncs
     p = taggedlist.ParseFuncs
     attributes: Dict[str, Dict[str, Callable]] = {
@@ -924,10 +954,11 @@ def index_stories(root: Path) -> Tuple[taggedlist.AttributeData, Entries]:
         'backstorywordcount': {'filter': f.number},
         'backstorypages': {'filter': f.number},
         'file': {},
-        'lastmodified': {'filter': f.number},
+        'lastmodified': {},
         'metadatafile': {},
+        'recap': {'filter': f.text, 'parser': p.text},
     }
-    return attributes, tuple(entries)
+    return attributes
 
 
 def write_metadata(entries: Entries) -> None:
@@ -935,7 +966,8 @@ def write_metadata(entries: Entries) -> None:
         metadata = {
             'title': entry.title,
             'description': entry.description,
-            'tags': list(entry.tags)
+            'tags': list(entry.tags),
+            'recap': entry.recap,
         }
         entry.metadatafile.write_text(json.dumps(metadata), encoding='utf-8')
 
@@ -972,14 +1004,16 @@ class HelpView(QtWidgets.QLabel):
             'f': ('Filter entries (aka show only entries matching the filter)',
                   [('', 'List the active filters.'),
                    ('-', 'Reset all filters.'),
-                   ('[ndtcbp]-', 'Reset the specified filter.'),
-                   ('[ndtcbp]', 'Don\'t apply any filter, instead set the '
-                                'terminal\'s input text to the specified '
-                                'filter\'s current value.'),
+                   ('[ndrtcbp]-', 'Reset the specified filter.'),
+                   ('[ndrtcbp]', 'Don\'t apply any filter, instead set the '
+                                 'terminal\'s input text to the specified '
+                                 'filter\'s current value.'),
                    ('n', 'Filter on titles (case insensitive).'),
                    ('n_', 'Show only entries with empty titles.'),
                    ('d', 'Filter on descriptions (case insensitive).'),
                    ('d_', 'Show only entries with empty descriptions.'),
+                   ('r', 'Filter on recaps (case insensitive).'),
+                   ('r_', 'Show only entries with empty recaps.'),
                    ('t', 'Filter on tags. Supports AND (comma , ), '
                          'OR (vertical bar | ), NOT prefix (dash - ), and tag '
                          'macros (use @ as prefix) specified in the config. '
@@ -998,11 +1032,12 @@ class HelpView(QtWidgets.QLabel):
                          'the same syntax as the wordcount filter.')]),
             'e': ('Edit entry',
                   [('u', 'Undo last edit.'),
-                   ('[ndt]123', "Don't edit anything, instead set the "
-                                "terminal's input text to the current value "
-                                "of the specified attribute in entry 123."),
-                   ('[nd]123 text', 'Set the value of the specified '
-                                    'attribute in entry 123 to "text".'),
+                   ('[ndrt]123', "Don't edit anything, instead set the "
+                                 "terminal's input text to the current value "
+                                 "of the specified attribute in entry 123."),
+                   ('[ndr]123 text', 'Set the value of the specified '
+                                     'attribute in entry 123 to "text".'),
+                   ('r123-', 'Clear the recap in entry 123.'),
                    ('t123 tag1, tag2',
                     'Set the tags of entry 123 to tag1 and tag2. The list is '
                     'comma separated and all tags are stripped of '

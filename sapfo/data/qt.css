@@ -50,14 +50,14 @@ QLabel {
   border: 0;
 }
 
-#description, #empty_description {
+#description, #empty_description, #recap {
   font-size: 16px;
 }
 #number, #tag {
   font-size: 13px;
 }
 
-#number, #wordcount, #empty_description {
+#number, #wordcount, #empty_description, #recap {
   font-style: italic;
 }
 
@@ -83,6 +83,14 @@ QLabel {
 #description, #empty_description {
   /*margin-left: 15px;*/
   margin-top: 5px;
+}
+
+#recap {
+  color: #ddd;
+  margin-top: 8px;
+  margin-left: 10px;
+  margin-bottom: 5px;
+  margin-right: 5px;
 }
 
 #tag {

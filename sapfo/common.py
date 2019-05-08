@@ -10,6 +10,7 @@ CACHE_DIR = Path.home() / '.cache' / 'sapfo'
 class ActiveFilters(NamedTuple):
     title: Optional[str]
     description: Optional[str]
+    recap: Optional[str]
     tags: Optional[FrozenSet[str]]
     wordcount: Optional[int]
     backstorywordcount: Optional[int]
