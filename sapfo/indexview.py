@@ -817,6 +817,7 @@ class EntryList(QtWidgets.QFrame):
         # print(len(new_entries), len(self.entry_widgets))
         # print(self.entry_widgets)
         cast(QtWidgets.QVBoxLayout, self.layout()).addStretch(1)
+        self.update()
 
 
         # for widget in self.entry_widgets:
