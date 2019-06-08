@@ -38,6 +38,7 @@ class IndexView(QtWidgets.QWidget):
         self.entry_view = EntryList(self, '({wordcount})', ())
         self.scroll_area.setWidget(self.entry_view)
         self.scroll_area.setFocusPolicy(Qt.NoFocus)
+        self.scroll_area.setAlignment(Qt.AlignHCenter)
         # Tag info list
         self.tag_info = TagInfoList(self)
         # Terminal
