@@ -17,5 +17,13 @@ class ActiveFilters(NamedTuple):
     backstorypages: Optional[int]
 
 
+class SortBy(NamedTuple):
+    key: str
+    descending: bool
+
+    def _order_name(self) -> str:
+        return 'descending' if self.descending else 'ascending'
+
+
 def local_path(path: str) -> str:
     return str(LOCAL_DIR / path)

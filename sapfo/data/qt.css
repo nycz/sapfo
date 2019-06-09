@@ -72,6 +72,7 @@ QLabel {
 
 #number {
   margin-right: 5px;
+  font-family: monospace;
 }
 
 #empty_description {

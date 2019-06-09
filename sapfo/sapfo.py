@@ -50,6 +50,7 @@ class MainWindow(QtWidgets.QWidget):
         self.css_override = ''
         self.settings: Dict[str, Any] = {}
         self.reload_settings()
+        self.index_view.reload_view()
 
         # Misc
         self.connect_signals()

@@ -34,69 +34,15 @@ def parse_tags(rawtext: str) -> FrozenSet[str]:
     return frozenset(re.split(r'\s*,\s*', rawtext)) - frozenset([''])
 
 
-def edit_entry(index: int, entries: Entries,
-               attribute: str, rawnewvalue: str,
-               attributedata: AttributeData) -> Entries:
+def edit_entry(entry: Entry, attribute: str, rawnewvalue: str,
+               attributedata: AttributeData) -> Entry:
     """
     Edit a single entry and return the updated tuple of entries.
     """
     if attributedata[attribute]['parser'] is None:
         raise AttributeError('Attribute is read-only')
     newvalue = attributedata[attribute]['parser'](rawnewvalue)
-    entry = entries[index]._replace(**{attribute: newvalue})
-    return entries[:index] + (entry,) + entries[index+1:]
-    # return update_entry(entries, index, attribute, newvalue)
-
-
-def replace_tags(oldtagstr: str, newtagstr: str, entries: Entries,
-                 visible_entries: Entries, attribute: str) -> Entries:
-    """
-    Return a tuple where all instances of one tag is replaced by a new tag or
-    where a tag has been either added to or removed from all visible entries.
-
-    If oldtagstr isn't specified (eg. empty), add the new tag
-    to all visible entries.
-
-    If newtagstr isn't specified, remove the old tag from all visible entries.
-
-    If both are specified, replace the old tag with the new tag, but only in
-    the (visible) entries where old tag exists.
-    """
-    def makeset(x: str) -> FrozenSet[str]:
-        return frozenset([x] if x else [])
-    # Failsafe!
-    if not oldtagstr and not newtagstr:
-        raise AssertionError('No tags specified, nothing to do')
-    visible_entry_ids = next(zip(*visible_entries))
-    oldtag, newtag = makeset(oldtagstr), makeset(newtagstr)
-
-    def replace_tag(entry: Entry) -> Entry:
-        # Only replace in visible entries
-        # and in entries where the old tag exists, if it's specified
-        if entry[0] not in visible_entry_ids \
-                or (oldtagstr and oldtagstr not in getattr(entry, attribute)):
-            return entry
-        tags = (getattr(entry, attribute) - oldtag) | newtag
-        return entry._replace(**{attribute: tags})
-    return tuple(map(replace_tag, entries))
-
-
-def undo(entries: Entries, undoitems: Entries) -> Entries:
-    for item in undoitems:
-        entries = entries[:item.index_] + (item,) + entries[item.index_+1:]
-    return entries
-
-
-def get_diff(oldentries: Entries, newentries: Entries
-             ) -> Tuple[Entries, Entries]:
-    """
-    Return a tuple of pairs (old, new) with entries that has been changed.
-    """
-    diffpairs: Iterable[Tuple[Entry, Entry]] = (
-            (oldentry, newentry)
-            for oldentry, newentry in zip(oldentries, newentries)
-            if newentry != oldentry)
-    return tuple(zip(*diffpairs))
+    return entry._replace(**{attribute: newvalue})
 
 
 def filter_text(attribute: str, payload: str, entries: Entries
@@ -137,39 +83,19 @@ def filter_tags(attribute: str, payload: str, entries: Entries,
                 if match_tag_filter(tag_filter, getattr(entry, attribute)))
 
 
-def filter_entries(entries: Entries, filters: Iterable[Tuple[str, str]],
-                   attributedata: AttributeData,
-                   tagmacros: Dict[str, str]) -> Entries:
-    """
-    Return a tuple with all entries that match the filters.
-
-    filters is an iterable with (attribute, payload) pairs where payload is
-    the string to be used with the attribute's specified filter function.
-    """
-    filtered_entries = entries
+def filter_entry(entry: Entry, filters: Iterable[Tuple[str, str]],
+                 attributedata: AttributeData,
+                 tagmacros: Dict[str, str]) -> bool:
+    entries = [entry]
     for attribute, payload in filters:
         func = attributedata[attribute]['filter']
         if func == filter_tags:
-            filtered_entries = func(attribute, payload, filtered_entries,
-                                    tagmacros)
+            result = func(attribute, payload, entries, tagmacros)
         else:
-            filtered_entries = func(attribute, payload, filtered_entries)
-    return tuple(filtered_entries)
-
-
-def sort_entries(entries: Entries, attribute: str, reverse: bool) -> Entries:
-    return tuple(sorted(entries, key=attrgetter(attribute), reverse=reverse))
-
-
-def generate_visible_entries(entries: Entries,
-                             filters: Iterable[Tuple[str, str]],
-                             attributedata: AttributeData,
-                             sort_by: str,
-                             reverse: bool,
-                             tagmacros: Dict[str, str]) -> Entries:
-    filtered_entries = filter_entries(entries, filters, attributedata,
-                                      tagmacros)
-    return sort_entries(filtered_entries, sort_by, reverse)
+            result = func(attribute, payload, entries)
+        if not list(result):
+            return False
+    return True
 
 
 class ParseFuncs:
