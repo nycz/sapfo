@@ -50,11 +50,11 @@ class MainWindow(QtWidgets.QWidget):
         self.css_override = ''
         self.settings: Dict[str, Any] = {}
         self.reload_settings()
-        self.index_view.reload_view()
 
         # Misc
         self.connect_signals()
         self.show()
+        self.index_view.reload_view()
 
     def closeEvent(self, event: QtCore.QEvent) -> None:
         # Don't quit if any backstory windows are open

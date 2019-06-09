@@ -29,6 +29,30 @@ QWidget {
   /*margin: 40px;*/
 }
 
+QProgressDialog, QProgressDialog * {
+  background-color: #223;
+  font-size: 16px;
+  color: white;
+}
+
+QProgressDialog QPushButton {
+  font-size: 14px;
+  margin-top: 10px;
+  padding: 5px 10px;
+}
+
+QProgressDialog QProgressBar {
+  color: black;
+  background-color: #ccf;
+  font-family: monospace;
+  text-align: center;
+  border: 0;
+}
+
+QProgressDialog QProgressBar::chunk {
+  background-color: #77b;
+}
+
 #entry_list_layout {
   margin: 40px;
 }

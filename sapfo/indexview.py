@@ -41,6 +41,7 @@ class IndexView(QtWidgets.QWidget):
         self.scroll_area.setWidget(self.entry_view)
         self.scroll_area.setFocusPolicy(Qt.NoFocus)
         self.scroll_area.setAlignment(Qt.AlignHCenter)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         # Tag info list
         self.tag_info = TagInfoList(self)
         # Terminal
@@ -55,6 +56,9 @@ class IndexView(QtWidgets.QWidget):
         self.error = self.terminal.error
         self.set_terminal_text = self.terminal.prompt
         self.dry_run = dry_run
+        self.progress = QtWidgets.QProgressDialog(self)
+        self.progress.setModal(True)
+        self.progress.setAutoReset(False)
         # Hotkeys
         hotkeypairs = (
             ('reload', self.reload_view),
@@ -150,7 +154,13 @@ class IndexView(QtWidgets.QWidget):
         Is also the method that generates the entrylist the first time.
         So don't look for a init_everything method/function or anything, kay?
         """
-        self.entry_view.set_entries(index_stories(self.rootpath))
+        self.progress.setLabelText('Loading index...')
+        self.progress.setMaximum(0)
+        self.progress.setMinimumDuration(0)
+        self.progress.setValue(0)
+        raw_entries = index_stories(self.rootpath, self.progress)
+        self.entry_view.set_entries(raw_entries, self.progress)
+        self.progress.reset()
 
     def get_tags(self) -> List[Tuple[str, int]]:
         """

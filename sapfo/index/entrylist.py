@@ -307,22 +307,37 @@ class EntryList(QtWidgets.QFrame):
             for entry in self.entry_widgets:
                 entry.tag_colors = new_colors
 
-    def set_entries(self, new_entries: Entries) -> None:
+    def set_entries(self, new_entries: Entries,
+                    progress: QtWidgets.QProgressDialog) -> None:
         total_count = len(new_entries)
-        self.entry_widgets.clear()
-        while self.layout_.count() > 0:
-            item = self.layout_.takeAt(0)
-            if item is None:
-                break
-            item.widget().deleteLater()
-            del item
+        if self.entry_widgets:
+            progress.setLabelText('Clearing old widgets...')
+            progress.setMaximum(len(self.entry_widgets))
+            progress.setValue(0)
+            self.entry_widgets.clear()
+            n = 0
+            while self.layout_.count() > 0:
+                item = self.layout_.takeAt(0)
+                if item is None:
+                    break
+                item.widget().deleteLater()
+                del item
+                n += 1
+                progress.setValue(1)
+        progress.setLabelText('Positioning widgets...')
+        progress.setValue(0)
+        progress.setMaximum(total_count)
         for n, entry in enumerate(new_entries):
             entry_widget = self.entry_class(self, n, total_count, entry,
                                             self.length_template,
                                             self.tag_colors)
+            entry_widget.hide()
             self.entry_widgets.append(entry_widget)
             self.layout_.addWidget(entry_widget)
+            progress.setValue(n + 1)
+        progress.setLabelText('Sorting...')
         self.sort()
+        progress.setLabelText('Filtering...')
         self.filter_()
 
     def update_spacing(self) -> None:
@@ -369,7 +384,9 @@ def get_backstory_data(file: Path, cached_data: Dict) -> Tuple[int, int]:
     return wordcount, pages
 
 
-def index_stories(root: Path) -> Entries:
+def index_stories(root: Path, progress: QtWidgets.QProgressDialog
+                  ) -> Entries:
+    progress.setLabelText('Loading cache...')
     cache_file = CACHE_DIR / 'index.pickle'
     if cache_file.exists():
         cached_data = pickle.loads(cache_file.read_bytes())
@@ -378,11 +395,18 @@ def index_stories(root: Path) -> Entries:
         cached_data = {}
     entries = []
     i = 0
-    for dirpath, _, filenames in os.walk(root):
+    progress.setLabelText('Indexing files...')
+    hits = list(os.walk(root))
+    progress.setLabelText('Reading file data...')
+    progress.setMaximum(sum(len(fnames) for _, _, fnames in hits))
+    n = 0
+    for dirpath, _, filenames in hits:
         dir_root = Path(dirpath)
         for fname in filenames:
+            progress.setValue(n)
             metafile = dir_root / f'.{fname}.metadata'
             if not metafile.exists():
+                n += 1
                 continue
             metadata = json.loads(metafile.read_text(encoding='utf-8'))
             file = dir_root / fname
@@ -410,6 +434,10 @@ def index_stories(root: Path) -> Entries:
             )
             entries.append(entry)
             i += 1
+            n += 1
+    progress.setMaximum(0)
+    progress.setValue(0)
+    progress.setLabelText('Saving cache...')
     cache_file.write_bytes(pickle.dumps(cached_data))
     return tuple(entries)
 
