@@ -5,6 +5,7 @@ from typing import Any, Callable, cast, Dict, List, Optional, Tuple, Union
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt, QEvent, pyqtBoundSignal, QTimer
 
+from .common import Settings
 from .declarative import vbox
 
 
@@ -72,15 +73,17 @@ class GenericTerminalOutputBox(QtWidgets.QLineEdit):
 
 class GenericTerminal(QtWidgets.QWidget):
     def __init__(self,
-                 parent: QtWidgets.QWidget,
+                 parent: QtWidgets.QWidget, settings: Settings,
                  input_term_constructor: Callable[[], GenericTerminalInputBox],
                  output_term_constructor: Callable[[], GenericTerminalOutputBox],
                  history_file: Optional[Path] = None) -> None:
         super().__init__(parent)
+        self.settings = settings
         # Input field
         self.input_term = input_term_constructor()
         self.input_term.setFocus()
-        self.input_term.returnPressed.connect(self.parse_command)
+        cast(pyqtSignal, self.input_term.returnPressed).connect(
+            self.parse_command)
         # Output field
         self.output_term = output_term_constructor()
         self.output_term.setDisabled(True)
@@ -107,6 +110,21 @@ class GenericTerminal(QtWidgets.QWidget):
         # options is an optional dict with - surprise - options
         self.commands: Dict[str, Union[Tuple[Any, str],
                                        Tuple[Any, str, Dict]]] = {}
+        # Settings
+        settings.animate_terminal_output_changed.connect(
+            self.set_animation)
+        self.set_animation(settings.animate_terminal_output)
+        settings.terminal_animation_interval_changed.connect(
+            self.set_animation_interval)
+        self.set_animation_interval(settings.terminal_animation_interval)
+
+    def set_animation(self, animate: bool) -> None:
+        self.output_term.animate = animate
+
+    def set_animation_interval(self, interval: int) -> None:
+        if interval < 1:
+            self.error('Too low animation interval')
+        self.output_term.set_timer_interval(max(1, interval))
 
     def add_to_log(self, msgtype: str, msg: str) -> None:
         self.log.append((datetime.now(), msgtype, msg))

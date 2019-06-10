@@ -8,6 +8,7 @@ from typing import cast, Any, Callable, Dict, List, Optional, Tuple
 from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt
 
+from ..common import Settings
 from ..terminal import (GenericTerminalInputBox,
                         GenericTerminalOutputBox, GenericTerminal)
 
@@ -172,15 +173,13 @@ class Terminal(GenericTerminal):
     new_entry = pyqtSignal(str)
     count_length = pyqtSignal(str)
 
-    def __init__(self, parent: QtWidgets.QWidget, get_tags: Callable,
-                 history_file: Path) -> None:
-        super().__init__(parent, TerminalInputBox, GenericTerminalOutputBox,
-                         history_file=history_file)
+    def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
+                 get_tags: Callable, history_file: Path) -> None:
+        super().__init__(parent, settings, TerminalInputBox,
+                         GenericTerminalOutputBox, history_file=history_file)
         self.get_tags = get_tags
         self.autocomplete_type = ''  # 'path' or 'tag'
-        # These two are set in reload_settings() in sapfo.py
-        self.rootpath = Path()
-        self.tagmacros: Dict[str, str] = {}
+        self.rootpath = settings.path
         self.commands = {
             'f': (self.filter_, 'Filter'),
             'e': (self.edit, 'Edit'),
@@ -210,16 +209,6 @@ class Terminal(GenericTerminal):
             else:
                 self.error('Unknown command')
                 self.help_view.hide()
-
-    def update_settings(self, settings: Dict) -> None:
-        self.rootpath = Path(settings['path']).expanduser()
-        self.tagmacros = settings['tag macros']
-        # Terminal animation settings
-        self.output_term.animate = settings['animate terminal output']
-        interval = settings['terminal animation interval']
-        if interval < 1:
-            self.error('Too low animation interval')
-        self.output_term.set_timer_interval(max(1, interval))
 
     def command_parsing_injection(self, arg: str) -> Optional[bool]:
         if arg.isdigit():
@@ -288,7 +277,7 @@ class Terminal(GenericTerminal):
         if self.autocomplete_type == 'tag':
             tags = next(zip(*sorted(self.get_tags(),
                                     key=itemgetter(1), reverse=True)))
-            macros = ('@' + x for x in sorted(self.tagmacros.keys()))
+            macros = ('@' + x for x in sorted(self.settings.tag_macros.keys()))
             return [x for x in chain(tags, macros) if x.startswith(prefix)]
         elif self.autocomplete_type == 'path':
             root = self.rootpath / (prefix or ' ')

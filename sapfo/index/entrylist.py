@@ -9,7 +9,7 @@ from typing import (Callable, cast, Dict, FrozenSet, Iterable,
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from ..common import ActiveFilters, CACHE_DIR, SortBy
+from ..common import ActiveFilters, CACHE_DIR, Settings, SortBy
 from ..declarative import grid, hflow, label
 from ..listlayout import ListLayout
 from ..taggedlist import (AttributeData, edit_entry, Entries, Entry,
@@ -24,7 +24,7 @@ class EntryWidget(QtWidgets.QFrame):
         self.entry = entry
         self.number = number
         self.numlen = len(str(total_count - 1))
-        self.length_template = length_template
+        self._length_template = length_template
         self.number_widget = label(f'{number:>{self.numlen}}',
                                    'number', parent=self)
         self.title_widget = label(entry.title, 'title', parent=self)
@@ -32,7 +32,7 @@ class EntryWidget(QtWidgets.QFrame):
             datetime.fromtimestamp(entry.lastmodified).strftime('%Y-%m-%d'),
             'last_modified', parent=self)
         self.word_count_widget = label(
-            self.length_template.format(
+            self._length_template.format(
                 wordcount=entry.wordcount,
                 backstorypages=entry.backstorypages,
                 backstorywordcount=entry.backstorywordcount
@@ -71,6 +71,22 @@ class EntryWidget(QtWidgets.QFrame):
     def tag_colors(self, new_colors: Dict[str, str]) -> None:
         self._tag_colors = new_colors
         self.refresh_tag_colors()
+
+    @property
+    def length_template(self) -> str:
+        return self._length_template
+
+    @length_template.setter
+    def length_template(self, new_length_template: str) -> None:
+        if new_length_template == self._length_template:
+            return
+        self._length_template = new_length_template
+        self.word_count_widget.setText(
+            self.length_template.format(
+                wordcount=self.entry.wordcount,
+                backstorypages=self.entry.backstorypages,
+                backstorywordcount=self.entry.backstorywordcount
+            ))
 
     def refresh_tag_colors(self) -> None:
         for tag_widget in self.tag_widgets:
@@ -170,30 +186,40 @@ class EntryList(QtWidgets.QFrame):
 
     visible_count_changed = QtCore.pyqtSignal(int, int)
 
-    def __init__(self, parent: QtWidgets.QWidget, length_template: str,
+    def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
                  dry_run: bool, sorted_by: SortBy,
                  active_filters: ActiveFilters,
                  attributedata: AttributeData) -> None:
         super().__init__(parent)
         self.dry_run = dry_run
+        self.settings = settings
+        settings.entry_length_template_changed.connect(
+            self.set_length_template)
         # Model values
         self.active_filters = active_filters
         self.attributedata = attributedata
         self.sorted_by = sorted_by
-        self.tag_macros: Dict[str, str] = {}
+        self.tag_colors: Dict[str, str] = settings.tag_colors
+        settings.tag_colors_changed.connect(self.set_tag_colors)
         self.undostack: List[Entries] = []
         # View values
         self._spacing: int = 0
         self._separator_color: QtGui.QColor = QtGui.QColor('black')
         self._separator_h_margin = 0
         self._separator_height = 1
-        self.length_template = length_template
+        self.length_template = settings.entry_length_template
         self.entry_class = EntryWidget
         self.entry_widgets: List[EntryWidget] = []
-        self._tag_colors: Dict[str, str] = {}
         layout = ListLayout(self)
         layout.setObjectName('entry_list_layout')
         self.layout_ = layout
+
+    def set_length_template(self, length_template: str) -> None:
+        if length_template == self.length_template:
+            return
+        self.length_template = length_template
+        for widget in self.entry_widgets:
+            widget.length_template = length_template
 
     @property
     def entries(self) -> Iterable[Entry]:
@@ -224,7 +250,8 @@ class EntryList(QtWidgets.QFrame):
         filter_list = [(k, v) for k, v
                        in self.active_filters._asdict().items()
                        if v is not None]
-        self.layout_.filter_(filter_list, self.attributedata, self.tag_macros)
+        self.layout_.filter_(filter_list, self.attributedata,
+                             self.settings.tag_macros)
         count = self.count()
         visible_count = self.visible_count()
         self.visible_count_changed.emit(visible_count, count)
@@ -303,14 +330,9 @@ class EntryList(QtWidgets.QFrame):
         self.filter_()
         return len(old_entries)
 
-    @property
-    def tag_colors(self) -> Dict[str, str]:
-        return self._tag_colors
-
-    @tag_colors.setter
-    def tag_colors(self, new_colors: Dict[str, str]) -> None:
-        if self._tag_colors != new_colors:
-            self._tag_colors = new_colors
+    def set_tag_colors(self, new_colors: Dict[str, str]) -> None:
+        if self.tag_colors != new_colors:
+            self.tag_colors = new_colors
             for entry in self.entry_widgets:
                 entry.tag_colors = new_colors
 

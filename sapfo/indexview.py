@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtSvg, QtWidgets
 from PyQt5.QtCore import pyqtProperty, pyqtSignal, Qt
 from PyQt5.QtGui import QColor
 
-from .common import ActiveFilters, LOCAL_DIR, SortBy
+from .common import ActiveFilters, LOCAL_DIR, Settings, SortBy
 from .declarative import fix_layout, hbox, label, Stretch, vbox
 from .index.entrylist import EntryList, entry_attributes, index_stories
 from .index.terminal import Terminal
@@ -25,7 +25,7 @@ class IconWidget(QtSvg.QSvgWidget):
         path = LOCAL_DIR / 'data' / f'{name}.svg'
         with open(path, 'rb') as f:
             self.base_data = f.read()
-        self._color: QColor = None
+        self._color: QColor = QColor()
         self.color = QColor(Qt.white)
 
     @property
@@ -67,7 +67,7 @@ class StatusBar(QtWidgets.QFrame):
     def icon_size(self) -> int:
         return self.filter_icon.width()
 
-    @icon_size.setter
+    @icon_size.setter  # type: ignore
     def icon_size(self, size: int) -> None:
         self.filter_icon.setFixedSize(QtCore.QSize(size, size))
 
@@ -75,7 +75,7 @@ class StatusBar(QtWidgets.QFrame):
     def icon_color(self) -> QColor:
         return self.filter_icon.color
 
-    @icon_color.setter
+    @icon_color.setter  # type: ignore
     def icon_color(self, color: QColor) -> None:
         self.filter_icon.color = color
 
@@ -101,8 +101,10 @@ class IndexView(QtWidgets.QWidget):
     quit = pyqtSignal(str)
 
     def __init__(self, parent: QtWidgets.QWidget, dry_run: bool,
-                 statepath: Path, history_file: Path) -> None:
+                 settings: Settings, statepath: Path, history_file: Path
+                 ) -> None:
         super().__init__(parent)
+        self.settings = settings
         # Attribute data
         self.attributedata = entry_attributes()
         # State
@@ -114,7 +116,7 @@ class IndexView(QtWidgets.QWidget):
         # Main view
         self.scroll_area = QtWidgets.QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
-        self.entry_view = EntryList(self, '({wordcount})', dry_run,
+        self.entry_view = EntryList(self, settings, dry_run,
                                     SortBy(*state['sorted by']),
                                     ActiveFilters(**state['active filters']),
                                     self.attributedata)
@@ -129,9 +131,9 @@ class IndexView(QtWidgets.QWidget):
         self.status_bar.set_filter_info(self.entry_view.active_filters)
         self.status_bar.set_sort_info(self.entry_view.sorted_by)
         # Tag info list
-        self.tag_info = TagInfoList(self)
+        self.tag_info = TagInfoList(self, settings)
         # Terminal
-        self.terminal = Terminal(self, self.get_tags, history_file)
+        self.terminal = Terminal(self, settings, self.get_tags, history_file)
         # Layout
         self.setLayout(vbox(Stretch(self.scroll_area),
                             self.status_bar,
@@ -139,7 +141,7 @@ class IndexView(QtWidgets.QWidget):
                             self.terminal))
         self.connect_signals()
         # Misc shizzle
-        self.rootpath = Path()
+        self.rootpath = settings.path
         self.print_ = self.terminal.print_
         self.error = self.terminal.error
         self.set_terminal_text = self.terminal.prompt
@@ -158,6 +160,7 @@ class IndexView(QtWidgets.QWidget):
             key: QtWidgets.QShortcut(QtGui.QKeySequence(), self, callback)
             for key, callback in hotkeypairs
         }
+        self.update_hotkeys(settings.hotkeys)
 
     def load_state(self) -> Dict[str, Any]:
         try:
@@ -195,6 +198,7 @@ class IndexView(QtWidgets.QWidget):
 
     def connect_signals(self) -> None:
         t = self.terminal
+        s = self.settings
         connects = (
             (t.filter_,                 self.filter_entries),
             (t.sort,                    self.sort_entries),
@@ -208,22 +212,15 @@ class IndexView(QtWidgets.QWidget):
             (t.quit,                    self.quit.emit),
             (self.tag_info.print_,      t.print_),
             (self.tag_info.error,       t.error),
+            # Settings
+            (s.hotkeys_changed, self.update_hotkeys),
         )
         for signal, slot in connects:
             signal.connect(slot)
 
-    def update_settings(self, settings: Dict) -> None:
-        self.settings = settings
-        self.rootpath = Path(settings['path']).expanduser().resolve()
-        self.terminal.update_settings(settings)
-        # Update hotkeys
+    def update_hotkeys(self, hotkeys: Dict[str, str]) -> None:
         for key, shortcut in self.hotkeys.items():
-            shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))
-        self.entry_view.tag_colors = settings['tag colors']
-        self.entry_view.tag_macros = settings['tag macros']
-        self.entry_view.length_template = settings['entry length template']
-        self.tag_info.tag_colors = settings['tag colors']
-        self.tag_info.tag_macros = settings['tag macros']
+            shortcut.setKey(QtGui.QKeySequence(hotkeys[key]))
 
     def zoom_in(self) -> None:
         pass
@@ -552,12 +549,12 @@ class IndexView(QtWidgets.QWidget):
         elif not int(arg) in range(self.entry_view.visible_count()):
             self.error('Index out of range')
             return
-        if not self.settings.get('editor', None):
+        if not self.settings.editor:
             self.error('No editor command defined')
             return
-        subprocess.Popen([self.settings['editor'],
+        subprocess.Popen([self.settings.editor,
                           self.entry_view.visible_entry(int(arg)).file])
-        self.print_(f'Opening entry with {self.settings["editor"]}')
+        self.print_(f'Opening entry with {self.settings.editor}')
 
 
 class TagInfoList(QtWidgets.QScrollArea):
@@ -577,13 +574,15 @@ class TagInfoList(QtWidgets.QScrollArea):
                              painter.background())
             painter.end()
 
-    def __init__(self, parent: QtWidgets.QWidget) -> None:
+    def __init__(self, parent: QtWidgets.QWidget, settings: Settings) -> None:
         super().__init__(parent)
         self.setSizeAdjustPolicy(self.AdjustToContents)
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
                            QtWidgets.QSizePolicy.Expanding)
-        self.tag_colors: Dict[str, str] = {}
-        self.tag_macros: Dict[str, str] = {}
+        self.tag_colors: Dict[str, str] = settings.tag_colors
+        settings.tag_colors_changed.connect(self.set_tag_colors)
+        self.tag_macros: Dict[str, str] = settings.tag_macros
+        settings.tag_macros_changed.connect(self.set_tag_macros)
         self.panel = QtWidgets.QWidget(self)
         self.panel.setObjectName('tag_info_list_panel')
         self.panel.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
@@ -605,6 +604,12 @@ class TagInfoList(QtWidgets.QScrollArea):
             item = layout.takeAt(0)
             if item and item.widget() is not None:
                 item.widget().deleteLater()
+
+    def set_tag_colors(self, tag_colors: Dict[str, str]) -> None:
+        self.tag_colors = tag_colors
+
+    def set_tag_macros(self, tag_macros: Dict[str, str]) -> None:
+        self.tag_macros = tag_macros
 
     def _make_tag(self, tag: str) -> QtWidgets.QWidget:
         tag_label_wrapper = QtWidgets.QWidget(self)

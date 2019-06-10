@@ -1,32 +1,31 @@
 #!/usr/bin/env python3
-import copy
-import json
 from pathlib import Path
-import shutil
 import sys
-from typing import Any, Dict, Iterable, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import Qt
 
 from .backstorywindow import BackstoryWindow
-from .common import LOCAL_DIR
+from .common import CSS_FILE, LOCAL_DIR, read_css, Settings
 from .indexview import IndexView
 from .taggedlist import Entry
-
-
-CSS_FILE = 'qt.css'
 
 
 class MainWindow(QtWidgets.QWidget):
     def __init__(self, configdir: Optional[Path],
                  activation_event: QtCore.pyqtSignal, dry_run: bool) -> None:
         super().__init__()
-        self.setWindowTitle('Sapfo')
         if configdir:
             self.configdir = configdir
         else:
             self.configdir = Path.home() / '.config' / 'sapfo'
+        # Load settings
+        self.css = (LOCAL_DIR / 'data' / CSS_FILE).read_text(encoding='utf-8')
+        self.css_override = read_css(self.configdir)
+        self.setStyleSheet(self.css + '\n' + self.css_override)
+        self.settings = Settings.load(self.configdir)
+        self.setWindowTitle(self.settings.title)
         activation_event.connect(self.reload_settings)
         self.force_quit_flag = False
 
@@ -35,6 +34,7 @@ class MainWindow(QtWidgets.QWidget):
 
         # Index viewer
         self.index_view = IndexView(self, dry_run,
+                                    self.settings,
                                     self.configdir / 'state',
                                     self.configdir / 'terminal_history')
         self.stack.addWidget(self.index_view)
@@ -44,12 +44,6 @@ class MainWindow(QtWidgets.QWidget):
         if not self.backstory_termhistory_path.exists():
             self.backstory_termhistory_path.mkdir(mode=0o755, parents=True)
         self.backstorywindows: Dict[Path, BackstoryWindow] = {}
-
-        # Load settings
-        self.css = (LOCAL_DIR / 'data' / CSS_FILE).read_text(encoding='utf-8')
-        self.css_override = ''
-        self.settings: Dict[str, Any] = {}
-        self.reload_settings()
 
         # Misc
         self.connect_signals()
@@ -74,6 +68,7 @@ class MainWindow(QtWidgets.QWidget):
         connects = (
             (self.index_view.quit,        self.close),
             (self.index_view.view_meta,   self.open_backstory_editor),
+            (self.settings.title_changed, self.setWindowTitle),
         )
         for signal, slot in connects:
             signal.connect(slot)
@@ -99,16 +94,8 @@ class MainWindow(QtWidgets.QWidget):
         del self.backstorywindows[file]
 
     def reload_settings(self) -> None:
-        settings, css_override = read_config(self.configdir)
-        # TODO: FIX THIS UGLY ASS SHIT
-        # Something somewhere fucks up and changes the settings dict,
-        # therefor the deepcopy(). Fix pls.
-        if settings != self.settings:
-            self.setWindowTitle(settings['title'] or 'Sapfo')
-            self.settings = copy.deepcopy(settings)
-            self.index_view.update_settings(settings)
-            for bsw in self.backstorywindows.values():
-                bsw.update_settings(settings)
+        css_override = read_css(self.configdir)
+        self.settings.reload(self.configdir)
         if self.css_override != css_override:
             self.css_override = css_override
             css = self.css + self.css_override
@@ -131,21 +118,6 @@ class MainWindow(QtWidgets.QWidget):
         else:
             return super().keyReleaseEvent(ev)
     # =================================================
-
-
-def read_config(configpath: Path) -> Tuple[Dict[str, Any], str]:
-    try:
-        style = (configpath / CSS_FILE).read_text(encoding='utf-8')
-    except Exception:
-        style = ''
-    configfile = configpath / 'settings.json'
-    if not configfile.exists():
-        path = configfile.parent
-        if not path.exists():
-            path.mkdir(mode=0o755, parents=True, exist_ok=True)
-        shutil.copyfile(LOCAL_DIR / 'data' / 'defaultconfig.json', configfile)
-        print(f'No config found, copied the default to {configfile!r}.')
-    return json.loads(configfile.read_text(encoding='utf-8')), style
 
 
 def main() -> int:

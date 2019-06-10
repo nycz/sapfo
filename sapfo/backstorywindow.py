@@ -12,6 +12,7 @@ from PyQt5 import QtGui, QtWidgets
 
 from libsyntyche.texteditor import SearchAndReplaceable
 
+from .common import Settings
 from .declarative import hbox, vbox, Stretch
 from .taggedlist import Entry
 from .terminal import (GenericTerminalInputBox,
@@ -242,9 +243,10 @@ class TabBar(QtWidgets.QTabBar):
 class BackstoryWindow(QtWidgets.QFrame):
     closed = pyqtSignal(Path)
 
-    def __init__(self, entry: Entry, settings: Dict,
+    def __init__(self, entry: Entry, settings: Settings,
                  history_path: Path) -> None:
         super().__init__()
+        self.settings = settings
 
         class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):
             pass
@@ -264,7 +266,7 @@ class BackstoryWindow(QtWidgets.QFrame):
             pass
         self.revisionnotice = BackstoryRevisionNotice(self)
         history_file = history_path / (entry.file.name + '.history')
-        self.terminal = BackstoryTerminal(self, history_file)
+        self.terminal = BackstoryTerminal(self, settings, history_file)
         self.textarea.initialize_search_and_replace(self.terminal.error,
                                                     self.terminal.print_)
         self.tabbar = TabBar(self, self.terminal.print_)
@@ -284,8 +286,8 @@ class BackstoryWindow(QtWidgets.QFrame):
             key: QtWidgets.QShortcut(QtGui.QKeySequence(), self, callback)
             for key, callback in hotkeypairs
         }
+        self.update_hotkeys(settings.hotkeys)
         self.ignorewheelevent = False
-        self.update_settings(settings)
         self.entryfile = entry.file
         self.root = entry.file.with_name(entry.file.name + '.metadir')
         self.make_sure_metadir_exists(self.root)
@@ -337,7 +339,9 @@ class BackstoryWindow(QtWidgets.QFrame):
 
     def connect_signals(self) -> None:
         t = self.terminal
+        s = self.settings
         connects = (
+            # Terminal stuff
             (t.quit,                    self.cmd_quit),
             (t.new_page,                self.cmd_new_page),
             (t.delete_page,             self.cmd_delete_current_page),
@@ -348,26 +352,19 @@ class BackstoryWindow(QtWidgets.QFrame):
             (t.revision_control,        self.cmd_revision_control),
             (t.external_edit,           self.cmd_external_edit),
             (t.search_and_replace,      self.textarea.search_and_replace),
+            # Misc
             (self.tabbar.set_tab_index, self.set_tab_index),
+            # Settings
+            (s.backstory_viewer_formats_changed,
+             self.formatter.update_formats),
+            (s.hotkeys_changed, self.update_hotkeys),
         )
         for signal, slot in connects:
             signal.connect(slot)
 
-    def update_settings(self, settings: Dict) -> None:
-        self.formatter.update_formats(settings['backstory viewer formats'])
-        self.formatconverters = settings['formatting converters']
-        self.chapterstrings = settings['chapter strings']
-        self.defaultpages = settings['backstory default pages']
-        self.externaleditor = settings['editor']
-        # Terminal animation settings
-        self.terminal.output_term.animate = settings['animate terminal output']
-        interval = settings['terminal animation interval']
-        if interval < 1:
-            self.terminal.error('Too low animation interval')
-        self.terminal.output_term.set_timer_interval(max(1, interval))
-        # Update hotkeys
+    def update_hotkeys(self, hotkeys: Dict) -> None:
         for key, shortcut in self.hotkeys.items():
-            shortcut.setKey(QtGui.QKeySequence(settings['hotkeys'][key]))
+            shortcut.setKey(QtGui.QKeySequence(hotkeys[key]))
 
     def toggle_terminal(self) -> None:
         if self.textarea.hasFocus():
@@ -452,7 +449,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         """
         if not root.exists():
             root.mkdir()
-            for fname, title in self.defaultpages.items():
+            for fname, title in self.settings.backstory_default_pages.items():
                 jsondata = json.dumps(generate_page_metadata(title))
                 (root / fname).write_text(jsondata + '\n', encoding='utf-8')
 
@@ -571,11 +568,11 @@ class BackstoryWindow(QtWidgets.QFrame):
             self.terminal.error(f'Unknown argument: "{arg}"')
 
     def cmd_external_edit(self, arg: str) -> None:
-        if not self.externaleditor:
+        if not self.settings.editor:
             self.terminal.error('No editor command defined')
             return
-        subprocess.Popen([self.externaleditor, str(self.entryfile)])
-        self.terminal.print_(f'Opening entry with {self.externaleditor}')
+        subprocess.Popen([self.settings.editor, str(self.entryfile)])
+        self.terminal.print_(f'Opening entry with {self.settings.editor}')
 
 
 class BackstoryTerminal(GenericTerminal):
@@ -591,8 +588,9 @@ class BackstoryTerminal(GenericTerminal):
     search_and_replace = pyqtSignal(str)
     print_help = pyqtSignal(str)
 
-    def __init__(self, parent: QtWidgets.QWidget, history_file: Path) -> None:
-        super().__init__(parent, GenericTerminalInputBox,
+    def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
+                 history_file: Path) -> None:
+        super().__init__(parent, settings, GenericTerminalInputBox,
                          GenericTerminalOutputBox, history_file=history_file)
         self.commands = {
             'n': (self.new_page, 'New page'),
