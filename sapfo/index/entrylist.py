@@ -168,6 +168,8 @@ class EntryList(QtWidgets.QFrame):
     separator_height = QtCore.pyqtProperty(int, get_separator_height,
                                            set_separator_height)
 
+    visible_count_changed = QtCore.pyqtSignal(int, int)
+
     def __init__(self, parent: QtWidgets.QWidget, length_template: str,
                  dry_run: bool, sorted_by: SortBy,
                  active_filters: ActiveFilters,
@@ -223,6 +225,9 @@ class EntryList(QtWidgets.QFrame):
                        in self.active_filters._asdict().items()
                        if v is not None]
         self.layout_.filter_(filter_list, self.attributedata, self.tag_macros)
+        count = self.count()
+        visible_count = self.visible_count()
+        self.visible_count_changed.emit(visible_count, count)
 
     def undo(self) -> int:
         if not self.undostack:
@@ -248,6 +253,7 @@ class EntryList(QtWidgets.QFrame):
             widget.update_data(new_entry)
             if not self.dry_run:
                 write_metadata([new_entry])
+            self.filter_()
             return True
         return False
 
@@ -294,6 +300,7 @@ class EntryList(QtWidgets.QFrame):
             self.undostack.append(tuple(old_entries))
         if not self.dry_run:
             write_metadata(tuple(new_entries))
+        self.filter_()
         return len(old_entries)
 
     @property

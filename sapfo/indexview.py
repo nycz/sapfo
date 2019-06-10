@@ -7,13 +7,93 @@ import re
 import subprocess
 from typing import cast, Any, Dict, List, Match, Optional, Tuple
 
-from PyQt5 import QtGui, QtWidgets
-from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5 import QtCore, QtGui, QtSvg, QtWidgets
+from PyQt5.QtCore import pyqtProperty, pyqtSignal, Qt
+from PyQt5.QtGui import QColor
 
-from .common import ActiveFilters, SortBy
-from .declarative import fix_layout, label, Stretch, vbox
+from .common import ActiveFilters, LOCAL_DIR, SortBy
+from .declarative import fix_layout, hbox, label, Stretch, vbox
 from .index.entrylist import EntryList, entry_attributes, index_stories
 from .index.terminal import Terminal
+
+
+class IconWidget(QtSvg.QSvgWidget):
+    def __init__(self, name: str, resolution: int,
+                 parent: QtWidgets.QWidget) -> None:
+        super().__init__(parent)
+        self.setFixedSize(QtCore.QSize(resolution, resolution))
+        path = LOCAL_DIR / 'data' / f'{name}.svg'
+        with open(path, 'rb') as f:
+            self.base_data = f.read()
+        self._color: QColor = None
+        self.color = QColor(Qt.white)
+
+    @property
+    def color(self) -> QColor:
+        return self._color
+
+    @color.setter
+    def color(self, color: QColor) -> None:
+        if self._color == color:
+            return
+        r = color.red()
+        g = color.green()
+        b = color.blue()
+        hex_color = f'#{r:0>2x}{g:0>2x}{b:0>2x}'.encode()
+        base = self.base_data.replace(b'stroke="currentColor"',
+                                      b'stroke="' + hex_color + b'"')
+        self._color = color
+        self.load(base)
+
+
+class StatusBar(QtWidgets.QFrame):
+    def __init__(self, parent: QtWidgets.QWidget) -> None:
+        super().__init__(parent)
+        self.filter_icon = IconWidget('filter', 13, self)
+        self.filter_icon.setObjectName('status_filter_icon')
+        self.sort_label = label('', 'status_sort_label', parent=self)
+        self.filter_label = label('', 'status_filter_label', parent=self)
+        self.count_label = label('', 'status_count_label', parent=self)
+        self.setLayout(hbox(Stretch,
+                            self.sort_label,
+                            label('•', 'status_separator'),
+                            self.filter_icon,
+                            self.filter_label,
+                            label('•', 'status_separator'),
+                            self.count_label,
+                            Stretch))
+
+    @pyqtProperty(int)
+    def icon_size(self) -> int:
+        return self.filter_icon.width()
+
+    @icon_size.setter
+    def icon_size(self, size: int) -> None:
+        self.filter_icon.setFixedSize(QtCore.QSize(size, size))
+
+    @pyqtProperty(QColor)
+    def icon_color(self) -> QColor:
+        return self.filter_icon.color
+
+    @icon_color.setter
+    def icon_color(self, color: QColor) -> None:
+        self.filter_icon.color = color
+
+    def update_counts(self, visible_count: int, count: int) -> None:
+        self.count_label.setText(f'{visible_count}/{count} entries visible')
+
+    def set_filter_info(self, filters: ActiveFilters) -> None:
+        active_filters = [f'{cmd}: {payload}' for cmd, payload
+                          in filters._asdict().items() if payload is not None]
+        if active_filters:
+            text = ' | '.join(active_filters)
+        else:
+            text = '-'
+        self.filter_label.setText(text)
+
+    def set_sort_info(self, sorted_by: SortBy) -> None:
+        self.sort_label.setText(f'sorted by <b>{sorted_by.key}</b> '
+                                f'({sorted_by._order_name()})')
 
 
 class IndexView(QtWidgets.QWidget):
@@ -42,12 +122,20 @@ class IndexView(QtWidgets.QWidget):
         self.scroll_area.setFocusPolicy(Qt.NoFocus)
         self.scroll_area.setAlignment(Qt.AlignHCenter)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        # Status bar
+        self.status_bar = StatusBar(self)
+        self.entry_view.visible_count_changed.connect(
+            self.status_bar.update_counts)
+        self.status_bar.set_filter_info(self.entry_view.active_filters)
+        self.status_bar.set_sort_info(self.entry_view.sorted_by)
         # Tag info list
         self.tag_info = TagInfoList(self)
         # Terminal
         self.terminal = Terminal(self, self.get_tags, history_file)
         # Layout
-        self.setLayout(vbox(Stretch(self.scroll_area), self.tag_info,
+        self.setLayout(vbox(Stretch(self.scroll_area),
+                            self.status_bar,
+                            self.tag_info,
                             self.terminal))
         self.connect_signals()
         # Misc shizzle
@@ -269,6 +357,7 @@ class IndexView(QtWidgets.QWidget):
                 self.error(f'[Tag parsing] {e}')
                 return
             resultstr = 'Filtered: {}/{} entries visible'
+        self.status_bar.set_filter_info(self.entry_view.active_filters)
         self.print_(resultstr.format(self.entry_view.visible_count(),
                                      self.entry_view.count()))
         self.save_state()
@@ -298,6 +387,7 @@ class IndexView(QtWidgets.QWidget):
         reverse = arg.strip().endswith('-')
         self.entry_view.sorted_by = SortBy(acronyms[arg[0]], reverse)
         self.entry_view.sort()
+        self.status_bar.set_filter_info(self.entry_view.active_filters)
         self.save_state()
 
     def edit_entry(self, arg: str) -> None:

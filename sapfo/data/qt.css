@@ -29,6 +29,32 @@ QWidget {
   /*margin: 40px;*/
 }
 
+StatusBar {
+  padding: 5px;
+  border-top: 1px solid #0c1c1c;
+  qproperty-icon_color: #bbb;
+  qproperty-icon_size: 13;
+}
+
+StatusBar, StatusBar * {
+  background-color: #1a2828;
+  color: #bbb;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+#status_filter_icon {
+  margin-right: 20px;
+}
+#status_filter_label {
+  margin-left: 6px;
+}
+
+#status_separator {
+  margin: 0 12px;
+  color: #88aadddd;
+}
+
 QProgressDialog, QProgressDialog * {
   background-color: #223;
   font-size: 16px;
