@@ -1,4 +1,5 @@
 from collections import Counter
+from datetime import datetime
 import json
 from operator import itemgetter
 from pathlib import Path
@@ -13,6 +14,7 @@ from PyQt5.QtGui import QColor
 
 from .common import ActiveFilters, LOCAL_DIR, Settings, SortBy
 from .declarative import fix_layout, hbox, label, Stretch, vbox
+from .terminal import MessageType
 from .index.entrylist import EntryList, entry_attributes, index_stories
 from .index.terminal import Terminal
 
@@ -47,6 +49,8 @@ class IconWidget(QtSvg.QSvgWidget):
 
 
 class StatusBar(QtWidgets.QFrame):
+    moved = pyqtSignal()
+
     def __init__(self, parent: QtWidgets.QWidget) -> None:
         super().__init__(parent)
         self.filter_icon = IconWidget('filter', 13, self)
@@ -62,6 +66,10 @@ class StatusBar(QtWidgets.QFrame):
                             label('•', 'status_separator'),
                             self.count_label,
                             Stretch))
+
+    def moveEvent(self, event: QtGui.QMoveEvent) -> None:
+        super().moveEvent(event)
+        self.moved.emit()
 
     @pyqtProperty(int)
     def icon_size(self) -> int:
@@ -94,6 +102,60 @@ class StatusBar(QtWidgets.QFrame):
     def set_sort_info(self, sorted_by: SortBy) -> None:
         self.sort_label.setText(f'sorted by <b>{sorted_by.key}</b> '
                                 f'({sorted_by._order_name()})')
+
+
+class MessageTrayItem(QtWidgets.QLabel):
+    def __init__(self, text: str, name: str,
+                 parent: QtWidgets.QWidget) -> None:
+        super().__init__(text, parent)
+        self.setObjectName(name)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Maximum,
+                           QtWidgets.QSizePolicy.Preferred)
+        # Fade out animation
+        effect = QtWidgets.QGraphicsOpacityEffect(self)
+        effect.setOpacity(1)
+        self.setGraphicsEffect(effect)
+        a1 = QtCore.QPropertyAnimation(effect, b'opacity')
+        a1.setEasingCurve(QtCore.QEasingCurve.InOutQuint)
+        a1.setDuration(500)
+        a1.setStartValue(1)
+        a1.setEndValue(0)
+        a1.finished.connect(self.deleteLater)
+        self.fade_animation = a1
+        # Move animation
+        a2 = QtCore.QPropertyAnimation(self, b'pos')
+        a2.setEasingCurve(QtCore.QEasingCurve.InQuint)
+        a2.setDuration(300)
+        self.move_animation = a2
+
+    def kill(self) -> None:
+        self.fade_animation.start()
+        self.move_animation.setStartValue(self.pos())
+        self.move_animation.setEndValue(self.pos() - QtCore.QPoint(0, 50))
+        self.move_animation.start()
+
+
+class MessageTray(QtWidgets.QFrame):
+    def __init__(self, parent: QtWidgets.QWidget) -> None:
+        super().__init__(parent)
+        # TODO: put this in settings
+        self.seconds_alive = 5
+        self.setLayout(vbox(Stretch))
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+
+    def add_message(self, timestamp: datetime, msgtype: MessageType,
+                    text: str) -> None:
+        if msgtype == MessageType.INPUT:
+            return
+        classes = {
+            MessageType.ERROR: 'terminal_error',
+            MessageType.PRINT: 'terminal_print',
+        }
+        if msgtype == MessageType.ERROR:
+            text = f'Error: {text}'
+        lbl = MessageTrayItem(text, classes[msgtype], self)
+        self.layout().addWidget(lbl)
+        QtCore.QTimer.singleShot(1000 * self.seconds_alive, lbl.kill)
 
 
 class IndexView(QtWidgets.QWidget):
@@ -161,6 +223,10 @@ class IndexView(QtWidgets.QWidget):
             for key, callback in hotkeypairs
         }
         self.update_hotkeys(settings.hotkeys)
+        # Message tray
+        self.message_tray = MessageTray(self)
+        self.terminal.show_message.connect(self.message_tray.add_message)
+        self.status_bar.moved.connect(self.adjust_tray)
 
     def load_state(self) -> Dict[str, Any]:
         try:
@@ -181,6 +247,15 @@ class IndexView(QtWidgets.QWidget):
             'sorted by': list(self.entry_view.sorted_by)
         }
         self.statepath.write_bytes(pickle.dumps(state))
+
+    def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self.adjust_tray()
+
+    def adjust_tray(self) -> None:
+        rect = self.geometry()
+        rect.setBottom(self.status_bar.geometry().bottom())
+        self.message_tray.setGeometry(rect)
 
     def on_external_key_event(self, ev: QtGui.QKeyEvent, press: bool) -> None:
         target = None

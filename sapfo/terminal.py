@@ -1,4 +1,5 @@
 from datetime import datetime
+import enum
 from pathlib import Path
 from typing import Any, Callable, cast, Dict, List, Optional, Tuple, Union
 
@@ -6,7 +7,13 @@ from PyQt5 import QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt, QEvent, pyqtBoundSignal, QTimer
 
 from .common import Settings
-from .declarative import vbox
+from .declarative import hbox, label, Stretch, vbox
+
+
+class MessageType(enum.Enum):
+    INPUT = enum.auto()
+    ERROR = enum.auto()
+    PRINT = enum.auto()
 
 
 class GenericTerminalInputBox(QtWidgets.QLineEdit):
@@ -71,7 +78,47 @@ class GenericTerminalOutputBox(QtWidgets.QLineEdit):
             self.timer.start()
 
 
-class GenericTerminal(QtWidgets.QWidget):
+class Log(QtWidgets.QScrollArea):
+    def __init__(self, parent: QtWidgets.QWidget) -> None:
+        super().__init__(parent)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.content = QtWidgets.QFrame(self)
+        self.content.setObjectName('log_container')
+        self.setWidget(self.content)
+        self.setWidgetResizable(True)
+        self.content.setLayout(vbox(Stretch))
+
+    def add_item(self, timestamp: datetime, msgtype: MessageType,
+                 text: str) -> None:
+        dt = timestamp.strftime('%H:%M:%S')
+        if msgtype == MessageType.INPUT:
+            return
+        elif msgtype == MessageType.PRINT:
+            msg = text
+            name = 'log_print'
+        elif msgtype == MessageType.ERROR:
+            msg = f'Error: {text}'
+            name = 'log_error'
+        ts_lbl = label(dt, 'log_timestamp', parent=self)
+        ts_lbl.setSizePolicy(QtWidgets.QSizePolicy.Maximum,
+                             QtWidgets.QSizePolicy.Preferred)
+        lbl = label(msg, name, word_wrap=True, parent=self)
+        if self.content.layout().count() % 2 == 0:
+            ts_lbl.setProperty('odd', True)
+            lbl.setProperty('odd', True)
+        row = hbox(ts_lbl, lbl)
+        cast(QtWidgets.QVBoxLayout, self.content.layout()).addLayout(row)
+        vsb = self.verticalScrollBar()
+
+        def scroll_down(new_min: int, new_max: int) -> None:
+            vsb.setValue(new_max)
+
+        vsb.rangeChanged.connect(scroll_down)
+
+
+class GenericTerminal(QtWidgets.QFrame):
+    show_message = pyqtSignal(datetime, MessageType, str)
+
     def __init__(self,
                  parent: QtWidgets.QWidget, settings: Settings,
                  input_term_constructor: Callable[[], GenericTerminalInputBox],
@@ -87,9 +134,13 @@ class GenericTerminal(QtWidgets.QWidget):
         # Output field
         self.output_term = output_term_constructor()
         self.output_term.setDisabled(True)
-        self.setLayout(vbox(self.input_term, self.output_term))
         # Log
-        self.log: List[Tuple[datetime, str, str]] = []
+        self.log: List[Tuple[datetime, MessageType, str]] = []
+        self.log_widget = Log(self)
+        self.show_message.connect(self.log_widget.add_item)
+        self.setLayout(vbox(self.log_widget, self.input_term,
+                            self.output_term))
+        self.log_widget.hide()
         # History
         self.history = ['']
         self.history_index = 0
@@ -126,17 +177,19 @@ class GenericTerminal(QtWidgets.QWidget):
             self.error('Too low animation interval')
         self.output_term.set_timer_interval(max(1, interval))
 
-    def add_to_log(self, msgtype: str, msg: str) -> None:
-        self.log.append((datetime.now(), msgtype, msg))
+    def add_to_log(self, msgtype: MessageType, msg: str) -> None:
+        now = datetime.now()
+        self.log.append((now, msgtype, msg))
+        self.show_message.emit(now, msgtype, msg)
 
-    def get_log(self) -> List[Tuple[Any, str, str]]:
+    def get_log(self) -> List[Tuple[datetime, MessageType, str]]:
         return self.log
 
     def get_formatted_log(self) -> str:
-        def format_log_entry(msgtype: str, msg: str) -> str:
-            if msgtype == 'cmd':
+        def format_log_entry(msgtype: MessageType, msg: str) -> str:
+            if msgtype == MessageType.INPUT:
                 return '   >>  ' + msg
-            elif msgtype == 'error':
+            elif msgtype == MessageType.ERROR:
                 return '  <<   Error: ' + msg
             else:
                 return '  <<   ' + msg
@@ -161,12 +214,12 @@ class GenericTerminal(QtWidgets.QWidget):
 
     def print_(self, msg: Any) -> None:
         self.output_term.setText(str(msg))
-        self.add_to_log('msg', str(msg))
+        self.add_to_log(MessageType.PRINT, str(msg))
         self.show()
 
     def error(self, msg: Any) -> None:
-        self.output_term.setText('Error: ' + msg)
-        self.add_to_log('error', str(msg))
+        self.output_term.setText(f'Error: {msg}')
+        self.add_to_log(MessageType.ERROR, str(msg))
         self.show()
 
     def prompt(self, msg: str) -> None:
@@ -181,7 +234,7 @@ class GenericTerminal(QtWidgets.QWidget):
         text = self.input_term.text().strip()
         if not text:
             return
-        self.add_to_log('cmd', text)
+        self.add_to_log(MessageType.INPUT, text)
         self.add_history(text)
         self.input_term.setText('')
         self.output_term.setText('')
@@ -284,3 +337,9 @@ class GenericTerminal(QtWidgets.QWidget):
             self.print_(self.commands[arg][1])
         else:
             self.error('No such command')
+
+    def cmd_toggle_log(self, arg: str) -> None:
+        if arg:
+            self.error('Toggle log does not take any arguments')
+        else:
+            self.log_widget.setVisible(not self.log_widget.isVisible())

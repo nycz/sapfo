@@ -130,7 +130,9 @@ class HelpView(QtWidgets.QLabel):
             'h': ('Show extended help',
                   ([('', 'Toggle extended help view.')]
                    + [(cmd, f'Show help for {desc!r}')
-                      for cmd, (_, desc) in sorted(commands.items())]))
+                      for cmd, (_, desc) in sorted(commands.items())])),
+            'l': ('Show terminal log',
+                  [('', 'Toggle terminal log.')]),
         }
 
         def escape(s: str) -> str:
@@ -177,6 +179,7 @@ class Terminal(GenericTerminal):
                  get_tags: Callable, history_file: Path) -> None:
         super().__init__(parent, settings, TerminalInputBox,
                          GenericTerminalOutputBox, history_file=history_file)
+        self.output_term.hide()
         self.get_tags = get_tags
         self.autocomplete_type = ''  # 'path' or 'tag'
         self.rootpath = settings.path
@@ -191,7 +194,8 @@ class Terminal(GenericTerminal):
             't': (self.manage_tags, 'Manage tags'),
             'n': (self.new_entry, 'New entry'),
             'c': (self.count_length, 'Count total length'),
-            'h': (self.cmd_show_extended_help, 'Show extended help')
+            'h': (self.cmd_show_extended_help, 'Show extended help'),
+            'l': (self.cmd_toggle_log, 'Toggle terminal log'),
         }
         self.help_view = HelpView(self, self.commands)
         # Default to show help about itself

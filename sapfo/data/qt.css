@@ -17,6 +17,10 @@
   selection-background-color: #ddd;
 }
 
+IndexView GenericTerminalInputBox {
+  padding: 4px;
+}
+
 #terminal_output {
   background: #191919;
 }
@@ -234,6 +238,30 @@ HelpView QScrollBar::handle:vertical {
     background: #111;
 }
 
+MessageTray {
+  background-color: transparent;
+  padding-left: 10px;
+  padding-bottom: 10px;
+}
+
+#terminal_print, #terminal_error {
+  background-color: #22ffffff;
+  border: 1px solid #44ffffff;
+  border-radius: 3px;
+  color: white;
+  font-family: monospace;
+  font-size: 14px;
+  margin-top: 10px;
+  padding: 4px;
+}
+
+#terminal_error {
+  border-color: #44ff0000;
+  background-color: #22ff0000;
+  color: white;
+}
+
+
 /* BACKSTORY */
 BackstoryWindow {
     background: #080808;
@@ -318,4 +346,51 @@ QScrollBar::sub-line:vertical, QScrollBar::add-line:vertical {
 }
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
     background: none;
+}
+
+/* Terminal log */
+
+Log, #log_container {
+  background: #16191c;
+}
+Log {
+  min-height: 150px;
+  max-height: 150px;
+  border: 0;
+  border-top: 2px solid #0b0b0b;
+  margin: 0;
+  padding: 0;
+}
+
+IndexView Terminal QScrollBar:vertical {
+  background: #16191c;
+}
+IndexView Terminal QScrollBar::handle:vertical {
+  background: #060a0d;
+}
+
+#log_timestamp, #log_print, #log_error {
+  background-color: transparent;
+  font-family: monospace;
+  font-size: 13px;
+  color: #ddd;
+  padding: 2px;
+}
+
+#log_timestamp[odd=true], #log_print[odd=true], #log_error[odd=true] {
+  background-color: #08ffffff;
+}
+
+#log_timestamp {
+  border-right: 1px solid #555;
+  padding-right: 8px;
+  color: #99a;
+}
+
+#log_print, #log_error {
+  padding-left: 8px;
+}
+
+#log_error {
+  color: #f66;
 }
