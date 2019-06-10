@@ -8,7 +8,7 @@ from typing import (Any, Callable, Dict, Iterable, List,
                     NamedTuple, Optional, Tuple)
 
 from PyQt5.QtCore import pyqtSignal, Qt
-from PyQt5 import QtGui, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 from libsyntyche.texteditor import SearchAndReplaceable
 
@@ -77,9 +77,10 @@ def check_and_fix_page_metadata(jsondata: Dict[str, Any], payload: str,
 
 
 class Formatter(QtGui.QSyntaxHighlighter):
-    def __init__(self, *args: Any) -> None:
-        super().__init__(*args)
-        self.formats: Optional[List] = None
+    def __init__(self, parent: QtCore.QObject, settings: Settings) -> None:
+        super().__init__(parent)
+        self.formats: List = []
+        self.update_formats(settings.backstory_viewer_formats)
 
     def update_formats(self, formatstrings: Dict) -> None:
         self.formats = []
@@ -103,8 +104,6 @@ class Formatter(QtGui.QSyntaxHighlighter):
         self.rehighlight()
 
     def highlightBlock(self, text: str) -> None:
-        if self.formats is None:
-            return
         for rx, fmt in self.formats:
             for chunk in re.finditer(rx, text):
                 self.setFormat(chunk.start(), chunk.end() - chunk.start(), fmt)
@@ -272,8 +271,8 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.tabbar = TabBar(self, self.terminal.print_)
         self.create_layout(self.titlelabel, self.tabbar, self.tabcounter,
                            self.revisionnotice, self.textarea, self.terminal)
+        self.formatter = Formatter(self.textarea, settings)
         self.connect_signals()
-        self.formatter = Formatter(self.textarea)
         self.revisionactive = False
         self.forcequitflag = False
         hotkeypairs = (
