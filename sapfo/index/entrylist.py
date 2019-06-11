@@ -245,6 +245,7 @@ class EntryList(QtWidgets.QFrame):
 
     def sort(self) -> None:
         self.layout_.sort(self.sorted_by.key, self.sorted_by.descending)
+        self.update()
 
     def filter_(self) -> None:
         filter_list = [(k, v) for k, v
@@ -255,6 +256,7 @@ class EntryList(QtWidgets.QFrame):
         count = self.count()
         visible_count = self.visible_count()
         self.visible_count_changed.emit(visible_count, count)
+        self.update()
 
     def undo(self) -> int:
         if not self.undostack:
@@ -375,17 +377,22 @@ class EntryList(QtWidgets.QFrame):
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
         super().paintEvent(event)
         painter = QtGui.QPainter(self)
-        # minus one here to skip the line below the bottom item
-        for n in range(self.layout_.count() - 1):
+        found_first = False
+        for n in range(self.layout_.count()):
             item = self.layout_.itemAt(n)
-            if not item or isinstance(item, QtWidgets.QSpacerItem):
+            if not item or isinstance(item, QtWidgets.QSpacerItem) \
+                    or item.widget().isHidden():
                 continue
-            bottom: int = item.widget().geometry().bottom()
-            y: int = bottom + self._spacing // 2
-            painter.fillRect(self._separator_h_margin, y,
-                             self.width() - self._separator_h_margin * 2,
-                             self._separator_height,
-                             self._separator_color)
+            if found_first:
+                top: int = item.widget().geometry().top()
+                y: int = top - self._spacing // 2
+                painter.fillRect(self._separator_h_margin,
+                                 y - self._separator_height,
+                                 self.width() - self._separator_h_margin * 2,
+                                 self._separator_height,
+                                 self._separator_color)
+            else:
+                found_first = True
 
 
 def get_backstory_data(file: Path, cached_data: Dict) -> Tuple[int, int]:
