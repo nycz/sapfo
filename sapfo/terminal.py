@@ -123,9 +123,11 @@ class GenericTerminal(QtWidgets.QFrame):
                  parent: QtWidgets.QWidget, settings: Settings,
                  input_term_constructor: Callable[[], GenericTerminalInputBox],
                  output_term_constructor: Callable[[], GenericTerminalOutputBox],
-                 history_file: Optional[Path] = None) -> None:
+                 help_command: str = '?', history_file: Optional[Path] = None
+                 ) -> None:
         super().__init__(parent)
         self.settings = settings
+        self.help_command = help_command
         # Input field
         self.input_term = input_term_constructor()
         self.input_term.setFocus()
@@ -258,7 +260,7 @@ class GenericTerminal(QtWidgets.QFrame):
             else:
                 run(arg)
         else:
-            self.error('No such command (? for help)')
+            self.error(f'No such command ({self.help_command} for help)')
 
     # ==== History =============================== #
     def history_up(self) -> None:

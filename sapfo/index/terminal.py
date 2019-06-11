@@ -95,10 +95,6 @@ class HelpView(QtWidgets.QLabel):
                    ('p', 'Sort by number of backstory pages.'),
                    ('m', 'Sort by last modified date.')]),
             'q': ('Quit sapfo', []),
-            '?': ('Print simple help',
-                  [('', 'Print list of all commands.'),
-                   ('<any valid command>',
-                    'Print short description of this command.')]),
             'x': ('Open entry file in external editor.',
                   [('123', "Open entry 123's file (note: not sapfo's json "
                            "metadata file) in an external editor. "
@@ -128,16 +124,16 @@ class HelpView(QtWidgets.QLabel):
                    ('p', 'Show combined number of backstory pages '
                          'for all visible entries.')]),
             'h': ('Show extended help',
-                  ([('', 'Toggle extended help view.')]
-                   + [(cmd, f'Show help for {desc!r}')
-                      for cmd, (_, desc) in sorted(commands.items())])),
+                  [('', 'Toggle extended help view.'),
+                   ('X', 'Show help for command X, which should be one from '
+                         'the list below.')]),
             'l': ('Show terminal log',
                   [('', 'Toggle terminal log.')]),
         }
 
         def escape(s: str) -> str:
             return s.replace('<', '&lt;').replace('>', '&gt;')
-
+        # TODO: make this into labels and widgets instead maybe?
         main_template = ('<h2 style="margin:0">{command}: {desc}</h2>'
                          '<hr><table>{rows}</table>')
         row_template = ('<tr><td><b>{command}{arg}</b></td>'
@@ -153,6 +149,14 @@ class HelpView(QtWidgets.QLabel):
             )
             for command, (desc, args) in self.command_help.items()
         }
+        command_template = ('<div style="margin-left:5px">'
+                            '<h3>List of commands</h3>'
+                            '<table style="margin-top:2px">{}</table></div>')
+        command_rows = (row_template.format(command=cmd, arg='', subdesc=desc)
+                        for cmd, (_, desc) in sorted(commands.items()))
+        self.help_html[self.help_command] += command_template.format(
+            ''.join(command_rows))
+
         assert sorted(commands.keys()) == sorted(self.command_help.keys())
         self.setWordWrap(True)
         self.hide()
@@ -178,7 +182,8 @@ class Terminal(GenericTerminal):
     def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
                  get_tags: Callable, history_file: Path) -> None:
         super().__init__(parent, settings, TerminalInputBox,
-                         GenericTerminalOutputBox, history_file=history_file)
+                         GenericTerminalOutputBox, help_command='h',
+                         history_file=history_file)
         self.output_term.hide()
         self.get_tags = get_tags
         self.autocomplete_type = ''  # 'path' or 'tag'
@@ -188,18 +193,17 @@ class Terminal(GenericTerminal):
             'e': (self.edit, 'Edit'),
             's': (self.sort, 'Sort'),
             'q': (self.quit, 'Quit'),
-            '?': (self.cmd_help, 'List commands or help for [command]'),
             'x': (self.external_edit, 'Open in external program/editor'),
             'm': (self.open_meta, 'Open in meta viewer'),
             't': (self.manage_tags, 'Manage tags'),
             'n': (self.new_entry, 'New entry'),
             'c': (self.count_length, 'Count total length'),
-            'h': (self.cmd_show_extended_help, 'Show extended help'),
+            self.help_command: (self.cmd_show_extended_help, 'Show help'),
             'l': (self.cmd_toggle_log, 'Toggle terminal log'),
         }
         self.help_view = HelpView(self, self.commands)
         # Default to show help about itself
-        self.help_view.show_help('h')
+        self.help_view.show_help(self.help_command)
         cast(QtWidgets.QBoxLayout,
              self.layout()).insertWidget(0, self.help_view)
 
@@ -207,7 +211,7 @@ class Terminal(GenericTerminal):
         if not arg and self.help_view.isVisible():
             self.help_view.hide()
         else:
-            success = self.help_view.show_help(arg or 'h')
+            success = self.help_view.show_help(arg or self.help_command)
             if success:
                 self.help_view.show()
             else:
