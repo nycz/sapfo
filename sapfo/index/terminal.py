@@ -49,11 +49,8 @@ class HelpView(QtWidgets.QLabel):
                                  'terminal\'s input text to the specified '
                                  'filter\'s current value.'),
                    ('n', 'Filter on titles (case insensitive).'),
-                   ('n_', 'Show only entries with empty titles.'),
                    ('d', 'Filter on descriptions (case insensitive).'),
-                   ('d_', 'Show only entries with empty descriptions.'),
                    ('r', 'Filter on recaps (case insensitive).'),
-                   ('r_', 'Show only entries with empty recaps.'),
                    ('t', 'Filter on tags. Supports AND (comma , ), '
                          'OR (vertical bar | ), NOT prefix (dash - ), and tag '
                          'macros (use @ as prefix) specified in the config. '
@@ -61,6 +58,8 @@ class HelpView(QtWidgets.QLabel):
                          'parentheses to specify precedence. Spaces are '
                          'allowed in tag names, but not (),| . Tags are case '
                          'sensitive.'),
+                   ('[ndrt]_', 'Show only entries with this attribute empty.'),
+                   ('[ndrt]*', 'Show no entries with this attribute empty.'),
                    ('c', 'Filter on wordcount. Supports the operators '
                          '> < >= <= followed by the target number. A "k" '
                          'suffix in the number is replaced by 000. Operator '

@@ -25,6 +25,9 @@ Entries = Tuple[Entry, ...]
 
 AttributeData = Dict[str, Dict[str, Callable]]
 
+# A gloriously ugly hack to pass a Special Text into filter_text
+NONEMPTY_SEARCH = '!)(__**??**__)(!'
+
 
 def parse_text(rawtext: str) -> str:
     return rawtext
@@ -54,6 +57,9 @@ def filter_text(attribute: str, payload: str, entries: Entries
     if not payload:
         return (entry for entry in entries
                 if not getattr(entry, attribute))
+    elif payload == NONEMPTY_SEARCH:
+        return (entry for entry in entries
+                if getattr(entry, attribute))
     else:
         return (entry for entry in entries
                 if payload.lower() in getattr(entry, attribute).lower())
@@ -77,6 +83,9 @@ def filter_tags(attribute: str, payload: str, entries: Entries,
     if not payload:
         return (entry for entry in entries
                 if not getattr(entry, attribute))
+    elif payload == NONEMPTY_SEARCH:
+        return (entry for entry in entries
+                if getattr(entry, attribute))
     else:
         tag_filter = compile_tag_filter(payload, tagmacros)
         return (entry for entry in entries

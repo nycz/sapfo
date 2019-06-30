@@ -17,6 +17,7 @@ from .declarative import fix_layout, hbox, label, Stretch, vbox
 from .terminal import MessageType
 from .index.entrylist import EntryList, entry_attributes, index_stories
 from .index.terminal import Terminal
+from .taggedlist import NONEMPTY_SEARCH
 
 
 class IconWidget(QtSvg.QSvgWidget):
@@ -91,8 +92,16 @@ class StatusBar(QtWidgets.QFrame):
         self.count_label.setText(f'{visible_count}/{count} entries visible')
 
     def set_filter_info(self, filters: ActiveFilters) -> None:
-        active_filters = [f'{cmd}: {payload}' for cmd, payload
-                          in filters._asdict().items() if payload is not None]
+        active_filters = []
+        for cmd, payload in filters._asdict().items():
+            if payload is None:
+                continue
+            if cmd in {'description', 'title', 'recap'}:
+                if payload == '':
+                    payload = '<empty>'
+                elif payload == NONEMPTY_SEARCH:
+                    payload = '<nonempty>'
+            active_filters.append(f'{cmd}: {payload}')
         if active_filters:
             text = ' | '.join(active_filters)
         else:
@@ -408,9 +417,13 @@ class IndexView(QtWidgets.QWidget):
                 self.set_terminal_text('f' + arg.strip() + ' ' + payload)
                 return
             # Filter empty entries
-            if re.fullmatch(r'[rdt]_\s*', arg):
+            if re.fullmatch(r'[nrdt]_\s*', arg):
                 cmd = arg[0]
                 payload = ''
+            # Filter nonempty entries
+            elif re.fullmatch(r'[nrdt]\*\s*', arg):
+                cmd = arg[0]
+                payload = NONEMPTY_SEARCH
             # Regular filter command
             elif re.fullmatch(rf'[{filterchars}] +\S.*', arg):
                 cmd = arg[0]
