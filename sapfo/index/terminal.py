@@ -37,7 +37,8 @@ class TerminalInputBox(GenericTerminalInputBox):
 
 class HelpView(QtWidgets.QLabel):
     def __init__(self, parent: QtWidgets.QWidget,
-                 commands: Dict[str, Tuple[Any, str]]) -> None:
+                 commands: Dict[str, Tuple[Any, str]],
+                 help_command: str) -> None:
         super().__init__(parent)
         self.command_help: Dict[str, Tuple[str, List[Tuple[str, str]]]] = {
             'f': ('Filter entries (aka show only entries matching the filter)',
@@ -123,10 +124,10 @@ class HelpView(QtWidgets.QLabel):
                          'for all visible entries.'),
                    ('p', 'Show combined number of backstory pages '
                          'for all visible entries.')]),
-            'h': ('Show extended help',
-                  [('', 'Toggle extended help view.'),
-                   ('X', 'Show help for command X, which should be one from '
-                         'the list below.')]),
+            help_command: ('Show extended help',
+                           [('', 'Toggle extended help view.'),
+                            ('X', 'Show help for command X, which should be '
+                             'one from the list below.')]),
             'l': ('Show terminal log',
                   [('', 'Toggle terminal log.')]),
         }
@@ -154,7 +155,7 @@ class HelpView(QtWidgets.QLabel):
                             '<table style="margin-top:2px">{}</table></div>')
         command_rows = (row_template.format(command=cmd, arg='', subdesc=desc)
                         for cmd, (_, desc) in sorted(commands.items()))
-        self.help_html[self.help_command] += command_template.format(
+        self.help_html[help_command] += command_template.format(
             ''.join(command_rows))
 
         assert sorted(commands.keys()) == sorted(self.command_help.keys())
@@ -201,7 +202,7 @@ class Terminal(GenericTerminal):
             self.help_command: (self.cmd_show_extended_help, 'Show help'),
             'l': (self.cmd_toggle_log, 'Toggle terminal log'),
         }
-        self.help_view = HelpView(self, self.commands)
+        self.help_view = HelpView(self, self.commands, self.help_command)
         # Default to show help about itself
         self.help_view.show_help(self.help_command)
         cast(QtWidgets.QBoxLayout,

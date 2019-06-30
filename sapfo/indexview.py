@@ -392,14 +392,13 @@ class IndexView(QtWidgets.QWidget):
             kwargs = dict(zip(filters.values(), len(filters)*(None,)))
             self.entry_view.active_filters = self.entry_view.active_filters._replace(**kwargs)
             self.entry_view.filter_()
-            resultstr = 'Filters reset: {}/{} entries visible'
+            resultstr = 'Filters reset'
         # Reset specified filter
         elif re.fullmatch(rf'[{filterchars}]-\s*', arg):
             self.entry_view.active_filters = self.entry_view.active_filters._replace(
                 **{filters[arg[0]]: None})
             self.entry_view.filter_()
-            resultstr = (f'Filter on {filters[arg[0]]} reset: '
-                         f'{{}}/{{}} entries visible')
+            resultstr = f'Filter on {filters[arg[0]]} reset'
         else:
             # Prompt active filter
             if arg.strip() in filters.keys():
@@ -428,7 +427,7 @@ class IndexView(QtWidgets.QWidget):
                 # This should be an error from the tag parser
                 self.error(f'[Tag parsing] {e}')
                 return
-            resultstr = 'Filtered: {}/{} entries visible'
+            resultstr = 'Filter applied'
         self.status_bar.set_filter_info(self.entry_view.active_filters)
         self.print_(resultstr.format(self.entry_view.visible_count(),
                                      self.entry_view.count()))
