@@ -458,21 +458,40 @@ class IndexView(QtWidgets.QWidget):
                     'p': 'backstorypages',
                     'm': 'lastmodified'}
         if not arg:
-            sorted_by = self.entry_view.sorted_by
-            self.print_(f'Sorted by {sorted_by.key}, '
-                        f'{sorted_by._order_name()}')
+            self.error('Nothing to sort by')
             return
-        if arg[0] not in acronyms:
-            self.error(f'Unknown attribute to sort by: "{arg[0]}"')
+        rx = re.fullmatch(r'(\w?)([><!]?)', arg)
+        if not rx:
+            self.error('Invalid sort command')
             return
-        if not re.fullmatch(r'\w-?\s*', arg):
-            self.error('Incorrect sort command')
-            return
-        reverse = arg.strip().endswith('-')
-        self.entry_view.sorted_by = SortBy(acronyms[arg[0]], reverse)
-        self.entry_view.sort()
-        self.status_bar.set_filter_info(self.entry_view.active_filters)
-        self.save_state()
+        descending = self.entry_view.sorted_by.descending
+        sort_key = self.entry_view.sorted_by.key
+        if rx[2] == '!':
+            descending = not descending
+        elif rx[2] == '>':
+            if descending:
+                self.print_('Already sorting in descending order')
+            else:
+                descending = True
+        elif rx[2] == '<':
+            if not descending:
+                self.print_('Already sorting in ascending order')
+            else:
+                descending = False
+        if rx[1]:
+            if rx[1] not in acronyms:
+                self.error(f'Unknown attribute to sort by: "{rx[1]}"')
+                return
+            else:
+                sort_key = acronyms[rx[1]]
+        updated_sorting = self.entry_view.sorted_by._replace(
+            descending=descending,
+            key=sort_key)
+        if updated_sorting != self.entry_view.sorted_by:
+            self.entry_view.sorted_by = updated_sorting
+            self.entry_view.sort()
+            self.status_bar.set_sort_info(self.entry_view.sorted_by)
+            self.save_state()
 
     def edit_entry(self, arg: str) -> None:
         """
