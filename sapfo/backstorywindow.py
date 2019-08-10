@@ -329,7 +329,8 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.setLayout(vbox(titlelabel,
                             hbox(Stretch(tabbar), tabcounter),
                             revisionnotice,
-                            hbox(Stretch, Stretch(textarea), Stretch),
+                            hbox(Stretch(value=0), Stretch(textarea),
+                                 Stretch(value=0)),
                             self.terminal))
 
     def cmd_quit(self, arg: str) -> None:
