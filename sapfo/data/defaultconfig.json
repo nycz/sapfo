@@ -19,6 +19,7 @@
   "tag colors": {},
   "tag macros": {},
   "formatting converters": [],
+  "capitalize all words in title": true,
   "chapter strings": [],
   "backstory viewer formats": {
     "^#.+": [18, "bold"],

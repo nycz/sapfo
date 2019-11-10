@@ -47,6 +47,7 @@ class Settings(QObject):
     animate_terminal_output_changed = pyqtSignal(bool)
     backstory_default_pages_changed = pyqtSignal(dict)
     backstory_viewer_formats_changed = pyqtSignal(dict)
+    capitalize_all_words_in_title_changed = pyqtSignal(bool)
     editor_changed = pyqtSignal(str)
     entry_length_template_changed = pyqtSignal(str)
     formatting_converters_changed = pyqtSignal(list)
@@ -62,6 +63,7 @@ class Settings(QObject):
         self.animate_terminal_output = True
         self.backstory_viewer_formats: Dict[str, List[Union[str, int]]] = {}
         self.backstory_default_pages: Dict[str, str] = {}
+        self.capitalize_all_words_in_title = True
         self.editor = ''
         self.entry_length_template = \
             '({wordcount:,}) – [{backstorywordcount:,}:{backstorypages:,}]'
@@ -112,6 +114,11 @@ class Settings(QObject):
             u(d['backstory default pages'],
               self.backstory_default_pages,
               self.backstory_default_pages_changed)
+        # Capitalize all words in the title when making a new entry
+        self.capitalize_all_words_in_title = \
+            u(d['capitalize all words in title'],
+              self.capitalize_all_words_in_title,
+              self.capitalize_all_words_in_title_changed)
         # Editor
         self.editor = u(d['editor'], self.editor, self.editor_changed)
         # Entry length template

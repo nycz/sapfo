@@ -572,12 +572,15 @@ class IndexView(QtWidgets.QWidget):
         if fullpath.exists():
             file_exists = True
 
+        title = fullpath.stem.replace('-', ' ')
+
         # Fix the capitalization
         def fix_capitalization(mo: Match[str]) -> str:
             return mo[0].capitalize()
-        title = re.sub(r"\w[\w']*",
-                       fix_capitalization,
-                       fullpath.stem.replace('-', ' '))
+        if self.settings.capitalize_all_words_in_title:
+            title = re.sub(r"\w[\w']*", fix_capitalization, title)
+        else:
+            title = title.capitalize()
         try:
             fullpath.touch()
             metadatafile.write_text(json.dumps({'title': title,
