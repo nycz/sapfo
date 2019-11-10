@@ -6,20 +6,21 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-from typing import (Any, Callable, Dict, Iterable, List,
+from typing import (Any, Callable, cast, Dict, Iterable, List,
                     NamedTuple, Optional, Set, Tuple, Union)
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt, QRect
 from PyQt5.QtGui import QTextCharFormat
 
+from libsyntyche import terminal
+from libsyntyche.cli import ArgumentRules, Command
 from libsyntyche.texteditor import SearchAndReplaceable
+from libsyntyche.widgets import Signal0
 
 from .common import Settings
 from .declarative import hbox, vbox, Stretch
 from .taggedlist import Entry
-from .terminal import (GenericTerminalInputBox,
-                       GenericTerminalOutputBox, GenericTerminal)
 
 
 Color = Union[QtGui.QColor, Qt.GlobalColor]
@@ -358,7 +359,7 @@ class TabBar(QtWidgets.QTabBar):
         self.change_tab(-ev.angleDelta().y())
 
     def next_tab(self) -> None:
-            self.change_tab(1)
+        self.change_tab(1)
 
     def prev_tab(self) -> None:
         self.change_tab(-1)
@@ -546,7 +547,7 @@ class TLTimeState:
         self.min_day = 0
         self.max_day = 0
 
-    def update(self, change: TLTimeChange) -> str:
+    def update(self, change: TLTimeChange) -> None:
         if not change.relative:
             self.min_day = 0
             self.max_day = 0
@@ -607,7 +608,7 @@ class Timeline(QtWidgets.QWidget):
             time_state.update(time_change)
             time_text = str(time_state)
             xx = x - 100
-            yy = y - space * 0.9
+            yy = int(y - space * 0.9)
             orig_pen = p.pen()
             p.setPen(QtGui.QColor('#33ffffff'))
             p.drawLine(xx + event_font_metrics.width(time_text) + 10, yy,
@@ -772,6 +773,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.settings = settings
 
         self.timeline = TimelineWindow()
+        self.timeline.hide()
 
         class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):
             pass
@@ -785,7 +787,7 @@ class BackstoryWindow(QtWidgets.QFrame):
                 self.timeline.scene.update_data(self.textarea.toPlainText())
                 self.timeline.update()
 
-        self.textarea.textChanged.connect(update_timeline_maybe)
+        cast(Signal0, self.textarea.textChanged).connect(update_timeline_maybe)
 
         class BackstoryTitle(QtWidgets.QLabel):
             pass
@@ -799,7 +801,7 @@ class BackstoryWindow(QtWidgets.QFrame):
             pass
         self.revisionnotice = BackstoryRevisionNotice(self)
         history_file = history_path / (entry.file.name + '.history')
-        self.terminal = BackstoryTerminal(self, settings, history_file)
+        self.terminal = BackstoryTerminal(self, history_file)
         self.textarea.initialize_search_and_replace(self.terminal.error,
                                                     self.terminal.print_)
         self.tabbar = TabBar(self, self.terminal.print_)
@@ -814,7 +816,7 @@ class BackstoryWindow(QtWidgets.QFrame):
             # else:
                 # self.textarea.setFontFamily(self.default_font)
 
-        self.textarea.textChanged.connect(set_formatter_mode)
+        cast(Signal0, self.textarea.textChanged).connect(set_formatter_mode)
         self.connect_signals()
         self.revisionactive = False
         self.forcequitflag = False
@@ -888,18 +890,6 @@ class BackstoryWindow(QtWidgets.QFrame):
         t = self.terminal
         s = self.settings
         connects: Tuple[Tuple[pyqtSignal, Callable[..., Any]], ...] = (
-            # Terminal stuff
-            (t.quit,                    self.cmd_quit),
-            (t.new_page,                self.cmd_new_page),
-            (t.delete_page,             self.cmd_delete_current_page),
-            (t.rename_page,             self.cmd_rename_current_page),
-            (t.save_page,               self.cmd_save_current_page),
-            (t.print_filename,          self.cmd_print_filename),
-            (t.count_words,             self.cmd_count_words),
-            (t.revision_control,        self.cmd_revision_control),
-            (t.external_edit,           self.cmd_external_edit),
-            (t.search_and_replace,      self.textarea.search_and_replace),
-            (t.color_picker,            self.show_color_picker),
             # Misc
             (self.tabbar.set_tab_index, self.set_tab_index),
             # Settings
@@ -910,11 +900,75 @@ class BackstoryWindow(QtWidgets.QFrame):
         for signal, slot in connects:
             signal.connect(slot)
 
+        t.add_command(Command(
+            'new-page', 'New page',
+            self.cmd_new_page,
+            short_name='n',
+            args=ArgumentRules.REQUIRED,
+        ))
+        t.add_command(Command(
+            'delete-page', 'Delete page',
+            self.cmd_delete_current_page,
+            short_name='d',
+        ))
+        t.add_command(Command(
+            'rename-page', 'Rename page',
+            self.cmd_rename_current_page,
+            short_name='r',
+            args=ArgumentRules.REQUIRED,
+        ))
+        t.add_command(Command(
+            'save-page', 'Save page',
+            self.cmd_save_current_page,
+            short_name='s',
+            args=ArgumentRules.NONE,
+        ))
+        t.add_command(Command(
+            'print-filename', 'Print name of the active file',
+            self.cmd_print_filename,
+            short_name='f',
+        ))
+        t.add_command(Command(
+            'count-words', 'Print the page\'s wordcount',
+            self.cmd_count_words,
+            short_name='c',
+            args=ArgumentRules.NONE,
+        ))
+        t.add_command(Command(
+            'quit', 'Quit (q! to force)',
+            self.cmd_quit,
+            short_name='q',
+        ))
+        t.add_command(Command(
+            'revision-control', 'Revision control',
+            self.cmd_revision_control,
+            short_name='#',
+        ))
+        t.add_command(Command(
+            'external-edit', 'Open in external program/editor',
+            self.cmd_external_edit,
+            short_name='x',
+            args=ArgumentRules.NONE,
+        ))
+        t.add_command(Command(
+            'search-and-replace', 'Search/replace',
+            self.textarea.search_and_replace,
+            short_name='/',
+            args=ArgumentRules.REQUIRED,
+            strip_input=False,
+        ))
+        t.add_command(Command(
+            'color-picker', 'Color picker',
+            self.show_color_picker,
+            short_name='p',
+            args=ArgumentRules.NONE,
+        ))
+
     def update_hotkeys(self, hotkeys: Dict[str, str]) -> None:
         for key, shortcut in self.hotkeys.items():
             shortcut.setKey(QtGui.QKeySequence(hotkeys[key]))
 
-    def show_color_picker(self, arg: str) -> None:
+    def show_color_picker(self) -> None:
         if self.in_timeline_mode():
             cursor = self.textarea.textCursor()
             block = cursor.block()
@@ -944,7 +998,7 @@ class BackstoryWindow(QtWidgets.QFrame):
     def toggle_terminal(self) -> None:
         if self.textarea.hasFocus():
             self.terminal.show()
-            self.terminal.setFocus()
+            self.terminal.input_field.setFocus()
         else:
             self.terminal.hide()
             self.textarea.setFocus()
@@ -1049,7 +1103,7 @@ class BackstoryWindow(QtWidgets.QFrame):
             # Do this afterwards to have something to load into textarea
             self.set_tab_index(newtab)
 
-    def cmd_delete_current_page(self, arg: str) -> None:
+    def cmd_delete_current_page(self, arg: Optional[str]) -> None:
         if arg != '!':
             self.terminal.error('Use d! to confirm deletion')
             return
@@ -1077,10 +1131,10 @@ class BackstoryWindow(QtWidgets.QFrame):
             jsondata['title'] = title
             file.write_text(json.dumps(jsondata) + '\n' + data)
 
-    def cmd_save_current_page(self, _: str) -> None:
+    def cmd_save_current_page(self) -> None:
         self.save_tab()
 
-    def cmd_print_filename(self, arg: str) -> None:
+    def cmd_print_filename(self, arg: Optional[str]) -> None:
         file = self.current_page_path()
         if arg == 'c':
             date = json.loads(read_metadata(file)[0])['created']
@@ -1088,14 +1142,20 @@ class BackstoryWindow(QtWidgets.QFrame):
         else:
             self.terminal.print_(self.tabbar.current_page_file().name)
 
-    def cmd_count_words(self, arg: str) -> None:
+    def cmd_count_words(self) -> None:
         wc = len(re.findall(r'\S+', self.textarea.document().toPlainText()))
         self.terminal.print_(f'Words: {wc}')
 
-    def cmd_revision_control(self, arg: str) -> None:
+    def cmd_revision_control(self, arg: Optional[str]) -> None:
         file = self.current_page_path()
         jsondata = json.loads(read_metadata(file)[0])
-        if arg == '+':
+        if not arg:
+            if not self.revisionactive:
+                self.terminal.error('Already showing latest revision')
+            else:
+                currenttab = self.tabbar.currentIndex()
+                self.set_tab_index(currenttab)
+        elif arg == '+':
             if self.revisionactive:
                 self.terminal.error('Can\'t create new revision '
                                     'when viewing an old one')
@@ -1134,16 +1194,10 @@ class BackstoryWindow(QtWidgets.QFrame):
                 self.revisionnotice.show()
         elif arg == '#':
             self.terminal.print_(f'Current revision: {jsondata["revision"]}')
-        elif not arg:
-            if not self.revisionactive:
-                self.terminal.error('Already showing latest revision')
-            else:
-                currenttab = self.tabbar.currentIndex()
-                self.set_tab_index(currenttab)
         else:
             self.terminal.error(f'Unknown argument: "{arg}"')
 
-    def cmd_external_edit(self, arg: str) -> None:
+    def cmd_external_edit(self) -> None:
         if not self.settings.editor:
             self.terminal.error('No editor command defined')
             return
@@ -1151,38 +1205,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.terminal.print_(f'Opening entry with {self.settings.editor}')
 
 
-class BackstoryTerminal(GenericTerminal):
-    new_page = pyqtSignal(str)
-    delete_page = pyqtSignal(str)
-    rename_page = pyqtSignal(str)
-    save_page = pyqtSignal(str)
-    print_filename = pyqtSignal(str)
-    count_words = pyqtSignal(str)
-    quit = pyqtSignal(str)
-    revision_control = pyqtSignal(str)
-    external_edit = pyqtSignal(str)
-    search_and_replace = pyqtSignal(str)
-    print_help = pyqtSignal(str)
-    color_picker = pyqtSignal(str)
-
-    def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
-                 history_file: Path) -> None:
-        super().__init__(parent, settings, GenericTerminalInputBox,
-                         GenericTerminalOutputBox, history_file=history_file)
-        self.commands = {
-            'n': (self.new_page, 'New page'),
-            'd': (self.delete_page, 'Delete page'),
-            'r': (self.rename_page, 'Rename page'),
-            's': (self.save_page, 'Save page'),
-            'f': (self.print_filename, 'Print name of the active file'),
-            'c': (self.count_words, 'Print the page\'s wordcount'),
-            '?': (self.print_help, 'List commands or help for [command]'),
-            'q': (self.quit, 'Quit (q! to force)'),
-            '#': (self.revision_control, 'Revision control'),
-            'x': (self.external_edit, 'Open in external program/editor'),
-            '/': (self.search_and_replace, 'Search/replace',
-                  {'keep whitespace': True}),
-            'p': (self.color_picker, 'Color picker'),
-        }
-        self.print_help.connect(self.cmd_help)
+class BackstoryTerminal(terminal.Terminal):
+    def __init__(self, parent: QtWidgets.QWidget, history_file: Path) -> None:
+        super().__init__(parent, history_file=history_file, short_mode=True)
         self.hide()
