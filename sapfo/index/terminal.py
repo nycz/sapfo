@@ -182,7 +182,8 @@ class Terminal(GenericTerminal):
     count_length = pyqtSignal(str)
 
     def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
-                 get_tags: Callable, history_file: Path) -> None:
+                 get_tags: Callable[[], List[Tuple[str, int]]],
+                 history_file: Path) -> None:
         super().__init__(parent, settings, TerminalInputBox,
                          GenericTerminalOutputBox, help_command='h',
                          history_file=history_file)

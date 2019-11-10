@@ -1,6 +1,5 @@
 from datetime import datetime
 import enum
-from functools import partial
 from itertools import chain
 import json
 from pathlib import Path
@@ -10,8 +9,9 @@ import subprocess
 from typing import (Any, Callable, Dict, Iterable, List,
                     NamedTuple, Optional, Set, Tuple, Union)
 
-from PyQt5.QtCore import pyqtSignal, Qt, QRect
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import pyqtSignal, Qt, QRect
+from PyQt5.QtGui import QTextCharFormat
 
 from libsyntyche.texteditor import SearchAndReplaceable
 
@@ -39,10 +39,11 @@ def fixtitle(file: Path) -> str:
 
 
 def read_metadata(file: Path) -> Tuple[str, str]:
-    return tuple(file.read_text(encoding='utf-8').split('\n', 1))  # type: ignore
+    lines = file.read_text(encoding='utf-8').split('\n', 1)
+    return lines[0], lines[1]
 
 
-def generate_page_metadata(title: str,  # noqa: F811
+def generate_page_metadata(title: str,
                            created: Optional[datetime] = None,
                            revision: Optional[int] = None,
                            revcreated: Optional[datetime] = None
@@ -87,10 +88,11 @@ def _text_char_format(foreground: Optional[Union[str, Color]] = None,
                       bold: bool = False,
                       italic: bool = False,
                       underline: bool = False,
-                      underline_style: Optional[QtGui.QTextCharFormat.UnderlineStyle] = None,
+                      underline_style: Optional[QTextCharFormat.UnderlineStyle] = None,
                       underline_color: Optional[Union[str, Color]] = None,
-                      point_size: Optional[int] = None) -> QtGui.QTextCharFormat:
-    fmt = QtGui.QTextCharFormat()
+                      point_size: Optional[int] = None
+                      ) -> QTextCharFormat:
+    fmt = QTextCharFormat()
     fmt.setFontFamily('monospace')
     if foreground:
         if isinstance(foreground, str):
@@ -134,7 +136,7 @@ class Chunk(NamedTuple):
     type_: ChunkType
 
     def _format(self, highlighter: QtGui.QSyntaxHighlighter,
-                fmt: QtGui.QTextCharFormat) -> None:
+                fmt: QTextCharFormat) -> None:
         highlighter.setFormat(self.start, len(self.text), fmt)
 
 
@@ -155,7 +157,7 @@ def _parse_timeline_command(line: str) -> List[Chunk]:
             else:
                 buf += char
         elif buf_start >= 0:
-            if char in {' ', '\t', None}:
+            if char is None or char in {' ', '\t'}:
                 if buf.startswith('#'):
                     type_ = ChunkType.TAG
                 elif buf.isdigit():
@@ -171,7 +173,7 @@ def _parse_timeline_command(line: str) -> List[Chunk]:
                 buf = ''
             else:
                 buf += char
-        elif char not in {' ', '\t', None}:
+        elif char is not None and char not in {' ', '\t'}:
             in_string = (char == '"')
             buf_start = n
             buf += char
@@ -182,7 +184,7 @@ class Formatter(QtGui.QSyntaxHighlighter):
     def __init__(self, parent: QtCore.QObject, settings: Settings) -> None:
         super().__init__(parent)
         self._timeline_mode = False
-        self.formats: List = []
+        self.formats: List[Tuple[str, QTextCharFormat]] = []
         self.update_formats(settings.backstory_viewer_formats)
 
     @property
@@ -195,11 +197,12 @@ class Formatter(QtGui.QSyntaxHighlighter):
             self._timeline_mode = new_mode
             self.rehighlight()
 
-    def update_formats(self, formatstrings: Dict) -> None:
+    def update_formats(self, formatstrings: Dict[str, List[Union[str, int]]]
+                       ) -> None:
         self.formats = []
         font = QtGui.QFont
         for s, items in formatstrings.items():
-            f = QtGui.QTextCharFormat()
+            f = QTextCharFormat()
             if 'bold' in items:
                 f.setFontWeight(font.Bold)
             if 'italic' in items:
@@ -223,7 +226,8 @@ class Formatter(QtGui.QSyntaxHighlighter):
         else:
             for rx, fmt in self.formats:
                 for chunk in re.finditer(rx, text):
-                    self.setFormat(chunk.start(), chunk.end() - chunk.start(), fmt)
+                    self.setFormat(chunk.start(),
+                                   chunk.end() - chunk.start(), fmt)
 
     def highlight_timeline(self, text: str) -> None:
         # Monokai
@@ -259,6 +263,8 @@ class Formatter(QtGui.QSyntaxHighlighter):
             self.setFormat(0, len(formatdef_rx[1]), cmd_fmt)
             self.setFormat(formatdef_rx.start(2), len(formatdef_rx[2]),
                            tag_fmt)
+            bg: Union[QtGui.QColor, QtCore.Qt.GlobalColor]
+            fg: Union[QtGui.QColor, QtCore.Qt.GlobalColor]
             for n, match in enumerate(re.finditer(r'\S+', text.lower())):
                 # Skip the first two
                 if n < 2:
@@ -336,7 +342,8 @@ class Formatter(QtGui.QSyntaxHighlighter):
 class TabBar(QtWidgets.QTabBar):
     set_tab_index = pyqtSignal(int)
 
-    def __init__(self, parent: QtWidgets.QWidget, print_: Callable) -> None:
+    def __init__(self, parent: QtWidgets.QWidget,
+                 print_: Callable[[str], None]) -> None:
         super().__init__(parent)
         self.print_ = print_
         self.pages: List[Page] = []
@@ -880,7 +887,7 @@ class BackstoryWindow(QtWidgets.QFrame):
     def connect_signals(self) -> None:
         t = self.terminal
         s = self.settings
-        connects = (
+        connects: Tuple[Tuple[pyqtSignal, Callable[..., Any]], ...] = (
             # Terminal stuff
             (t.quit,                    self.cmd_quit),
             (t.new_page,                self.cmd_new_page),
@@ -903,7 +910,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         for signal, slot in connects:
             signal.connect(slot)
 
-    def update_hotkeys(self, hotkeys: Dict) -> None:
+    def update_hotkeys(self, hotkeys: Dict[str, str]) -> None:
         for key, shortcut in self.hotkeys.items():
             shortcut.setKey(QtGui.QKeySequence(hotkeys[key]))
 
@@ -917,6 +924,7 @@ class BackstoryWindow(QtWidgets.QFrame):
             if text[:3] not in {'fg:', 'bg:'}:
                 self.terminal.error('Cursor has to be in a fg/bg field')
                 return
+            start_color: Union[QtGui.QColor, Qt.GlobalColor]
             try:
                 start_color = QtGui.QColor(text[3:])
             except Exception:
@@ -932,7 +940,6 @@ class BackstoryWindow(QtWidgets.QFrame):
         else:
             self.terminal.error('Color picker is only available '
                                 'in timeline mode')
-
 
     def toggle_terminal(self) -> None:
         if self.textarea.hasFocus():
@@ -1116,7 +1123,8 @@ class BackstoryWindow(QtWidgets.QFrame):
                 data = read_metadata(file)[1]
             except Exception as e:
                 print(str(e))
-                self.terminal.error('Something went wrong when loading the revision')
+                self.terminal.error('Something went wrong '
+                                    'when loading the revision')
             else:
                 self.textarea.setPlainText(data)
                 self.textarea.document().setModified(False)

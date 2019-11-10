@@ -1,4 +1,3 @@
-from functools import partial
 import json
 from pathlib import Path
 import shutil
@@ -108,7 +107,9 @@ class Settings(QObject):
                 missing_keys.add(key)
                 return default_config[key]
 
-        u = partial(self._update_value, send_signals)
+        def u(new_value: U, old_value: U, changed_signal: pyqtSignal) -> U:
+            return self._update_value(send_signals, new_value, old_value,
+                                      changed_signal)
 
         # Animate terminal output
         self.animate_terminal_output = \

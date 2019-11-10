@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import pickle
 import re
-from typing import (Callable, cast, Dict, FrozenSet, Iterable,
+from typing import (Any, Callable, cast, Dict, FrozenSet, Iterable,
                     List, Optional, Tuple)
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -93,7 +93,8 @@ class EntryWidget(QtWidgets.QFrame):
             tag = tag_widget.text()
             # TODO: centralize default tag color
             if tag in self.tag_colors:
-                tag_widget.setStyleSheet(f'background: {self.tag_colors[tag]};')
+                tag_widget.setStyleSheet(f'background: '
+                                         f'{self.tag_colors[tag]};')
             else:
                 tag_widget.setStyleSheet('background: #667;')
 
@@ -147,6 +148,34 @@ class EntryWidget(QtWidgets.QFrame):
 
 class EntryList(QtWidgets.QFrame):
 
+    def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
+                 dry_run: bool, sorted_by: SortBy,
+                 active_filters: ActiveFilters,
+                 attributedata: AttributeData) -> None:
+        super().__init__(parent)
+        self.dry_run = dry_run
+        self.settings = settings
+        settings.entry_length_template_changed.connect(
+            self.set_length_template)
+        # Model values
+        self.active_filters = active_filters
+        self.attributedata = attributedata
+        self.sorted_by = sorted_by
+        self.tag_colors: Dict[str, str] = settings.tag_colors
+        settings.tag_colors_changed.connect(self.set_tag_colors)
+        self.undostack: List[Entries] = []
+        # View values
+        self._spacing: int = 0
+        self._separator_color: QtGui.QColor = QtGui.QColor('black')
+        self._separator_h_margin = 0
+        self._separator_height = 1
+        self.length_template = settings.entry_length_template
+        self.entry_class = EntryWidget
+        self.entry_widgets: List[EntryWidget] = []
+        layout = ListLayout(self)
+        layout.setObjectName('entry_list_layout')
+        self.layout_ = layout
+
     def get_spacing(self) -> int:
         return self.layout().spacing()
 
@@ -185,34 +214,6 @@ class EntryList(QtWidgets.QFrame):
                                            set_separator_height)
 
     visible_count_changed = QtCore.pyqtSignal(int, int)
-
-    def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
-                 dry_run: bool, sorted_by: SortBy,
-                 active_filters: ActiveFilters,
-                 attributedata: AttributeData) -> None:
-        super().__init__(parent)
-        self.dry_run = dry_run
-        self.settings = settings
-        settings.entry_length_template_changed.connect(
-            self.set_length_template)
-        # Model values
-        self.active_filters = active_filters
-        self.attributedata = attributedata
-        self.sorted_by = sorted_by
-        self.tag_colors: Dict[str, str] = settings.tag_colors
-        settings.tag_colors_changed.connect(self.set_tag_colors)
-        self.undostack: List[Entries] = []
-        # View values
-        self._spacing: int = 0
-        self._separator_color: QtGui.QColor = QtGui.QColor('black')
-        self._separator_h_margin = 0
-        self._separator_height = 1
-        self.length_template = settings.entry_length_template
-        self.entry_class = EntryWidget
-        self.entry_widgets: List[EntryWidget] = []
-        layout = ListLayout(self)
-        layout.setObjectName('entry_list_layout')
-        self.layout_ = layout
 
     def set_length_template(self, length_template: str) -> None:
         if length_template == self.length_template:
@@ -289,16 +290,17 @@ class EntryList(QtWidgets.QFrame):
     def replace_tags(self, oldtagstr: str, newtagstr: str,
                      attribute: str) -> int:
         """
-        Return a tuple where all instances of one tag is replaced by a new tag or
-        where a tag has been either added to or removed from all visible entries.
+        Return a tuple where all instances of one tag is replaced by a new tag
+        or where a tag has been added to or removed from all visible entries.
 
-        If oldtagstr isn't specified (eg. empty), add the new tag
-        to all visible entries.
+        If oldtagstr isn't specified (eg. empty), add the new tag to all
+        visible entries.
 
-        If newtagstr isn't specified, remove the old tag from all visible entries.
+        If newtagstr isn't specified, remove the old tag from all visible
+        entries.
 
-        If both are specified, replace the old tag with the new tag, but only in
-        the (visible) entries where old tag exists.
+        If both are specified, replace the old tag with the new tag, but only
+        in the (visible) entries where old tag exists.
         """
         def makeset(x: str) -> FrozenSet[str]:
             return frozenset([x] if x else [])
@@ -395,7 +397,8 @@ class EntryList(QtWidgets.QFrame):
                 found_first = True
 
 
-def get_backstory_data(file: Path, cached_data: Dict) -> Tuple[int, int]:
+def get_backstory_data(file: Path, cached_data: Dict[str, Any]
+                       ) -> Tuple[int, int]:
     root = file.with_name(file.name + '.metadir')
     if not root.is_dir():
         return 0, 0
@@ -454,7 +457,8 @@ def index_stories(root: Path, progress: QtWidgets.QProgressDialog
                 wordcount = len(file.read_text().split())
                 cached_data[file] = {'modified': stat.st_mtime,
                                      'wordcount': wordcount}
-            backstory_wordcount, backstory_pages = get_backstory_data(file, cached_data)
+            backstory_wordcount, backstory_pages = \
+                get_backstory_data(file, cached_data)
             entry = Entry(
                 index_=i,
                 title=metadata['title'],
@@ -483,7 +487,8 @@ def entry_attributes() -> AttributeData:
     # something in index_stories
     f = FilterFuncs
     p = ParseFuncs
-    attributes: Dict[str, Dict[str, Callable]] = {
+    # TODO: type this better
+    attributes: Dict[str, Dict[str, Callable[..., Any]]] = {
         'title': {'filter': f.text, 'parser': p.text},
         'tags': {'filter': f.tags, 'parser': p.tags},
         'description': {'filter': f.text, 'parser': p.text},

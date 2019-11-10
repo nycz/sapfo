@@ -1,8 +1,7 @@
-from operator import attrgetter
 from pathlib import Path
 import re
 from typing import (Any, Callable, Dict, FrozenSet, Iterable, NamedTuple,
-                    Optional, Tuple)
+                    Tuple)
 
 from .tagsystem import compile_tag_filter, match_tag_filter
 
@@ -23,7 +22,7 @@ class Entry(NamedTuple):
 
 Entries = Tuple[Entry, ...]
 
-AttributeData = Dict[str, Dict[str, Callable]]
+AttributeData = Dict[str, Dict[str, Callable[..., Any]]]
 
 # A gloriously ugly hack to pass a Special Text into filter_text
 NONEMPTY_SEARCH = '!)(__**??**__)(!'

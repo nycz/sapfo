@@ -162,7 +162,7 @@ class GenericTerminal(QtWidgets.QFrame):
         # Each post in self.commands is (callback/signal, helptext[, options])
         # options is an optional dict with - surprise - options
         self.commands: Dict[str, Union[Tuple[Any, str],
-                                       Tuple[Any, str, Dict]]] = {}
+                                       Tuple[Any, str, Dict[str, Any]]]] = {}
         # Settings
         settings.animate_terminal_output_changed.connect(
             self.set_animation)
@@ -201,7 +201,7 @@ class GenericTerminal(QtWidgets.QFrame):
         )
         return text if text else '[empty log]'
 
-    def setFocus(self) -> None:
+    def setFocus(self, *args: Any) -> None:
         self.input_term.setFocus()
 
     def clear_input(self) -> None:

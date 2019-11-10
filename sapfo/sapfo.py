@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import Qt
@@ -69,7 +69,7 @@ class MainWindow(QtWidgets.QWidget):
         self.close()
 
     def connect_signals(self) -> None:
-        connects = (
+        connects: Tuple[Tuple[QtCore.pyqtSignal, Callable[..., Any]], ...] = (
             (self.index_view.quit,        self.close),
             (self.index_view.view_meta,   self.open_backstory_editor),
             (self.settings.title_changed, self.setWindowTitle),
@@ -133,7 +133,6 @@ def main() -> int:
         if isdir(dirname):
             return dirname
         parser.error(f'Directory does not exist: {dirname}')
-        return None
     parser.add_argument('-c', '--config-directory', type=valid_dir)
     parser.add_argument('-d', '--dry-run', action='store_true',
                         help='don\'t write anything to disk')

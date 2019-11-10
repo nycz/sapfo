@@ -14,21 +14,21 @@ __all__ = ['grid', 'hflow', 'hbox', 'vbox', 'label']
 # horizontal = 0
 # vertical = 1
 
-class GridPosition:
-    def __getitem__(self, arg: Tuple[int, int]) -> Tuple[int, int]:
-        raw_row, raw_col = arg
-        row_span, col_span = 1, 1
-        if isinstance(raw_row, slice):
-            row = raw_row[0]
-            row_span = raw_row.stop - raw_row.start + 1
-        else:
-            row = raw_row
-        if isinstance(raw_col, slice):
-            col = raw_col[0]
-            col_span = raw_col.stop - raw_col.start + 1
-        else:
-            col = raw_col
-        return ((row, row_span))
+#   class GridPosition:
+#       def __getitem__(self, arg: Tuple[Union[int, slice], int]) -> Tuple[int, int]:
+#           raw_row, raw_col = arg
+#           row_span, col_span = 1, 1
+#           if isinstance(raw_row, slice):
+#               row = raw_row.start
+#               row_span = raw_row.stop - raw_row.start + 1
+#           else:
+#               row = raw_row
+#           if isinstance(raw_col, slice):
+#               col = raw_col[0]
+#               col_span = raw_col.stop - raw_col.start + 1
+#           else:
+#               col = raw_col
+#           return ((row, row_span))
 
 
 _Item = Union[QWidget, QLayout]

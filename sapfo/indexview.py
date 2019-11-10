@@ -6,11 +6,13 @@ from pathlib import Path
 import pickle
 import re
 import subprocess
-from typing import cast, Any, Dict, List, Match, Optional, Tuple
+from typing import Any, Callable, cast, Dict, List, Match, Optional, Tuple
 
 from PyQt5 import QtCore, QtGui, QtSvg, QtWidgets
 from PyQt5.QtCore import pyqtProperty, pyqtSignal, Qt
 from PyQt5.QtGui import QColor
+
+from libsyntyche.widgets import Signal0
 
 from . import tagsystem
 from .common import ActiveFilters, LOCAL_DIR, Settings, SortBy
@@ -130,7 +132,7 @@ class MessageTrayItem(QtWidgets.QLabel):
         a1.setDuration(500)
         a1.setStartValue(1)
         a1.setEndValue(0)
-        a1.finished.connect(self.deleteLater)
+        cast(Signal0, a1.finished).connect(self.deleteLater)
         self.fade_animation = a1
         # Move animation
         a2 = QtCore.QPropertyAnimation(self, b'pos')
@@ -284,7 +286,8 @@ class IndexView(QtWidgets.QWidget):
     def connect_signals(self) -> None:
         t = self.terminal
         s = self.settings
-        connects = (
+        # TODO: maybe better typing with Signal0, Signal1 etc here?
+        connects: Tuple[Tuple[pyqtSignal, Callable[..., Any]], ...] = (
             (t.filter_,                 self.filter_entries),
             (t.sort,                    self.sort_entries),
             (t.edit,                    self.edit_entry),
