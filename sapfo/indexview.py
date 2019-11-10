@@ -1,5 +1,4 @@
 from collections import Counter
-from datetime import datetime
 import json
 from operator import itemgetter
 import os.path
@@ -14,8 +13,7 @@ from PyQt5.QtCore import pyqtProperty, pyqtSignal, Qt
 from PyQt5.QtGui import QColor
 
 from libsyntyche.cli import ArgumentRules, AutocompletionPattern, Command
-from libsyntyche.terminal import MessageType
-from libsyntyche.widgets import Signal0
+from libsyntyche.terminal import MessageTray
 
 from . import tagsystem
 from .common import ActiveFilters, LOCAL_DIR, Settings, SortBy
@@ -116,58 +114,6 @@ class StatusBar(QtWidgets.QFrame):
     def set_sort_info(self, sorted_by: SortBy) -> None:
         self.sort_label.setText(f'sorted by <b>{sorted_by.key}</b> '
                                 f'({sorted_by._order_name()})')
-
-
-class MessageTrayItem(QtWidgets.QLabel):
-    def __init__(self, text: str, name: str,
-                 parent: QtWidgets.QWidget) -> None:
-        super().__init__(text, parent)
-        self.setObjectName(name)
-        self.setSizePolicy(QtWidgets.QSizePolicy.Maximum,
-                           QtWidgets.QSizePolicy.Preferred)
-        # Fade out animation
-        effect = QtWidgets.QGraphicsOpacityEffect(self)
-        effect.setOpacity(1)
-        self.setGraphicsEffect(effect)
-        a1 = QtCore.QPropertyAnimation(effect, b'opacity')
-        a1.setEasingCurve(QtCore.QEasingCurve.InOutQuint)
-        a1.setDuration(500)
-        a1.setStartValue(1)
-        a1.setEndValue(0)
-        cast(Signal0, a1.finished).connect(self.deleteLater)
-        self.fade_animation = a1
-        # Move animation
-        a2 = QtCore.QPropertyAnimation(self, b'pos')
-        a2.setEasingCurve(QtCore.QEasingCurve.InQuint)
-        a2.setDuration(300)
-        self.move_animation = a2
-
-    def kill(self) -> None:
-        self.fade_animation.start()
-        self.move_animation.setStartValue(self.pos())
-        self.move_animation.setEndValue(self.pos() - QtCore.QPoint(0, 50))
-        self.move_animation.start()
-
-
-class MessageTray(QtWidgets.QFrame):
-    def __init__(self, parent: QtWidgets.QWidget) -> None:
-        super().__init__(parent)
-        # TODO: put this in settings
-        self.seconds_alive = 5
-        self.setLayout(vbox(Stretch))
-        self.setAttribute(Qt.WA_TransparentForMouseEvents)
-
-    def add_message(self, timestamp: datetime, msgtype: MessageType,
-                    text: str) -> None:
-        if msgtype == MessageType.INPUT:
-            return
-        classes = {
-            MessageType.ERROR: 'terminal_error',
-            MessageType.PRINT: 'terminal_print',
-        }
-        lbl = MessageTrayItem(text, classes[msgtype], self)
-        self.layout().addWidget(lbl)
-        QtCore.QTimer.singleShot(1000 * self.seconds_alive, lbl.kill)
 
 
 class IndexView(QtWidgets.QWidget):

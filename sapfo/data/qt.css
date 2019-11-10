@@ -3,26 +3,16 @@
   font-family: "Serif";
 }
 
-#terminal_input, #terminal_output {
+Terminal InputField {
   border: 0px;
   border-top: 2px solid #111;
   font-family: "Monospace";
   font-size: 11pt;
   color: #ddd;
-}
-
-#terminal_input {
   background: #222;
   selection-color: #222;
   selection-background-color: #ddd;
-}
-
-IndexView InputField {
   padding: 4px;
-}
-
-#terminal_output {
-  background: #191919;
 }
 
 QScrollArea {

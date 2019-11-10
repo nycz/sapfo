@@ -764,6 +764,14 @@ class TimelineWindow(QtWidgets.QScrollArea):
         self.show()
 
 
+class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):
+    resized = QtCore.pyqtSignal()
+
+    def resizeEvent(self, ev: QtGui.QResizeEvent) -> None:
+        super().resizeEvent(ev)
+        self.resized.emit()
+
+
 class BackstoryWindow(QtWidgets.QFrame):
     closed = pyqtSignal(Path)
 
@@ -775,8 +783,6 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.timeline = TimelineWindow()
         self.timeline.hide()
 
-        class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):
-            pass
         self.textarea = BackstoryTextEdit()
         self.default_font = self.textarea.fontFamily()
         self.textarea.setTabStopWidth(30)
@@ -840,6 +846,10 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.titlelabel.setText(entry.title)
         self.setWindowTitle(entry.title)
         self.textarea.setFocus()
+        # Message tray
+        self.message_tray = terminal.MessageTray(self)
+        self.terminal.show_message.connect(self.message_tray.add_message)
+        self.textarea.resized.connect(self.adjust_tray)
         self.show()
 
     def closeEvent(self, ev: QtGui.QCloseEvent) -> None:
@@ -859,6 +869,10 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.ignorewheelevent = True
         self.textarea.wheelEvent(ev)
         ev.ignore()
+
+    def adjust_tray(self) -> None:
+        rect = self.textarea.geometry()
+        self.message_tray.setGeometry(rect)
 
     def in_timeline_mode(self) -> bool:
         text = self.textarea.document().firstBlock().text()
@@ -1208,4 +1222,5 @@ class BackstoryWindow(QtWidgets.QFrame):
 class BackstoryTerminal(terminal.Terminal):
     def __init__(self, parent: QtWidgets.QWidget, history_file: Path) -> None:
         super().__init__(parent, history_file=history_file, short_mode=True)
+        self.output_field.hide()
         self.hide()
