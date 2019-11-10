@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import shutil
 from typing import (Any, Dict, FrozenSet, List, NamedTuple, Optional,
-                    Type, TypeVar, Union)
+                    Set, Tuple, Type, TypeVar, Union)
 
 from PyQt5.QtCore import pyqtSignal, QObject
 
@@ -43,6 +43,7 @@ U = TypeVar('U')
 
 class Settings(QObject):
     filename = 'settings.json'
+    default_config_path = LOCAL_DIR / 'data' / 'defaultconfig.json'
 
     animate_terminal_output_changed = pyqtSignal(bool)
     backstory_default_pages_changed = pyqtSignal(dict)
@@ -82,8 +83,7 @@ class Settings(QObject):
             path = config_file.parent
             if not path.exists():
                 path.mkdir(mode=0o755, parents=True, exist_ok=True)
-            shutil.copyfile(LOCAL_DIR / 'data' / 'defaultconfig.json',
-                            config_file)
+            shutil.copyfile(cls.default_config_path, config_file)
             print(f'No config found, copied the default to {config_file!r}.')
         data: Dict[str, Any] = \
             json.loads(config_file.read_text(encoding='utf-8'))
@@ -95,67 +95,80 @@ class Settings(QObject):
             changed_signal.emit(new_value)
         return new_value
 
-    def reload(self, config_path: Path, send_signals: bool = True) -> None:
-        d = self._get_config_json(config_path)
+    def reload(self, config_path: Path, send_signals: bool = True
+               ) -> Set[str]:
+        default_config = json.loads(self.default_config_path.read_text())
+        config = self._get_config_json(config_path)
+        missing_keys: Set[str] = set()
+
+        def get(key: str) -> Any:
+            if key in config:
+                return config[key]
+            else:
+                missing_keys.add(key)
+                return default_config[key]
+
         u = partial(self._update_value, send_signals)
 
         # Animate terminal output
         self.animate_terminal_output = \
-            u(d['animate terminal output'],
+            u(get('animate terminal output'),
               self.animate_terminal_output,
               self.animate_terminal_output_changed)
         # Backstory viewer formats
         self.backstory_viewer_formats = \
-            u(d['backstory viewer formats'],
+            u(get('backstory viewer formats'),
               self.backstory_viewer_formats,
               self.backstory_viewer_formats_changed)
         # Backstory default pages
         self.backstory_default_pages = \
-            u(d['backstory default pages'],
+            u(get('backstory default pages'),
               self.backstory_default_pages,
               self.backstory_default_pages_changed)
         # Capitalize all words in the title when making a new entry
         self.capitalize_all_words_in_title = \
-            u(d['capitalize all words in title'],
+            u(get('capitalize all words in title'),
               self.capitalize_all_words_in_title,
               self.capitalize_all_words_in_title_changed)
         # Editor
-        self.editor = u(d['editor'], self.editor, self.editor_changed)
+        self.editor = u(get('editor'), self.editor, self.editor_changed)
         # Entry length template
         self.entry_length_template = \
-            u(d['entry length template'],
+            u(get('entry length template'),
               self.entry_length_template,
               self.entry_length_template_changed)
         # Formatting converters
         self.formatting_converters = \
-            u(d['formatting converters'],
+            u(get('formatting converters'),
               self.formatting_converters,
               self.formatting_converters_changed)
         # Hotkeys
-        self.hotkeys = u(d['hotkeys'], self.hotkeys, self.hotkeys_changed)
+        self.hotkeys = u(get('hotkeys'), self.hotkeys, self.hotkeys_changed)
         # Path
-        self.path = u(Path(d['path']).expanduser(),
+        self.path = u(Path(get('path')).expanduser(),
                       self.path, self.path_changed)
         # Tag colors
         self.tag_colors = \
-            u(d['tag colors'], self.tag_colors, self.tag_colors_changed)
+            u(get('tag colors'), self.tag_colors, self.tag_colors_changed)
         # Tag macros
         self.tag_macros = \
-            u(d['tag macros'], self.tag_macros, self.tag_macros_changed)
+            u(get('tag macros'), self.tag_macros, self.tag_macros_changed)
         # Terminal animation interval
         self.terminal_animation_interval = \
-            u(d['terminal animation interval'],
+            u(get('terminal animation interval'),
               self.terminal_animation_interval,
               self.terminal_animation_interval_changed)
         # Title
-        self.title = u(d['title'], self.title, self.title_changed)
+        self.title = u(get('title'), self.title, self.title_changed)
+
+        return missing_keys
 
     @classmethod
-    def load(cls: Type[T], config_path: Path) -> T:
+    def load(cls: Type[T], config_path: Path) -> Tuple[T, Set[str]]:
         # Create the settings object
         s = cls()
-        s.reload(config_path, send_signals=False)
-        return s
+        missing_keys = s.reload(config_path, send_signals=False)
+        return (s, missing_keys)
 
 
 def read_css(config_path: Path) -> str:

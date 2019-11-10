@@ -24,7 +24,7 @@ class MainWindow(QtWidgets.QWidget):
         self.css = (LOCAL_DIR / 'data' / CSS_FILE).read_text(encoding='utf-8')
         self.css_override = read_css(self.configdir)
         self.setStyleSheet(self.css + '\n' + self.css_override)
-        self.settings = Settings.load(self.configdir)
+        self.settings, missing_keys = Settings.load(self.configdir)
         self.setWindowTitle(self.settings.title)
         activation_event.connect(self.reload_settings)
         self.force_quit_flag = False
@@ -38,6 +38,10 @@ class MainWindow(QtWidgets.QWidget):
                                     self.configdir / 'state',
                                     self.configdir / 'terminal_history')
         self.stack.addWidget(self.index_view)
+        if missing_keys:
+            keys = ', '.join(f'"{k}"' for k in missing_keys)
+            self.index_view.terminal.error(f'Some keys are missing from your '
+                                           f'config: {keys}')
 
         # Backstory editor
         self.backstory_termhistory_path = self.configdir / 'backstory_history'
