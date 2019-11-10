@@ -6,6 +6,8 @@ from typing import Any, Callable, Dict, Optional, Tuple
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import Qt
 
+from libsyntyche.cli import ArgumentRules, Command
+
 from .backstorywindow import BackstoryWindow
 from .common import CSS_FILE, LOCAL_DIR, read_css, Settings
 from .indexview import IndexView
@@ -70,12 +72,17 @@ class MainWindow(QtWidgets.QWidget):
 
     def connect_signals(self) -> None:
         connects: Tuple[Tuple[QtCore.pyqtSignal, Callable[..., Any]], ...] = (
-            (self.index_view.quit,        self.close),
             (self.index_view.view_meta,   self.open_backstory_editor),
             (self.settings.title_changed, self.setWindowTitle),
         )
         for signal, slot in connects:
             signal.connect(slot)
+        self.index_view.terminal.add_command(Command(
+            'quit', 'Quit sapfo',
+            self.close,
+            short_name='q',
+            args=ArgumentRules.NONE
+        ))
 
     def show_index(self) -> None:
         self.stack.setCurrentWidget(self.index_view)

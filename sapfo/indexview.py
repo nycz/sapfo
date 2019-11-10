@@ -2,6 +2,7 @@ from collections import Counter
 from datetime import datetime
 import json
 from operator import itemgetter
+import os.path
 from pathlib import Path
 import pickle
 import re
@@ -12,12 +13,13 @@ from PyQt5 import QtCore, QtGui, QtSvg, QtWidgets
 from PyQt5.QtCore import pyqtProperty, pyqtSignal, Qt
 from PyQt5.QtGui import QColor
 
+from libsyntyche.cli import ArgumentRules, AutocompletionPattern, Command
+from libsyntyche.terminal import MessageType
 from libsyntyche.widgets import Signal0
 
 from . import tagsystem
 from .common import ActiveFilters, LOCAL_DIR, Settings, SortBy
 from .declarative import fix_layout, hbox, label, Stretch, vbox
-from .terminal import MessageType
 from .index.entrylist import EntryList, entry_attributes, index_stories
 from .index.terminal import Terminal
 from .taggedlist import NONEMPTY_SEARCH
@@ -163,8 +165,6 @@ class MessageTray(QtWidgets.QFrame):
             MessageType.ERROR: 'terminal_error',
             MessageType.PRINT: 'terminal_print',
         }
-        if msgtype == MessageType.ERROR:
-            text = f'Error: {text}'
         lbl = MessageTrayItem(text, classes[msgtype], self)
         self.layout().addWidget(lbl)
         QtCore.QTimer.singleShot(1000 * self.seconds_alive, lbl.kill)
@@ -207,7 +207,7 @@ class IndexView(QtWidgets.QWidget):
         # Tag info list
         self.tag_info = TagInfoList(self, settings)
         # Terminal
-        self.terminal = Terminal(self, settings, self.get_tags, history_file)
+        self.terminal = Terminal(self, history_file)
         # Layout
         self.setLayout(vbox(Stretch(self.scroll_area),
                             self.status_bar,
@@ -288,16 +288,7 @@ class IndexView(QtWidgets.QWidget):
         s = self.settings
         # TODO: maybe better typing with Signal0, Signal1 etc here?
         connects: Tuple[Tuple[pyqtSignal, Callable[..., Any]], ...] = (
-            (t.filter_,                 self.filter_entries),
-            (t.sort,                    self.sort_entries),
-            (t.edit,                    self.edit_entry),
-            (t.new_entry,               self.new_entry),
             # (t.input_term.scroll_index, self.entry_view.event),
-            (t.manage_tags,             self.manage_tags),
-            (t.count_length,            self.count_length),
-            (t.external_edit,           self.external_run_entry),
-            (t.open_meta,               self.open_meta),
-            (t.quit,                    self.quit.emit),
             (self.tag_info.print_,      t.print_),
             (self.tag_info.error,       t.error),
             # Settings
@@ -305,6 +296,199 @@ class IndexView(QtWidgets.QWidget):
         )
         for signal, slot in connects:
             signal.connect(slot)
+
+        self.terminal.add_command(Command(
+            'filter', 'Filter entries (aka show only entries matching the filter)',
+            self.filter_entries,
+            short_name='f',
+            arg_help=(('', 'List the active filters.'),
+                      ('-', 'Reset all filters.'),
+                      ('[ndrtcbp]-', 'Reset the specified filter.'),
+                      ('[ndrtcbp]', 'Don\'t apply any filter, instead set the '
+                                    'terminal\'s input text to the specified '
+                                    'filter\'s current value.'),
+                      ('n', 'Filter on titles (case insensitive).'),
+                      ('d', 'Filter on descriptions (case insensitive).'),
+                      ('r', 'Filter on recaps (case insensitive).'),
+                      ('t', 'Filter on tags. Supports AND (comma , ), '
+                            'OR (vertical bar | ), NOT prefix (dash - ), and '
+                            'tag macros (use @ as prefix) specified in the '
+                            'config. AND and OR can\'t be used mixed without '
+                            'explicit parentheses to specify precedence. '
+                            'Spaces are allowed in tag names, but not (),| . '
+                            'Tags are case sensitive.'),
+                      ('[ndrt]_', 'Show only entries with this '
+                                  'attribute empty.'),
+                      ('[ndrt]*', 'Show no entries with this '
+                                  'attribute empty.'),
+                      ('c', 'Filter on wordcount. Supports the operators '
+                            '> < >= <= followed by the target number. A "k" '
+                            'suffix in the number is replaced by 000. '
+                            'Operator expressions can be combined without any '
+                            'delimiters. Eg.: >900<=50k'),
+                      ('b', 'Filter on backstory wordcount. This uses '
+                            'the same syntax as the wordcount filter.'),
+                      ('p', 'Filter on number of backstory pages. This uses '
+                            'the same syntax as the wordcount filter.')),
+        ))
+
+        def complete_tag_filter(name: str, match_text: str) -> List[str]:
+            if match_text.startswith('@'):
+                return [f'@{m}' for m in sorted(self.settings.tag_macros.keys())
+                        if m.startswith(match_text[1:])]
+            else:
+                return [t for t, count in sorted(self.get_tags(),
+                                                 key=itemgetter(1),
+                                                 reverse=True)
+                        if t.startswith(match_text)]
+
+        # TODO: insert an extra space before the first tag maybe
+        self.terminal.add_autocompletion_pattern(AutocompletionPattern(
+            'filter-entries-tags',
+            prefix=r'ft\s*',
+            start=r'(^|[(,|])\s*',
+            end=r'([),|]|$)',
+            illegal_chars='()|,',
+            get_suggestions=complete_tag_filter,
+        ))
+
+        self.terminal.add_command(Command(
+            'sort', 'Sort entries',
+            self.sort_entries,
+            short_name='s',
+            arg_help=(('[ncbpm][!<>]', 'Sort using the specified '
+                                       'key and order.'),
+                      ('n', 'Sort by title.'),
+                      ('c', 'Sort by wordcount.'),
+                      ('b', 'Sort by backstory wordcount.'),
+                      ('p', 'Sort by number of backstory pages.'),
+                      ('m', 'Sort by last modified date.'),
+                      ('!', 'Reverse sort order.'),
+                      ('<', 'Sort ascending.'),
+                      ('>', 'Sort descending.')),
+        ))
+        self.terminal.add_command(Command(
+            'edit', 'Edit entry',
+            self.edit_entry,
+            short_name='e',
+            args=ArgumentRules.REQUIRED,
+            arg_help=(('u', 'Undo last edit.'),
+                      ('[ndrt]123', "Don't edit anything, instead set the "
+                                    "terminal's input text to the current "
+                                    "value of the specified attribute in "
+                                    "entry 123."),
+                      ('[ndr]123 text', 'Set the value of the specified '
+                                        'attribute in entry 123 to "text".'),
+                      ('r123-', 'Clear the recap in entry 123.'),
+                      ('t123 tag1, tag2',
+                       'Set the tags of entry 123 to tag1 and tag2. The list '
+                       'is comma separated and all tags are stripped of '
+                       'surrounding whitespace before saved.'),
+                      ('t* tag1, tag2', 'Replace all instances of tag1 with '
+                                        'tag2 in all visible entries.'),
+                      ('t* tag1,', 'Remove all instances of tag1 '
+                                   'from all visible entries.'),
+                      ('t* ,tag2', 'Add tag2 to all visible entries.')),
+        ))
+
+        self.terminal.add_autocompletion_pattern(AutocompletionPattern(
+            'edit-entries-tags',
+            prefix=r'et[*0-9]\s*',
+            start=r'(^|,)\s*',
+            end=r'(,|$)',
+            illegal_chars='()|,',
+            get_suggestions=complete_tag_filter,
+        ))
+
+        self.terminal.add_command(Command(
+            'new_entry', 'Create new entry',
+            self.new_entry,
+            short_name='n',
+            args=ArgumentRules.REQUIRED,
+            arg_help=(('(tag1, tag2, ..) path',
+                       ('Create a new entry with the tags at the path. '
+                        'The title is generate automatically from '
+                        'the path.')),),
+        ))
+
+        def complete_tags(name: str, match_text: str) -> List[str]:
+            return [tag for num, tag in
+                    sorted(((num, t) for t, num in self.get_tags()
+                            if t.startswith(match_text)), reverse=True)]
+
+        self.terminal.add_autocompletion_pattern(AutocompletionPattern(
+            'new-entry-tags',
+            prefix=r'n\s*[(]\s*',
+            start=r'(^|,)\s*',
+            end=r'\s*($|,|[)])',
+            illegal_chars=')',
+            get_suggestions=complete_tags,
+        ))
+
+        def complete_filename(name: str, match_text: str) -> List[str]:
+            # TODO: handle directories maybe?
+            root = self.rootpath
+            if not root.is_dir():
+                return []
+            suggestions = [root / p
+                           for p in sorted(root.iterdir())
+                           if p.name.lower().startswith(match_text.rstrip().lower())]
+            return [p.name + (os.path.sep * p.is_dir())
+                    for p in suggestions]
+
+        self.terminal.add_autocompletion_pattern(AutocompletionPattern(
+            'new-entry-path',
+            prefix=r'n\s*[(][^)]*[)]\s*',
+            get_suggestions=complete_filename,
+        ))
+
+        self.terminal.add_command(Command(
+            'manage_tags', 'Manage tags.',
+            self.manage_tags,
+            short_name='t',
+            arg_help=(('', 'Hide tag list if visible, otherwise show '
+                           'tag list in default order, sorted by '
+                           'usage count.'),
+                      ('[ac]-[/tagname]', 'Show tags in reverse order.'),
+                      ('a[-][/tagname]', 'Show tags alphabetically sorted.'),
+                      ('c[-][/tagname]', 'Show tags sorted by usage count.'),
+                      ('[ac][-]/tagname', 'Show tags that includes '
+                                          '"tagname".'),
+                      ('@', 'List tag macros.')),
+        ))
+        self.terminal.add_command(Command(
+            'count_length', 'Show combined size of wordcount and more',
+            self.count_length,
+            short_name='c',
+            args=ArgumentRules.REQUIRED,
+            arg_help=(('c', 'Show combined wordcount '
+                            'for all visible entries.'),
+                      ('b', 'Show combined backstory wordcount '
+                            'for all visible entries.'),
+                      ('p', 'Show combined number of backstory pages '
+                            'for all visible entries.')),
+        ))
+        self.terminal.add_command(Command(
+            'external_edit', 'Open entry file in external editor',
+            self.external_run_entry,
+            short_name='x',
+            args=ArgumentRules.REQUIRED,
+            arg_help=(('123', "Open entry 123's file (note: not sapfo's json "
+                              "metadata file) in an external editor. "
+                              "This is the same as entering 123 without any "
+                              "command at all."),
+                      ('foobar', "If there is only one entry with a name "
+                                 "\"foobar\", open that entry in an external "
+                                 "editor.")),
+        ))
+        self.terminal.add_command(Command(
+            'open_meta', 'Open entry in backstory (meta) editor',
+            self.open_meta,
+            short_name='m',
+            args=ArgumentRules.REQUIRED,
+            arg_help=(('123', 'Open the backstory/meta editor '
+                              'for entry 123.'),),
+        ))
 
     def update_hotkeys(self, hotkeys: Dict[str, str]) -> None:
         for key, shortcut in self.hotkeys.items():
@@ -352,7 +536,7 @@ class IndexView(QtWidgets.QWidget):
         return Counter(tag for entry in self.entry_view.entries
                        for tag in entry.tags).most_common()
 
-    def manage_tags(self, arg: str) -> None:
+    def manage_tags(self, arg: Optional[str]) -> None:
         # self.tag_info.view_tags(self.get_tags())
         """
         t - (when visible) hide
@@ -362,6 +546,7 @@ class IndexView(QtWidgets.QWidget):
             / - show/search for tags
         t@ - list macros
         """
+        arg = arg or ''
         if not arg and self.tag_info.isVisible():
             self.tag_info.hide()
             return
@@ -379,7 +564,7 @@ class IndexView(QtWidgets.QWidget):
         self.tag_info.view_tags(self.get_tags(), sort_alphabetically,
                                 bool(match['reverse']), search)
 
-    def filter_entries(self, arg: str) -> None:
+    def filter_entries(self, arg: Optional[str]) -> None:
         """
         The main filter method, called by terminal command.
 
@@ -458,7 +643,7 @@ class IndexView(QtWidgets.QWidget):
                                      self.entry_view.count()))
         self.save_state()
 
-    def sort_entries(self, arg: str) -> None:
+    def sort_entries(self, arg: Optional[str]) -> None:
         """
         The main sort method, called by terminal command.
 

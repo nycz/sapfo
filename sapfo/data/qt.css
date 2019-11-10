@@ -17,7 +17,7 @@
   selection-background-color: #ddd;
 }
 
-IndexView GenericTerminalInputBox {
+IndexView InputField {
   padding: 4px;
 }
 
@@ -350,16 +350,14 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
 
 /* Terminal log */
 
-Log, #log_container {
-  background: #16191c;
-}
-Log {
-  min-height: 150px;
-  max-height: 150px;
-  border: 0;
-  border-top: 2px solid #0b0b0b;
-  margin: 0;
-  padding: 0;
+LogHistory {
+  /* TODO: make this as pretty as the old one? */
+  background: #181818;
+  font-size: 14px;
+  color: #ddd;
+  alternate-background-color: #222;
+  border: 2px solid black;
+  font-family: 'monospace';
 }
 
 IndexView Terminal QScrollBar:vertical {
@@ -367,30 +365,4 @@ IndexView Terminal QScrollBar:vertical {
 }
 IndexView Terminal QScrollBar::handle:vertical {
   background: #060a0d;
-}
-
-#log_timestamp, #log_print, #log_error {
-  background-color: transparent;
-  font-family: monospace;
-  font-size: 13px;
-  color: #ddd;
-  padding: 2px;
-}
-
-#log_timestamp[odd=true], #log_print[odd=true], #log_error[odd=true] {
-  background-color: #08ffffff;
-}
-
-#log_timestamp {
-  border-right: 1px solid #555;
-  padding-right: 8px;
-  color: #99a;
-}
-
-#log_print, #log_error {
-  padding-left: 8px;
-}
-
-#log_error {
-  color: #f66;
 }
