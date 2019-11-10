@@ -12,6 +12,7 @@ from PyQt5 import QtCore, QtGui, QtSvg, QtWidgets
 from PyQt5.QtCore import pyqtProperty, pyqtSignal, Qt
 from PyQt5.QtGui import QColor
 
+from . import tagsystem
 from .common import ActiveFilters, LOCAL_DIR, Settings, SortBy
 from .declarative import fix_layout, hbox, label, Stretch, vbox
 from .terminal import MessageType
@@ -328,7 +329,16 @@ class IndexView(QtWidgets.QWidget):
         self.progress.setMinimumDuration(0)
         self.progress.setValue(0)
         raw_entries = index_stories(self.rootpath, self.progress)
-        self.entry_view.set_entries(raw_entries, self.progress)
+        try:
+            self.entry_view.set_entries(raw_entries, self.progress)
+        except tagsystem.ParsingError as e:
+            self.error(f'Failed to reload active tag filter, resetting')
+            self.error(f'[Tag parsing] {e}')
+            self.entry_view.active_filters = \
+                self.entry_view.active_filters._replace(tags=None)
+            self.status_bar.set_filter_info(self.entry_view.active_filters)
+            self.entry_view.set_entries(raw_entries, self.progress)
+            self.save_state()
         self.progress.reset()
 
     def get_tags(self) -> List[Tuple[str, int]]:
@@ -436,8 +446,7 @@ class IndexView(QtWidgets.QWidget):
             self.entry_view.active_filters = self.entry_view.active_filters._replace(**{filters[cmd]: payload})
             try:
                 self.entry_view.filter_()
-            except SyntaxError as e:
-                # This should be an error from the tag parser
+            except tagsystem.ParsingError as e:
                 self.error(f'[Tag parsing] {e}')
                 return
             resultstr = 'Filter applied'
