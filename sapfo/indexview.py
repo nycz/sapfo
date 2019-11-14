@@ -186,6 +186,10 @@ class IndexView(QtWidgets.QWidget):
         self.terminal.show_message.connect(self.message_tray.add_message)
         self.status_bar.moved.connect(self.adjust_tray)
 
+    def setStyleSheet(self, css: str) -> None:
+        super().setStyleSheet(css)
+        self.terminal.setStyleSheet(css)
+
     def load_state(self) -> Dict[str, Any]:
         try:
             state: Dict[str, Any] = pickle.loads(self.statepath.read_bytes())

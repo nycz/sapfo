@@ -109,8 +109,9 @@ class MainWindow(QtWidgets.QWidget):
         self.settings.reload(self.configdir)
         if self.css_override != css_override:
             self.css_override = css_override
-            css = self.css + self.css_override
+            css = self.css + '\n' + self.css_override
             self.setStyleSheet(css)
+            self.index_view.setStyleSheet(css)
             for bsw in self.backstorywindows.values():
                 bsw.setStyleSheet(css)
 

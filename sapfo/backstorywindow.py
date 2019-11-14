@@ -852,6 +852,10 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.textarea.resized.connect(self.adjust_tray)
         self.show()
 
+    def setStyleSheet(self, css: str) -> None:
+        super().setStyleSheet(css)
+        self.terminal.setStyleSheet(css)
+
     def closeEvent(self, ev: QtGui.QCloseEvent) -> None:
         success = self.save_tab()
         if success or self.forcequitflag:
