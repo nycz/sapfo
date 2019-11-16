@@ -151,13 +151,14 @@ class SourceSpec(NamedTuple):
 
 
 class Margins(NamedTuple):
-    top: int = 0
-    left: int = 0
-    right: int = 0
-    bottom: int = 0
+    top: int
+    left: int
+    right: int
+    bottom: int
 
     @classmethod
-    def _load(cls, data: Any) -> 'Margins':
+    def _load(cls, data: Any, default_margins: Optional['Margins'] = None
+              ) -> 'Margins':
         if isinstance(data, int):
             return Margins(data, data, data, data)
         elif isinstance(data, list):
@@ -186,7 +187,10 @@ class Margins(NamedTuple):
                     out['bottom'] = value
                 else:
                     raise ParsingError('invalid key type {key!r}')
-            return Margins(**out)
+            if default_margins:
+                return default_margins._replace(**out)
+            else:
+                return Margins(**out)
         else:
             raise ParsingError('invalid margins spec')
 
@@ -222,25 +226,24 @@ class StyleSpec(NamedTuple):
     vertical_align: VerticalAlign
     horizontal_align: HorizontalAlign
 
+    def _left_space(self) -> int:
+        return self.margin.left + self.border_width.left + self.padding.left
+
+    def _right_space(self) -> int:
+        return self.margin.right + self.border_width.right + self.padding.right
+
+    def _top_space(self) -> int:
+        return self.margin.top + self.border_width.top + self.padding.top
+
+    def _bottom_space(self) -> int:
+        return (self.margin.bottom + self.border_width.bottom
+                + self.padding.bottom)
+
     def _horizontal_space(self) -> int:
-        width = 0
-        if self.margin:
-            width += self.margin.right + self.margin.left
-        if self.padding:
-            width += self.padding.right + self.padding.left
-        if self.border_width:
-            width += self.border_width.right + self.border_width.left
-        return width
+        return self._left_space() + self._right_space()
 
     def _vertical_space(self) -> int:
-        height = 0
-        if self.margin:
-            height += self.margin.top + self.margin.bottom
-        if self.padding:
-            height += self.padding.top + self.padding.bottom
-        if self.border_width:
-            height += self.border_width.top + self.border_width.bottom
-        return height
+        return self._top_space() + self._bottom_space()
 
     @classmethod
     def _load(cls, attrs: Dict[str, Any],
@@ -256,7 +259,9 @@ class StyleSpec(NamedTuple):
                 continue
             value = attrs[key]
             if type_ == Margins:
-                value = Margins._load(value)
+                default_margin_value = (default_style._asdict()[key]
+                                        if default_style else None)
+                value = Margins._load(value, default_margin_value)
             elif type_ == Font:
                 default_font = default_style.font if default_style else None
                 value = Font._load(value, default_font)
