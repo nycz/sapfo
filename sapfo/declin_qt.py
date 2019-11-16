@@ -152,31 +152,36 @@ def calc_size_container(input_value: Dict[str, Any], section: ContainerSection,
     top = s._top_space()
     hspace = s._horizontal_space()
     vspace = s._vertical_space()
+    inner_rect = StretchableRect(
+        rect.x + left,
+        rect.y + top,
+        rect.width - hspace if rect.width is not None else None,
+        rect.height - vspace if rect.height is not None else None)
     children = []
-    x_offset = left
-    y_offset = top
+    x_offset = 0
+    y_offset = 0
     max_width = 0
     max_height = 0
     if section.direction is Direction.HORIZONTAL:
         row_items: List[DrawGroup] = []
         for value, child in data:
             child_group = calc_size(value, child, model,
-                                    rect._with_offset(x=x_offset, y=y_offset),
+                                    inner_rect._with_offset(x=x_offset, y=y_offset),
                                     depth-1)
             child_size = child_group.drawable.rect
-            if rect.width is not None \
-                    and x_offset + child_size.width() > rect.width - hspace:
+            if inner_rect.width is not None \
+                    and x_offset + child_size.width() > inner_rect.width:
                 # New row, align all the previous items
                 for item in row_items:
                     item.align_vertically(max_height)
                 # Move down one row
-                x_offset = left
+                x_offset = 0
                 y_offset += max_height + section.spacing
                 max_height = 0
                 row_items = []
                 child_group = calc_size(value, child, model,
-                                        rect._with_offset(x=x_offset,
-                                                          y=y_offset),
+                                        inner_rect._with_offset(x=x_offset,
+                                                                y=y_offset),
                                         depth-1)
                 child_size = child_group.drawable.rect
             children.append(child_group)
@@ -189,30 +194,28 @@ def calc_size_container(input_value: Dict[str, Any], section: ContainerSection,
     elif section.direction is Direction.VERTICAL:
         for value, child in data:
             child_group = calc_size(value, child, model,
-                                    rect._with_offset(x=x_offset, y=y_offset),
+                                    inner_rect._with_offset(x=x_offset, y=y_offset),
                                     depth-1)
             child_size = child_group.drawable.rect
-            if rect.height is not None \
-                    and y_offset + child_size.height() > rect.height - vspace:
+            if inner_rect.height is not None \
+                    and y_offset + child_size.height() > inner_rect.height:
                 # Move right one column
                 x_offset += max_width + section.spacing
-                y_offset = top
+                y_offset = 0
                 max_width = 0
                 child_group = calc_size(value, child, model,
-                                        rect._with_offset(x=x_offset,
-                                                          y=y_offset),
+                                        inner_rect._with_offset(x=x_offset,
+                                                                y=y_offset),
                                         depth-1)
                 child_size = child_group.drawable.rect
             children.append(child_group)
             max_width = max(max_width, child_size.width())
             y_offset += child_size.height() + section.spacing
     if children:
-        right = s._right_space()
-        bottom = s._bottom_space()
         total_width = (max(c.drawable.rect.x() + c.drawable.rect.width()
-                           for c in children) - rect.x + right)
+                           for c in children) - inner_rect.x + hspace)
         total_height = (max(c.drawable.rect.y() + c.drawable.rect.height()
-                            for c in children) - rect.y + bottom)
+                            for c in children) - inner_rect.y + vspace)
     else:
         total_width = 0
         total_height = 0
