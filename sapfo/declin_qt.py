@@ -236,6 +236,8 @@ def calc_size_item(input_value: Any, section: ItemSection,
             data[n] = datetime.fromtimestamp(data[n]).strftime(
                 section.date_fmt)
     text = section.fmt.format(*data)
+    if not text:
+        return DrawGroup(Drawable(QRect(rect.x, rect.y, 0, 0), depth, s))
     font_metrics = QFontMetrics(get_font(s))
     if rect.width is None:
         max_width = 10000
@@ -258,6 +260,8 @@ def calc_size_item(input_value: Any, section: ItemSection,
 def calc_size_line(section: LineSection, rect: StretchableRect,
                    depth: int) -> DrawGroup:
     s = section.style
+    if section.thickness <= 0:
+        return DrawGroup(Drawable(QRect(rect.x, rect.y, 0, 0), depth, s))
     if section.direction is Direction.HORIZONTAL:
         if rect.width is None:
             raise ValueError('max_width cannot be uncapped '
