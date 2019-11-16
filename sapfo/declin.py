@@ -195,6 +195,39 @@ class Margins(NamedTuple):
             raise ParsingError('invalid margins spec')
 
 
+class Border(NamedTuple):
+    thickness: int
+    color: Color
+
+    @classmethod
+    def _load(cls, items: Any, default_border: Optional['Border'] = None
+              ) -> 'Border':
+        thickness: Optional[int] = None
+        color: Optional[Color] = None
+        if not isinstance(items, list):
+            items = [items]
+        for item in items:
+            if isinstance(item, int):
+                if thickness is not None:
+                    raise ParsingError('multiple border thicknesses')
+                thickness = item
+            elif isinstance(item, Color):
+                if color is not None:
+                    raise ParsingError('multiple border colors')
+                color = item
+            else:
+                raise ParsingError(f'unknown border argument: {item!r}')
+        if default_border is None:
+            if thickness is None:
+                raise ParsingError('missing border thickness')
+            if color is None:
+                raise ParsingError('missing border color')
+            return Border(thickness, color)
+        else:
+            return Border(thickness or default_border.thickness,
+                          color or default_border.color)
+
+
 def type_check_namedtuple(types: Dict[str, Type[Any]],
                           attrs: Dict[str, Any]) -> Dict[str, Type[Any]]:
     keep_attrs = {}
@@ -216,31 +249,29 @@ class StyleSpec(NamedTuple):
     # Color
     text_color: Color
     background_color: Color
-    border_color: Color
-    border_radius: int
     # Text
     font: Font
     # Margin etc
     margin: Margins
     padding: Margins
-    border_width: Margins
+    border: Border
     # Misc
+    corner_radius: int
     wrap: bool
     vertical_align: VerticalAlign
     horizontal_align: HorizontalAlign
 
     def _left_space(self) -> int:
-        return self.margin.left + self.border_width.left + self.padding.left
+        return self.margin.left + self.border.thickness + self.padding.left
 
     def _right_space(self) -> int:
-        return self.margin.right + self.border_width.right + self.padding.right
+        return self.margin.right + self.border.thickness + self.padding.right
 
     def _top_space(self) -> int:
-        return self.margin.top + self.border_width.top + self.padding.top
+        return self.margin.top + self.border.thickness + self.padding.top
 
     def _bottom_space(self) -> int:
-        return (self.margin.bottom + self.border_width.bottom
-                + self.padding.bottom)
+        return self.margin.bottom + self.border.thickness + self.padding.bottom
 
     def _horizontal_space(self) -> int:
         return self._left_space() + self._right_space()
@@ -268,6 +299,10 @@ class StyleSpec(NamedTuple):
             elif type_ == Font:
                 default_font = default_style.font if default_style else None
                 value = Font._load(value, default_font)
+            elif type_ == Border:
+                default_border = (default_style.border if default_style
+                                  else None)
+                value = Border._load(value, default_border)
             elif type_ == VerticalAlign:
                 if value is Constants.TOP:
                     value = VerticalAlign.TOP

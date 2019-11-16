@@ -78,7 +78,7 @@ class Drawable:
         s = self.style
         # Draw background
         background_color = get_color(s.background_color)
-        bw = s.border_width.top
+        bw = s.border.thickness
         r = QRectF(self.rect)\
             .translated(0, y_offset)\
             .adjusted(s.margin.left + bw / 2, s.margin.top + bw / 2,
@@ -86,12 +86,12 @@ class Drawable:
         if bw <= 0:
             pen = QPen(Qt.transparent)
         else:
-            pen = QPen(get_color(s.border_color))
-            pen.setWidth(s.border_width.top)
+            pen = QPen(get_color(s.border.color))
+            pen.setWidth(s.border.thickness)
             pen.setJoinStyle(Qt.MiterJoin)
         painter.setPen(pen)
         painter.setBrush(background_color)
-        painter.drawRoundedRect(r, s.border_radius, s.border_radius)
+        painter.drawRoundedRect(r, s.corner_radius, s.corner_radius)
 
 
 class DrawableLine(Drawable):
@@ -101,7 +101,7 @@ class DrawableLine(Drawable):
                                   -s.margin.right, -s.margin.bottom)
         rect.translate(0, y_offset)
         # TODO: which color?
-        painter.fillRect(rect, get_color(s.border_color))
+        painter.fillRect(rect, get_color(s.border.color))
 
 
 class DrawableItem(Drawable):
