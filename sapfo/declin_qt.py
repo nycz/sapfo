@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
-from PyQt5.QtCore import Qt, QRect, QSize
-from PyQt5.QtGui import QColor, QFont, QFontMetrics, QPainter
+from PyQt5.QtCore import Qt, QRect, QRectF, QSize
+from PyQt5.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
 
 from . import declin
 from .declin import (Color, ContainerSection, Direction, ItemSection,
@@ -77,38 +77,21 @@ class Drawable:
     def draw(self, painter: QPainter, y_offset: int = 0) -> None:
         s = self.style
         # Draw background
-        border_width = s.border_width.top
-        r = self.rect.translated(0, y_offset)
-        if border_width > 0:
-            bx1 = r.x() + s.margin.left
-            by1 = r.y() + s.margin.top
-            bx2 = r.x() + r.width() - s.margin.right - s.border_width.right
-            by2 = r.y() + r.height() - s.margin.bottom - s.border_width.bottom
-            border_color = get_color(s.border_color)
-            hline_w = r.width() - s.margin.left - s.margin.right
-            vline_h = (r.height() - s.margin.top - s.margin.bottom
-                       - s.border_width.top - s.border_width.bottom)
-            # top line
-            painter.fillRect(bx1, by1, hline_w, s.border_width.top,
-                             border_color)
-            # bottom line
-            painter.fillRect(bx1, by2, hline_w, s.border_width.bottom,
-                             border_color)
-            # left line
-            painter.fillRect(bx1, by1 + s.border_width.top,
-                             s.border_width.left, vline_h, border_color)
-            # right line
-            painter.fillRect(bx2, by1 + s.border_width.top,
-                             s.border_width.right, vline_h, border_color)
-        painter.fillRect(r.x() + s.margin.left + s.border_width.left,
-                         r.y() + s.margin.top + s.border_width.top,
-                         r.width() - (s.margin.left + s.margin.right
-                                      + s.border_width.left
-                                      + s.border_width.right),
-                         r.height() - (s.margin.top + s.margin.bottom
-                                       + s.border_width.top
-                                       + s.border_width.bottom),
-                         get_color(s.background_color))
+        background_color = get_color(s.background_color)
+        bw = s.border_width.top
+        r = QRectF(self.rect)\
+            .translated(0, y_offset)\
+            .adjusted(s.margin.left + bw / 2, s.margin.top + bw / 2,
+                      -s.margin.right - bw / 2, -s.margin.bottom - bw / 2)
+        if bw <= 0:
+            pen = QPen(Qt.transparent)
+        else:
+            pen = QPen(get_color(s.border_color))
+            pen.setWidth(s.border_width.top)
+            pen.setJoinStyle(Qt.MiterJoin)
+        painter.setPen(pen)
+        painter.setBrush(background_color)
+        painter.drawRoundedRect(r, s.border_radius, s.border_radius)
 
 
 class DrawableLine(Drawable):
