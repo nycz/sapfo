@@ -116,11 +116,25 @@ class Constants(enum.Enum):
     ITALIC = enum.auto()
     NOT_BOLD = enum.auto()
     NOT_ITALIC = enum.auto()
+    CENTER = enum.auto()
+    MIDDLE = enum.auto()
 
 
 class Direction(enum.Enum):
     HORIZONTAL = enum.auto()
     VERTICAL = enum.auto()
+
+
+class VerticalAlign(enum.Enum):
+    TOP = enum.auto()
+    MIDDLE = enum.auto()
+    BOTTOM = enum.auto()
+
+
+class HorizontalAlign(enum.Enum):
+    LEFT = enum.auto()
+    CENTER = enum.auto()
+    RIGHT = enum.auto()
 
 
 class AttributeRef(NamedTuple):
@@ -204,6 +218,9 @@ class StyleSpec(NamedTuple):
     margin: Margins
     padding: Margins
     border_width: Margins
+    # Misc
+    vertical_align: VerticalAlign
+    horizontal_align: HorizontalAlign
 
     def _horizontal_space(self) -> int:
         width = 0
@@ -243,6 +260,24 @@ class StyleSpec(NamedTuple):
             elif type_ == Font:
                 default_font = default_style.font if default_style else None
                 value = Font._load(value, default_font)
+            elif type_ == VerticalAlign:
+                if value is Constants.TOP:
+                    value = VerticalAlign.TOP
+                elif value is Constants.MIDDLE:
+                    value = VerticalAlign.MIDDLE
+                elif value is Constants.BOTTOM:
+                    value = VerticalAlign.BOTTOM
+                else:
+                    raise ParsingError(f'invalid vertical align: {value!r}')
+            elif type_ == HorizontalAlign:
+                if value is Constants.LEFT:
+                    value = HorizontalAlign.LEFT
+                elif value is Constants.CENTER:
+                    value = HorizontalAlign.CENTER
+                elif value is Constants.RIGHT:
+                    value = HorizontalAlign.RIGHT
+                else:
+                    raise ParsingError(f'invalid horizontal align: {value!r}')
             elif not isinstance(value, type_):
                 raise ParsingError(f'invalid type for {key}: '
                                    f'{type(value)}')
@@ -401,6 +436,8 @@ def parse_value(text: str) -> Tuple[Any, str]:
             'not_bold': Constants.NOT_BOLD,
             'italic': Constants.ITALIC,
             'not_italic': Constants.NOT_ITALIC,
+            'middle': Constants.MIDDLE,
+            'center': Constants.CENTER,
         }
         if name_match[0] in constants:
             return constants[name_match[0]], text[name_match.end():]
