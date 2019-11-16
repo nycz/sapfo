@@ -216,6 +216,8 @@ class StyleSpec(NamedTuple):
     # Color
     text_color: Color
     background_color: Color
+    border_color: Color
+    border_radius: int
     # Text
     font: Font
     # Margin etc
@@ -223,6 +225,7 @@ class StyleSpec(NamedTuple):
     padding: Margins
     border_width: Margins
     # Misc
+    wrap: bool
     vertical_align: VerticalAlign
     horizontal_align: HorizontalAlign
 
