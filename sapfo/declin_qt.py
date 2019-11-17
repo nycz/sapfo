@@ -5,8 +5,9 @@ from PyQt5.QtCore import Qt, QRect, QRectF, QSize
 from PyQt5.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
 
 from . import declin
-from .declin import (Color, ContainerSection, Direction, ItemSection,
-                     LineSection, Model, Section, StyleSpec, VerticalAlign)
+from .declin import (ContainerSection, ItemSection,
+                     LineSection, Model, Section, StyleSpec)
+from .declin.types import Color, Direction, VerticalAlign
 
 
 class StretchableRect(NamedTuple):
@@ -115,8 +116,8 @@ class DrawableItem(Drawable):
         s = self.style
         painter.setPen(get_color(s.text_color))
         painter.setFont(get_font(s))
-        text_rect = self.rect.adjusted(s._left_space(), s._top_space(),
-                                       -s._right_space(), -s._bottom_space())
+        text_rect = self.rect.adjusted(s.left_space, s.top_space,
+                                       -s.right_space, -s.bottom_space)
         text_rect.translate(0, y_offset)
         painter.drawText(text_rect, Qt.TextWordWrap, self.text)
 
@@ -148,10 +149,10 @@ def calc_size_container(input_value: Dict[str, Any], section: ContainerSection,
         attr, delegate_ref = section.source
         delegate = model.sections[delegate_ref.name]
         data = ((v, delegate) for v in input_value[attr.name])
-    left = s._left_space()
-    top = s._top_space()
-    hspace = s._horizontal_space()
-    vspace = s._vertical_space()
+    left = s.left_space
+    top = s.top_space
+    hspace = s.horizontal_space
+    vspace = s.vertical_space
     inner_rect = StretchableRect(
         rect.x + left,
         rect.y + top,
@@ -242,18 +243,18 @@ def calc_size_item(input_value: Any, section: ItemSection,
     if rect.width is None:
         max_width = 10000
     else:
-        max_width = rect.width - s._horizontal_space()
+        max_width = rect.width - s.horizontal_space
     if rect.height is None:
         max_height = 10000
     else:
-        max_height = rect.height - s._vertical_space()
-    bounding_rect = QRect(rect.x + s._left_space(),
-                          rect.y + s._top_space(),
+        max_height = rect.height - s.vertical_space
+    bounding_rect = QRect(rect.x + s.left_space,
+                          rect.y + s.top_space,
                           max_width, max_height)
     wrap = Qt.TextWordWrap if s.wrap else 0
     text_rect = font_metrics.boundingRect(bounding_rect, wrap, text)
-    full_rect = text_rect.adjusted(-s._left_space(), -s._top_space(),
-                                   s._right_space(), s._bottom_space())
+    full_rect = text_rect.adjusted(-s.left_space, -s.top_space,
+                                   s.right_space, s.bottom_space)
     return DrawGroup(DrawableItem(text, full_rect, depth, s))
 
 
