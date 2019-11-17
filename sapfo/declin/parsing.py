@@ -280,43 +280,48 @@ class StyleSpec:
         for stmt in statements:
             key = stmt.key.lexeme
             args = stmt.values
-            if key == 'text_color':
-                _require(args, length=1, type_=TokenType.COLOR)
-                style._text_color = Color.parse(args[0].lexeme)
-            elif key == 'background_color':
-                _require(args, length=1, type_=TokenType.COLOR)
-                style._background_color = Color.parse(args[0].lexeme)
-            elif key == 'font':
-                default_font = default_style.font if default_style else None
-                style._font = Font.load(args, default_font)
-            elif key == 'margin':
-                default_margin = (default_style.margin
-                                  if default_style else None)
-                style._margin = Margins.load(args, default_margin)
-            elif key == 'padding':
-                default_padding = (default_style.padding
-                                   if default_style else None)
-                style._padding = Margins.load(args, default_padding)
-            elif key == 'border':
-                default_border = (default_style.border
-                                  if default_style else None)
-                style._border = Border.load(args, default_border)
-            elif key == 'corner_radius':
-                _require(args, length=1, type_=TokenType.INT)
-                style._corner_radius = cast(int, args[0].literal)
-            elif key == 'wrap':
-                _require(args, length=1, type_=TokenType.BOOL)
-                style._wrap = cast(bool, args[0].literal)
-            elif key == 'vertical_align':
-                _require(args, length=1, type_=TokenType.CONSTANT)
-                style._vertical_align \
-                    = VerticalAlign._load(cast(Constants, args[0].literal))
-            elif key == 'horizontal_align':
-                _require(args, length=1, type_=TokenType.CONSTANT)
-                style._horizontal_align \
-                    = HorizontalAlign._load(cast(Constants, args[0].literal))
-            else:
-                remaining.append(stmt)
+            try:
+                if key == 'text_color':
+                    _require(args, length=1, type_=TokenType.COLOR)
+                    style._text_color = Color.parse(args[0].lexeme)
+                elif key == 'background_color':
+                    _require(args, length=1, type_=TokenType.COLOR)
+                    style._background_color = Color.parse(args[0].lexeme)
+                elif key == 'font':
+                    default_font = default_style.font if default_style else None
+                    style._font = Font.load(args, default_font)
+                elif key == 'margin':
+                    default_margin = (default_style.margin
+                                      if default_style else None)
+                    style._margin = Margins.load(args, default_margin)
+                elif key == 'padding':
+                    default_padding = (default_style.padding
+                                       if default_style else None)
+                    style._padding = Margins.load(args, default_padding)
+                elif key == 'border':
+                    default_border = (default_style.border
+                                      if default_style else None)
+                    style._border = Border.load(args, default_border)
+                elif key == 'corner_radius':
+                    _require(args, length=1, type_=TokenType.INT)
+                    style._corner_radius = cast(int, args[0].literal)
+                elif key == 'wrap':
+                    _require(args, length=1, type_=TokenType.BOOL)
+                    style._wrap = cast(bool, args[0].literal)
+                elif key == 'vertical_align':
+                    _require(args, length=1, type_=TokenType.CONSTANT)
+                    style._vertical_align \
+                        = VerticalAlign._load(cast(Constants, args[0].literal))
+                elif key == 'horizontal_align':
+                    _require(args, length=1, type_=TokenType.CONSTANT)
+                    style._horizontal_align \
+                        = HorizontalAlign._load(cast(Constants, args[0].literal))
+                else:
+                    remaining.append(stmt)
+            except ParsingError as e:
+                if not e.pos:
+                    e.pos = Pos('', stmt.key.row)
+                raise e
         missing_keys: List[str] = []
         for var in style.__annotations__.keys():
             if not hasattr(style, var):
@@ -354,26 +359,31 @@ class ItemSection(Section):
     _fmt: str = '{}'
     _date_fmt: str = ''
 
-    def __init__(self, statements: List[Statement],
-                 default_style: StyleSpec) -> None:
+    def __init__(self, lines: RawSection, default_style: StyleSpec) -> None:
+        statements = parse_statements(lines)
         style, remaining_statements = StyleSpec.load(statements, default_style)
         super().__init__(style)
         for stmt in remaining_statements:
             key = stmt.key.lexeme
             args = stmt.values
-            if key == 'fmt':
-                _require(args, length=1, type_=TokenType.STRING)
-                self._fmt = cast(str, args[0].literal)
-            elif key == 'date_fmt':
-                _require(args, length=1, type_=TokenType.STRING)
-                self._date_fmt = cast(str, args[0].literal)
-            elif key == 'data':
-                # TODO: accept literals
-                _require(args, type_=TokenType.ATTRIBUTE)
-                self._data = [AttributeRef(cast(str, a.literal)) for a in args]
-            else:
-                # TODO: better logging
-                print(f'unrecognized attribute: {key}')
+            try:
+                if key == 'fmt':
+                    _require(args, length=1, type_=TokenType.STRING)
+                    self._fmt = cast(str, args[0].literal)
+                elif key == 'date_fmt':
+                    _require(args, length=1, type_=TokenType.STRING)
+                    self._date_fmt = cast(str, args[0].literal)
+                elif key == 'data':
+                    # TODO: accept literals
+                    _require(args, type_=TokenType.ATTRIBUTE)
+                    self._data = [AttributeRef(cast(str, a.literal)) for a in args]
+                else:
+                    # TODO: better logging
+                    print(f'unrecognized attribute: {key}')
+            except ParsingError as e:
+                if not e.pos:
+                    e.pos = Pos('', stmt.key.row)
+                raise e
 
     @property
     def data(self) -> List[AttributeRef]:
@@ -394,8 +404,9 @@ class ContainerSection(Section):
     _wrap: bool = True
     _spacing: int = 0
 
-    def __init__(self, statements: List[Statement],
-                 default_style: StyleSpec, direction: Direction) -> None:
+    def __init__(self, lines: RawSection, default_style: StyleSpec,
+                 direction: Direction) -> None:
+        statements = parse_statements(lines)
         style, remaining_statements = StyleSpec.load(statements, default_style)
         super().__init__(style)
         self._direction = direction
@@ -404,34 +415,40 @@ class ContainerSection(Section):
         for stmt in remaining_statements:
             key = stmt.key.lexeme
             args = stmt.values
-            if key == 'delegate':
-                _require(args, arg_types={TokenType.ATTRIBUTE,
-                                          TokenType.NAME})
-                attr_ref: AttributeRef
-                item_ref: ItemRef
-                for a in args:
-                    if a.type_ == TokenType.ATTRIBUTE:
-                        attr_ref = AttributeRef(cast(str, a.literal))
-                    elif a.type_ == TokenType.NAME:
-                        item_ref = ItemRef(cast(str, a.literal))
-                delegate = (attr_ref, item_ref)
-            elif key == 'items':
-                _require(args, type_=TokenType.NAME)
-                items = [ItemRef(cast(str, a.literal)) for a in args]
-            elif key == 'wrap':
-                _require(args, length=1, type_=TokenType.BOOL)
-                self._wrap = cast(bool, args[0].literal)
-            elif key == 'spacing':
-                _require(args, length=1, type_=TokenType.INT)
-                self._spacing = cast(int, args[0].literal)
-            else:
-                # TODO: better logging
-                print(f'unrecognized attribute: {key}')
+            try:
+                if key == 'delegate':
+                    _require(args, arg_types={TokenType.ATTRIBUTE,
+                                              TokenType.NAME})
+                    attr_ref: AttributeRef
+                    item_ref: ItemRef
+                    for a in args:
+                        if a.type_ == TokenType.ATTRIBUTE:
+                            attr_ref = AttributeRef(cast(str, a.literal))
+                        elif a.type_ == TokenType.NAME:
+                            item_ref = ItemRef(cast(str, a.literal))
+                    delegate = (attr_ref, item_ref)
+                elif key == 'items':
+                    _require(args, type_=TokenType.NAME)
+                    items = [ItemRef(cast(str, a.literal)) for a in args]
+                elif key == 'wrap':
+                    _require(args, length=1, type_=TokenType.BOOL)
+                    self._wrap = cast(bool, args[0].literal)
+                elif key == 'spacing':
+                    _require(args, length=1, type_=TokenType.INT)
+                    self._spacing = cast(int, args[0].literal)
+                else:
+                    # TODO: better logging
+                    print(f'unrecognized attribute: {key}')
+            except ParsingError as e:
+                if not e.pos:
+                    e.pos = Pos('', stmt.key.row)
+                raise e
         if items is not None and delegate is not None:
             raise ParsingError("can't have both items and delegate in the "
-                               "same section")
+                               "same section", Pos(lines[0][1], lines[0][0]))
         elif items is None and delegate is None:
-            raise ParsingError('missing items or delegate field')
+            raise ParsingError('missing items or delegate field',
+                               Pos(lines[0][1], lines[0][0]))
         elif delegate is not None:
             self._source = delegate
         elif items is not None:
@@ -458,30 +475,36 @@ class LineSection(Section):
     _direction: Direction
     _thickness: int = 1
 
-    def __init__(self, statements: List[Statement],
-                 default_style: StyleSpec) -> None:
+    def __init__(self, lines: RawSection, default_style: StyleSpec) -> None:
+        statements = parse_statements(lines)
         style, remaining_statements = StyleSpec.load(statements, default_style)
         super().__init__(style)
         for stmt in remaining_statements:
             key = stmt.key.lexeme
             args = stmt.values
-            if key == 'direction':
-                _require(args, length=1, type_=TokenType.CONSTANT)
-                if args[0].literal is Constants.HORIZONTAL:
-                    self._direction = Direction.HORIZONTAL
-                elif args[0].literal is Constants.VERTICAL:
-                    self._direction = Direction.VERTICAL
+            try:
+                if key == 'direction':
+                    _require(args, length=1, type_=TokenType.CONSTANT)
+                    if args[0].literal is Constants.HORIZONTAL:
+                        self._direction = Direction.HORIZONTAL
+                    elif args[0].literal is Constants.VERTICAL:
+                        self._direction = Direction.VERTICAL
+                    else:
+                        raise ParsingError(f'invalid value for direction: '
+                                           f'{args[0]!r}')
+                elif key == 'thickness':
+                    _require(args, length=1, type_=TokenType.INT)
+                    self._thickness = cast(int, args[0].literal)
                 else:
-                    raise ParsingError(f'invalid value for direction: '
-                                       f'{args[0]!r}')
-            elif key == 'thickness':
-                _require(args, length=1, type_=TokenType.INT)
-                self._thickness = cast(int, args[0].literal)
-            else:
-                # TODO: better logging
-                print(f'unrecognized attribute: {key}')
+                    # TODO: better logging
+                    print(f'unrecognized attribute: {key}')
+            except ParsingError as e:
+                if not e.pos:
+                    e.pos = Pos('', stmt.key.row)
+                raise e
         if not hasattr(self, '_direction'):
-            raise ParsingError(f'missing attribute direction')
+            raise ParsingError(f'missing attribute direction',
+                               Pos(lines[0][1], lines[0][0]))
 
     @property
     def direction(self) -> Direction:
@@ -507,18 +530,18 @@ def parse_section(raw_section: RawSection, default_style: StyleSpec
     except KeyError:
         raise ParsingError('unknown section type', cmd_pos)
 
-    statements = parse_statements(raw_section[1:])
+    content = raw_section[1:]
     section: Section
     if section_type is SectionType.ITEM:
-        section = ItemSection(statements, default_style)
+        section = ItemSection(content, default_style)
     elif section_type is SectionType.ROW:
-        section = ContainerSection(statements, default_style,
+        section = ContainerSection(content, default_style,
                                    Direction.HORIZONTAL)
     elif section_type is SectionType.COLUMN:
-        section = ContainerSection(statements, default_style,
+        section = ContainerSection(content, default_style,
                                    Direction.VERTICAL)
     elif section_type is SectionType.LINE:
-        section = LineSection(statements, default_style)
+        section = LineSection(content, default_style)
     return name, section
 
 
