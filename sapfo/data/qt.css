@@ -73,19 +73,9 @@ QProgressDialog QProgressBar::chunk {
   background-color: #77b;
 }
 
-#entry_list_layout {
-  margin: 40px;
-}
-
 EntryList {
-  margin: 15px 8px;
-  qproperty-spacing: 20;
-  qproperty-separator_color: black;
-  qproperty-separator_h_margin: 18;
-  qproperty-separator_height: 1;
-}
-
-EntryWidget {
+  margin: 10px 4px;
+  border: 0;
 }
 
 QLabel {
@@ -93,76 +83,6 @@ QLabel {
   padding: 0;
   border: 0;
 }
-
-#description, #empty_description, #recap {
-  font-size: 16px;
-}
-#number, #tag {
-  font-size: 13px;
-}
-
-#number, #wordcount, #empty_description, #recap, #last_modified {
-  font-style: italic;
-}
-
-#number, #wordcount {
-  color: #677;
-}
-
-#title {
-  font-size: 18px;
-  color: #cdd;
-}
-
-#number {
-  margin-right: 5px;
-  font-family: monospace;
-}
-
-#empty_description {
-  color: #d96;
-}
-#description {
-  color: #899;
-}
-#description, #empty_description {
-  /*margin-left: 15px;*/
-  margin-top: 5px;
-}
-
-#recap {
-  color: #ddd;
-  margin-top: 8px;
-  margin-left: 10px;
-  margin-bottom: 5px;
-  margin-right: 5px;
-}
-
-#tag {
-  background-color: #667;
-  border-radius: 3px;
-  color: #011;
-  font-family: "Monospace";
-  margin-right: 4px;
-  margin-top: 2px;
-  padding: 2px 0px;
-  font-size: 12px;
-}
-
-#wordcount, #last_modified {
-  font-size: 14px;
-  margin-top: 3px;
-  margin-bottom: 3px;
-}
-#wordcount {
-  margin-left: 5px;
-  margin-right: 3px;
-}
-#last_modified {
-  color: #7799a5;
-  margin-right: 6px;
-}
-
 
 InfoPanel {
     border: none;

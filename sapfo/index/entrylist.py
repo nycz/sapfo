@@ -1,5 +1,5 @@
-from datetime import datetime
 import json
+from operator import attrgetter
 import os
 from pathlib import Path
 import pickle
@@ -8,145 +8,121 @@ from typing import (Any, Callable, cast, Dict, FrozenSet, Iterable,
                     List, Optional, Tuple)
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import Qt
 
+from libsyntyche.widgets import Signal0, Signal1
+
+from .. import declin, declin_qt
 from ..common import ActiveFilters, CACHE_DIR, Settings, SortBy
-from ..declarative import grid, hflow, label
-from ..listlayout import ListLayout
 from ..taggedlist import (AttributeData, edit_entry, Entries, Entry,
-                          FilterFuncs, ParseFuncs)
+                          filter_entry, FilterFuncs, ParseFuncs)
 
 
-class EntryWidget(QtWidgets.QFrame):
-    def __init__(self, parent: QtWidgets.QWidget, number: int,
-                 total_count: int, entry: Entry, length_template: str,
-                 tag_colors: Dict[str, str]) -> None:
-        super().__init__(parent)
-        self.entry = entry
-        self.number = number
-        self.numlen = len(str(total_count - 1))
-        self._length_template = length_template
-        self.number_widget = label(f'{number:>{self.numlen}}',
-                                   'number', parent=self)
-        self.title_widget = label(entry.title, 'title', parent=self)
-        self.last_modified_widget = label(
-            datetime.fromtimestamp(entry.lastmodified).strftime('%Y-%m-%d'),
-            'last_modified', parent=self)
-        self.word_count_widget = label(
-            self._length_template.format(
-                wordcount=entry.wordcount,
-                backstorypages=entry.backstorypages,
-                backstorywordcount=entry.backstorywordcount
-            ), 'wordcount', parent=self)
-        self.desc_widget = label(entry.description or '[no desc]',
-                                 ('description' if entry.description
-                                  else 'empty_description'),
-                                 word_wrap=True, parent=self)
-        self.recap_widget = label(entry.recap, 'recap', word_wrap=True,
-                                  parent=self)
-        if not entry.recap:
-            self.recap_widget.hide()
-        self.tag_widgets: List[QtWidgets.QLabel] = []
-        self._tag_colors = tag_colors
-        for tag in sorted(entry.tags):
-            widget = label(tag, 'tag', parent=self)
-            if tag in tag_colors:
-                widget.setStyleSheet(f'background: {tag_colors[tag]};')
-            self.tag_widgets.append(widget)
-        self.top_row = hflow(self.title_widget,
-                             self.word_count_widget,
-                             self.last_modified_widget,
-                             *self.tag_widgets)
-        self.setLayout(grid({
-            (0, 0): self.number_widget,
-            (0, 1): self.top_row,
-            (1, (0, 1)): self.desc_widget,
-            (2, (0, 1)): self.recap_widget,
-        }, col_stretch={1: 1}))
+class EntryList(QtWidgets.QListWidget):
 
-    @property
-    def tag_colors(self) -> Dict[str, str]:
-        return self._tag_colors
+    ENTRY_ROLE = QtCore.Qt.UserRole
+    POS_ROLE = QtCore.Qt.UserRole + 1
 
-    @tag_colors.setter
-    def tag_colors(self, new_colors: Dict[str, str]) -> None:
-        self._tag_colors = new_colors
-        self.refresh_tag_colors()
+    class SortInfo:
+        def __init__(self, key: str, reverse: bool) -> None:
+            self.key = key
+            self.reverse = reverse
 
-    @property
-    def length_template(self) -> str:
-        return self._length_template
+    class EntryItem(QtWidgets.QListWidgetItem):
+        def __init__(self, entry: Entry, relative_pos: int,
+                     sort_info: 'EntryList.SortInfo',
+                     parent: Optional[QtWidgets.QListWidget] = None
+                     ) -> None:
+            super().__init__(parent)
+            self._entry = entry
+            self._relative_pos = relative_pos
+            self._sort_info = sort_info
 
-    @length_template.setter
-    def length_template(self, new_length_template: str) -> None:
-        if new_length_template == self._length_template:
-            return
-        self._length_template = new_length_template
-        self.word_count_widget.setText(
-            self.length_template.format(
-                wordcount=self.entry.wordcount,
-                backstorypages=self.entry.backstorypages,
-                backstorywordcount=self.entry.backstorywordcount
-            ))
+        def __lt__(self, other: QtWidgets.QListWidgetItem) -> bool:
+            if not isinstance(other, EntryList.EntryItem):
+                return False
+            result: bool = (getattr(self._entry, self._sort_info.key)
+                            < getattr(other._entry, self._sort_info.key))
+            return result
 
-    def refresh_tag_colors(self) -> None:
-        for tag_widget in self.tag_widgets:
-            tag = tag_widget.text()
-            # TODO: centralize default tag color
-            if tag in self.tag_colors:
-                tag_widget.setStyleSheet(f'background: '
-                                         f'{self.tag_colors[tag]};')
+        def data(self, role: int) -> Any:
+            if role == EntryList.ENTRY_ROLE:
+                return self._entry
+            elif role == EntryList.POS_ROLE:
+                return self._relative_pos
             else:
-                tag_widget.setStyleSheet('background: #667;')
+                return super().data(role)
 
-    def update_number(self) -> None:
-        self.number_widget.setText(f'{self.number:>{self.numlen}}')
+        def setData(self, role: int, new_data: Any) -> None:
+            if role == EntryList.ENTRY_ROLE:
+                self._entry = new_data
+            elif role == EntryList.POS_ROLE:
+                self._relative_pos = new_data
+            else:
+                super().setData(role, new_data)
 
-    def update_data(self, entry: Entry,
-                    total_count: Optional[int] = None) -> None:
-        self.entry = entry
-        if total_count is not None:
-            self.numlen = len(str(total_count - 1))
-            self.update_number()
-        self.title_widget.setText(entry.title)
-        self.word_count_widget.setText(
-            self.length_template.format(
-                wordcount=entry.wordcount,
-                backstorypages=entry.backstorypages,
-                backstorywordcount=entry.backstorywordcount
-            ))
-        self.last_modified_widget.setText(
-            datetime.fromtimestamp(entry.lastmodified).strftime('%Y-%m-%d'))
-        self.desc_widget.setText(entry.description or '[no desc]')
-        desc_class = ('description' if entry.description
-                      else 'empty_description')
-        if desc_class != self.desc_widget.objectName():
-            self.desc_widget.setObjectName(desc_class)
-            # Force the style to update
-            self.desc_widget.style().polish(self.desc_widget)
-        self.recap_widget.setText(entry.recap)
-        if entry.recap and not self.recap_widget.isVisible():
-            self.recap_widget.show()
-        elif not entry.recap and self.recap_widget.isVisible():
-            self.recap_widget.hide()
-        tags = sorted(entry.tags)
-        for tag_widget, tag in zip(self.tag_widgets, tags):
-            tag_widget.setText(tag)
-        old_tag_count = len(self.tag_widgets)
-        new_tag_count = len(tags)
-        if old_tag_count > new_tag_count:
-            for tag_widget in self.tag_widgets[new_tag_count:]:
-                self.top_row.removeWidget(tag_widget)
-                tag_widget.deleteLater()
-            self.tag_widgets = self.tag_widgets[:new_tag_count]
-        elif old_tag_count < new_tag_count:
-            for tag in tags[old_tag_count:]:
-                tag_widget = label(tag, 'tag', parent=self)
-                self.tag_widgets.append(tag_widget)
-                self.top_row.addWidget(tag_widget)
-        self.refresh_tag_colors()
+    class Delegate(QtWidgets.QStyledItemDelegate):
+        def __init__(self, tag_colors: Dict[str, str]) -> None:
+            super().__init__()
+            self.tag_colors: Dict[str, declin.types.Color] = {}
+            self.update_tag_colors(tag_colors)
+            # TODO: de-hardcode this
+            self.gui_path = (Path(__file__).resolve().parent.parent
+                             / 'data' / 'entry_layout.gui')
+            self.gui_model: Optional[declin_qt.Model] = None
+            self.reload_gui_model()
+            self.layouts: Dict[str, List[declin_qt.Drawable]] = {}
 
+        def reload_gui_model(self, name: str = '') -> None:
+            try:
+                gui_model = declin.parse(self.gui_path.read_text())
+            except declin.common.ParsingError as e:
+                print('GUI PARSING ERROR', e)
+            else:
+                self.gui_model = declin_qt.Model(main=gui_model.main,
+                                                 sections=gui_model.sections,
+                                                 tag_colors=self.tag_colors)
 
-class EntryList(QtWidgets.QFrame):
+        def update_tag_colors(self, tag_colors: Dict[str, str]) -> None:
+            self.tag_colors = {}
+            for tag, raw_color in tag_colors.items():
+                try:
+                    color = declin.types.Color.parse(raw_color)
+                except declin.common.ParsingError as e:
+                    print('BROKEN COLOR', tag, raw_color, e)
+                else:
+                    self.tag_colors[tag] = color
+
+        def sizeHint(self, option: QtWidgets.QStyleOptionViewItem,
+                     index: QtCore.QModelIndex) -> QtCore.QSize:
+            entry = index.data(EntryList.ENTRY_ROLE)
+            m = self.gui_model
+            if m is not None:
+                start_point = m.sections[m.main]
+                rect = declin_qt.StretchableRect(option.rect.x(),
+                                                 option.rect.y(),
+                                                 width=option.rect.width())
+                entry_dict = entry._asdict()
+                entry_dict['pos'] = index.data(EntryList.POS_ROLE)
+                group = declin_qt.calc_size(entry_dict, start_point,
+                                            m, rect, 0)
+                self.layouts[entry.index_] = list(group.flatten())
+                return group.size()
+            else:
+                return super().sizeHint(option, index)
+
+        def paint(self, painter: QtGui.QPainter,
+                  option: QtWidgets.QStyleOptionViewItem,
+                  index: QtCore.QModelIndex) -> None:
+            painter.save()
+            painter.setRenderHint(QtGui.QPainter.Antialiasing, on=True)
+            entry = index.data(EntryList.ENTRY_ROLE)
+            for item in sorted(self.layouts[entry.index_],
+                               key=attrgetter('depth'), reverse=True):
+                item.draw(painter, y_offset=option.rect.y())
+            painter.restore()
+
+    visible_count_changed = QtCore.pyqtSignal(int, int)
 
     def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
                  dry_run: bool, sorted_by: SortBy,
@@ -157,130 +133,129 @@ class EntryList(QtWidgets.QFrame):
         self.settings = settings
         settings.entry_length_template_changed.connect(
             self.set_length_template)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setSpacing(0)  # spacing > 0 is just weird man
         # Model values
+        self._entries: Entries = tuple()
+        self._visible_to_real_pos: Dict[int, int] = {}
         self.active_filters = active_filters
         self.attributedata = attributedata
         self.sorted_by = sorted_by
+        self.sort_info = self.SortInfo(self.sorted_by.key,
+                                       self.sorted_by.descending)
         self.tag_colors: Dict[str, str] = settings.tag_colors
         settings.tag_colors_changed.connect(self.set_tag_colors)
         self.undostack: List[Entries] = []
-        # View values
-        self._spacing: int = 0
-        self._separator_color: QtGui.QColor = QtGui.QColor('black')
-        self._separator_h_margin = 0
-        self._separator_height = 1
         self.length_template = settings.entry_length_template
-        self.entry_class = EntryWidget
-        self.entry_widgets: List[EntryWidget] = []
-        layout = ListLayout(self)
-        layout.setObjectName('entry_list_layout')
-        self.layout_ = layout
+        self.delegate = EntryList.Delegate(self.tag_colors)
+        self.setItemDelegate(self.delegate)
+        self.fs_watcher = QtCore.QFileSystemWatcher([str(self.delegate.gui_path.parent)])
+        cast(Signal1[str], self.fs_watcher.directoryChanged
+             ).connect(self.reload_gui)
 
-    def get_spacing(self) -> int:
-        return self.layout().spacing()
-
-    def set_spacing(self, value: int) -> None:
-        self._spacing = value
-        self.update_spacing()
-
-    spacing = QtCore.pyqtProperty(int, get_spacing, set_spacing)
-
-    def get_separator_color(self) -> QtGui.QColor:
-        return self._separator_color
-
-    def set_separator_color(self, value: QtGui.QColor) -> None:
-        self._separator_color = value
-
-    separator_color = QtCore.pyqtProperty(QtGui.QColor, get_separator_color,
-                                          set_separator_color)
-
-    def get_separator_h_margin(self) -> int:
-        return self._separator_h_margin
-
-    def set_separator_h_margin(self, value: int) -> None:
-        self._separator_h_margin = value
-
-    separator_h_margin = QtCore.pyqtProperty(int, get_separator_h_margin,
-                                             set_separator_h_margin)
-
-    def get_separator_height(self) -> int:
-        return self._separator_height
-
-    def set_separator_height(self, value: int) -> None:
-        self._separator_height = value
-        self.update_spacing()
-
-    separator_height = QtCore.pyqtProperty(int, get_separator_height,
-                                           set_separator_height)
-
-    visible_count_changed = QtCore.pyqtSignal(int, int)
+    def reload_gui(self, name: str) -> None:
+        self.delegate.reload_gui_model()
+        cast(Signal0, self.model().layoutChanged).emit()
 
     def set_length_template(self, length_template: str) -> None:
         if length_template == self.length_template:
             return
         self.length_template = length_template
-        for widget in self.entry_widgets:
-            widget.length_template = length_template
+        # TODO: use this or move it fully to DECLIN
+
+    def set_tag_colors(self, new_colors: Dict[str, str]) -> None:
+        if self.tag_colors != new_colors:
+            self.tag_colors = new_colors
+            self.delegate.update_tag_colors(new_colors)
 
     @property
     def entries(self) -> Iterable[Entry]:
-        return [w.entry for w in self.entry_widgets]
+        return self._entries
 
     @property
     def visible_entries(self) -> Iterable[Entry]:
-        return [w.entry for w in self.entry_widgets if w.isVisible()]
+        entries = []
+        for n in self._visible_to_real_pos.values():
+            entry: Entry = self.item(n).data(self.ENTRY_ROLE)
+            entries.append(entry)
+        return entries
+
+    def set_entries(self, new_entries: Entries,
+                    progress: QtWidgets.QProgressDialog) -> None:
+        self._entries = new_entries
+        count = self.count()
+        for _ in range(count):
+            self.takeItem(0)
+        for n, entry in enumerate(new_entries):
+            self.addItem(self.EntryItem(entry, n, self.sort_info, self))
+        self.sort()
+        self.filter_()
 
     def visible_entry(self, pos: int) -> Entry:
-        item = self.layout_.visibleItemAt(pos)
-        if item is None:
-            raise IndexError
-        else:
-            entry: Entry = cast(EntryWidget, item.widget()).entry
-            return entry
+        entry: Entry = self.item(self._visible_to_real_pos[pos]
+                                 ).data(self.ENTRY_ROLE)
+        return entry
 
     def visible_count(self) -> int:
-        return self.layout_.visible_count()
-
-    def count(self) -> int:
-        return self.layout_.count()
+        return sum(not self.isRowHidden(n) for n in range(self.count()))
 
     def sort(self) -> None:
-        self.layout_.sort(self.sorted_by.key, self.sorted_by.descending)
-        self.update()
+        self.sort_info.key = self.sorted_by.key
+        self.sortItems(Qt.DescendingOrder if self.sorted_by.descending
+                       else Qt.AscendingOrder)
+        self._visible_to_real_pos = {}
+        pos = 0
+        for n in range(self.count()):
+            if not self.isRowHidden(n):
+                self._visible_to_real_pos[pos] = n
+                self.item(n).setData(self.POS_ROLE, pos)
+                pos += 1
 
     def filter_(self) -> None:
         filter_list = [(k, v) for k, v
                        in self.active_filters._asdict().items()
                        if v is not None]
-        self.layout_.filter_(filter_list, self.attributedata,
-                             self.settings.tag_macros)
+        self._visible_to_real_pos = {}
+        pos = 0
         count = self.count()
-        visible_count = self.visible_count()
-        self.visible_count_changed.emit(visible_count, count)
-        self.update()
+        for n in range(count):
+            item = self.item(n)
+            if filter_entry(item.data(self.ENTRY_ROLE), filter_list,
+                            self.attributedata, self.settings.tag_macros):
+                item.setData(self.POS_ROLE, pos)
+                self.setRowHidden(n, False)
+                self._visible_to_real_pos[pos] = n
+                pos += 1
+            else:
+                self.setRowHidden(n, True)
+        self.visible_count_changed.emit(pos, count)
 
     def undo(self) -> int:
         if not self.undostack:
             return 0
-        items = {i.entry.index_: i for i in self.entry_widgets}
+        items = {item._entry.index_: item
+                 for item in (cast(EntryList.EntryItem, self.item(i))
+                              for i in range(self.count()))}
         undo_batch = self.undostack.pop()
         for entry in undo_batch:
-            items[entry.index_].update_data(entry)
+            item = items[entry.index_]
+            item.setData(self.ENTRY_ROLE, entry)
+            index = self.indexFromItem(item)
+            self.dataChanged(index, index)
         if not self.dry_run:
             write_metadata(undo_batch)
         return len(undo_batch)
 
-    def edit(self, pos: int, attribute: str, new_value: str) -> bool:
-        item = self.layout_.visibleItemAt(pos)
+    def edit_(self, pos: int, attribute: str, new_value: str) -> bool:
+        item = cast(EntryList.EntryItem, self.item(pos))
         if item is None:
             raise IndexError
-        widget = cast(EntryWidget, item.widget())
-        old_entry = widget.entry
+        old_entry = item._entry
         new_entry = edit_entry(old_entry, attribute, new_value,
                                self.attributedata)
         if new_entry != old_entry:
             self.undostack.append((old_entry,))
-            widget.update_data(new_entry)
+            item.setData(self.ENTRY_ROLE, new_entry)
             if not self.dry_run:
                 write_metadata([new_entry])
             self.filter_()
@@ -319,82 +294,22 @@ class EntryList(QtWidgets.QFrame):
 
         old_entries = []
         new_entries = []
-        for item in self.entry_widgets:
-            if item.isHidden():
+        for n in range(self.count()):
+            item = self.item(n)
+            entry: Entry = item.data(self.ENTRY_ROLE)
+            if self.isRowHidden(n):
                 continue
-            new_entry = replace_tag(item.entry)
-            if new_entry != item.entry:
-                old_entries.append(item.entry)
+            new_entry = replace_tag(entry)
+            if new_entry != entry:
+                old_entries.append(entry)
                 new_entries.append(new_entry)
-                item.update_data(new_entry)
+                item.setData(self.ENTRY_ROLE, new_entry)
         if old_entries:
             self.undostack.append(tuple(old_entries))
         if not self.dry_run:
             write_metadata(tuple(new_entries))
         self.filter_()
         return len(old_entries)
-
-    def set_tag_colors(self, new_colors: Dict[str, str]) -> None:
-        if self.tag_colors != new_colors:
-            self.tag_colors = new_colors
-            for entry in self.entry_widgets:
-                entry.tag_colors = new_colors
-
-    def set_entries(self, new_entries: Entries,
-                    progress: QtWidgets.QProgressDialog) -> None:
-        total_count = len(new_entries)
-        if self.entry_widgets:
-            progress.setLabelText('Clearing old widgets...')
-            progress.setMaximum(len(self.entry_widgets))
-            progress.setValue(0)
-            self.entry_widgets.clear()
-            n = 0
-            while self.layout_.count() > 0:
-                item = self.layout_.takeAt(0)
-                if item is None:
-                    break
-                item.widget().deleteLater()
-                del item
-                n += 1
-                progress.setValue(1)
-        progress.setLabelText('Positioning widgets...')
-        progress.setValue(0)
-        progress.setMaximum(total_count)
-        for n, entry in enumerate(new_entries):
-            entry_widget = self.entry_class(self, n, total_count, entry,
-                                            self.length_template,
-                                            self.tag_colors)
-            entry_widget.hide()
-            self.entry_widgets.append(entry_widget)
-            self.layout_.addWidget(entry_widget)
-            progress.setValue(n + 1)
-        progress.setLabelText('Sorting...')
-        self.sort()
-        progress.setLabelText('Filtering...')
-        self.filter_()
-
-    def update_spacing(self) -> None:
-        self.layout_.setSpacing(self._spacing + self._separator_height)
-
-    def paintEvent(self, event: QtGui.QPaintEvent) -> None:
-        super().paintEvent(event)
-        painter = QtGui.QPainter(self)
-        found_first = False
-        for n in range(self.layout_.count()):
-            item = self.layout_.itemAt(n)
-            if not item or isinstance(item, QtWidgets.QSpacerItem) \
-                    or item.widget().isHidden():
-                continue
-            if found_first:
-                top: int = item.widget().geometry().top()
-                y: int = top - self._spacing // 2
-                painter.fillRect(self._separator_h_margin,
-                                 y - self._separator_height,
-                                 self.width() - self._separator_h_margin * 2,
-                                 self._separator_height,
-                                 self._separator_color)
-            else:
-                found_first = True
 
 
 def get_backstory_data(file: Path, cached_data: Dict[str, Any]

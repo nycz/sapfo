@@ -687,7 +687,7 @@ class IndexView(QtWidgets.QWidget):
                 if arg[0] == 'r' and payload == '-':
                     # Clear recap if the arg is -
                     payload = ''
-                edited = self.entry_view.edit(entry_id, category, payload)
+                edited = self.entry_view.edit_(entry_id, category, payload)
                 if edited:
                     self.print_('Entry edited')
                 else:

@@ -1,0 +1,103 @@
+!DEFAULT
+    background_color #0000
+    border 0 #0000
+    corner_radius 0
+    font "Serif" 16
+    horizontal_align left
+    margin 0
+    padding 0
+    text_color #ccc
+    vertical_align middle
+    wrap false
+
+
+ITEM num
+    data .pos
+    font 'monospace' 13 italic
+    margin top 2
+    text_color #677
+
+
+ITEM title
+    data .title
+    font 18
+    text_color #cdd
+
+
+ITEM length
+    data .wordcount .backstorywordcount .backstorypages
+    fmt "({:,}) – [{:,}:{:,}]"
+    font 14 italic
+    margin vertical 3
+    text_color #677
+
+
+ITEM last_modified
+    data .lastmodified
+    date_fmt '%Y-%m-%d'
+    font 14 italic
+    text_color #7799a5
+
+
+ITEM tag
+    data .
+    background_color #667
+    corner_radius 3
+    font "monospace" 12
+    padding horizontal 3 bottom 2 top 3
+    text_color #011
+
+
+ROW tags
+    border #0f0
+    corner_radius 3
+    delegate .tags tag
+    wrap true
+    spacing 4
+    padding 0
+    vertical_align middle
+
+
+ITEM description
+    data .description
+    font 16
+    text_color #899
+    wrap true
+    when_empty no_description
+
+
+ITEM no_description
+    data "[no desc]"
+    font 16 italic
+    text_color #d96
+
+
+ITEM recap
+    data .recap
+    font 16
+    text_color #ddd
+    margin top 8 left 10 bottom 5 right 5
+    wrap true
+
+
+ROW top_row
+    items num title length last_modified tags
+    spacing 10
+    margin bottom 6
+    wrap true
+
+
+LINE entry_sep
+    direction horizontal
+    margin top 10 horizontal 5
+    border #000
+    thickness 1
+    
+
+COLUMN entry
+    items top_row description recap entry_sep
+    margin horizontal 10 vertical 4
+
+
+!EXPORT
+    main entry
