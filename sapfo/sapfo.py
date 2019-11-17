@@ -9,7 +9,7 @@ from PyQt5.QtCore import Qt
 from libsyntyche.cli import ArgumentRules, Command
 
 from .backstorywindow import BackstoryWindow
-from .common import CSS_FILE, LOCAL_DIR, read_css, Settings
+from .common import CSS_FILE, DATA_DIR, DECLIN_FILE, read_with_default, Settings
 from .indexview import IndexView
 from .taggedlist import Entry
 
@@ -23,8 +23,10 @@ class MainWindow(QtWidgets.QWidget):
         else:
             self.configdir = Path.home() / '.config' / 'sapfo'
         # Load settings
-        self.css = (LOCAL_DIR / 'data' / CSS_FILE).read_text(encoding='utf-8')
-        self.css_override = read_css(self.configdir)
+        self.css = (DATA_DIR / CSS_FILE).read_text(encoding='utf-8')
+        self.declin = (DATA_DIR / DECLIN_FILE).read_text(encoding='utf-8')
+        self.css_override = read_with_default(self.configdir / CSS_FILE)
+        self.declin_override = read_with_default(self.configdir / DECLIN_FILE)
         self.setStyleSheet(self.css + '\n' + self.css_override)
         self.settings, missing_keys = Settings.load(self.configdir)
         self.setWindowTitle(self.settings.title)
@@ -38,7 +40,8 @@ class MainWindow(QtWidgets.QWidget):
         self.index_view = IndexView(self, dry_run,
                                     self.settings,
                                     self.configdir / 'state',
-                                    self.configdir / 'terminal_history')
+                                    self.configdir / 'terminal_history',
+                                    self.declin, self.declin_override)
         self.stack.addWidget(self.index_view)
         if missing_keys:
             keys = ', '.join(f'"{k}"' for k in missing_keys)
@@ -105,8 +108,8 @@ class MainWindow(QtWidgets.QWidget):
         del self.backstorywindows[file]
 
     def reload_settings(self) -> None:
-        css_override = read_css(self.configdir)
         self.settings.reload(self.configdir)
+        css_override = read_with_default(self.configdir / CSS_FILE)
         if self.css_override != css_override:
             self.css_override = css_override
             css = self.css + '\n' + self.css_override
@@ -114,6 +117,10 @@ class MainWindow(QtWidgets.QWidget):
             self.index_view.setStyleSheet(css)
             for bsw in self.backstorywindows.values():
                 bsw.setStyleSheet(css)
+        declin_override = read_with_default(self.configdir / DECLIN_FILE)
+        if self.declin_override != declin_override:
+            self.declin_override = declin_override
+            self.index_view.entry_view.update_gui(self.declin_override)
 
     # ===== Input overrides ===========================
     def keyPressEvent(self, ev: QtGui.QKeyEvent) -> Any:

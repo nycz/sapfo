@@ -8,10 +8,12 @@ from PyQt5.QtCore import pyqtSignal, QObject
 
 
 LOCAL_DIR = Path(__file__).resolve().parent
+DATA_DIR = LOCAL_DIR / 'data'
 
 CACHE_DIR = Path.home() / '.cache' / 'sapfo'
 
 CSS_FILE = 'qt.css'
+DECLIN_FILE = 'entry_layout.decl'
 
 
 class ActiveFilters(NamedTuple):
@@ -42,7 +44,7 @@ U = TypeVar('U')
 
 class Settings(QObject):
     filename = 'settings.json'
-    default_config_path = LOCAL_DIR / 'data' / 'defaultconfig.json'
+    default_config_path = DATA_DIR / 'defaultconfig.json'
 
     animate_terminal_output_changed = pyqtSignal(bool)
     backstory_default_pages_changed = pyqtSignal(dict)
@@ -172,10 +174,8 @@ class Settings(QObject):
         return (s, missing_keys)
 
 
-def read_css(config_path: Path) -> str:
-    style: str
+def read_with_default(path: Path, default: str = '') -> str:
     try:
-        style = (config_path / CSS_FILE).read_text(encoding='utf-8')
+        return path.read_text(encoding='utf-8')
     except Exception:
-        style = ''
-    return style
+        return default

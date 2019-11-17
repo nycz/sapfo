@@ -20,15 +20,15 @@ RawSection = List[Tuple[int, str]]
 
 
 class Chunks(NamedTuple):
-    default: RawSection
-    export: RawSection
+    default: Optional[RawSection]
+    export: Optional[RawSection]
     sections: List[RawSection]
 
 
 def text_to_chunks(code: str) -> Chunks:
-    default: Optional[List[Tuple[int, str]]] = None
-    export: Optional[List[Tuple[int, str]]] = None
-    chunks: List[List[Tuple[int, str]]] = [[]]
+    default: Optional[RawSection] = None
+    export: Optional[RawSection] = None
+    chunks: List[RawSection] = [[]]
     # Split into chunks
     for line_num, line_text in enumerate(chain(code.splitlines(), [None]), 1):
         # Check the specials
@@ -70,10 +70,6 @@ def text_to_chunks(code: str) -> Chunks:
         else:
             raise ParsingError('all code except section names '
                                'has to be indented', Pos(line_text, line_num))
-    if default is None:
-        raise ParsingError('missing DEFAULT section')
-    if export is None:
-        raise ParsingError('missing EXPORT section')
     return Chunks(default=default, export=export, sections=chunks)
 
 
@@ -143,16 +139,11 @@ class Statement(NamedTuple):
 
 def parse_statements(lines: List[Tuple[int, str]]) -> List[Statement]:
     out = []
-    seen: Set[str] = set()
     for line_num, line_text in lines:
         match = re.fullmatch(r'\s+(\S+)(?:\s+(.+?))\s*', line_text)
         if match is None:
             raise ParsingError(f'invalid line', Pos(line_text, line_num))
         cmd = match[1]
-        if cmd in seen:
-            raise ParsingError(f'duplicate key: {cmd}',
-                               Pos(line_text, line_num))
-        seen.add(cmd)
         arg_str = match[2]
         values: List[Token] = []
         col = match.start(2)
@@ -453,8 +444,8 @@ class ContainerSection(Section):
         style, remaining_statements = StyleSpec.load(statements, default_style)
         super().__init__(name, style)
         self._direction = direction
-        items: Optional[List[ItemRef]] = None
-        delegate: Optional[Tuple[AttributeRef, ItemRef]] = None
+        source: Optional[Union[List[ItemRef],
+                               Tuple[AttributeRef, ItemRef]]] = None
         for stmt in remaining_statements:
             key = stmt.key.lexeme
             args = stmt.values
@@ -469,10 +460,10 @@ class ContainerSection(Section):
                             attr_ref = AttributeRef(cast(str, a.literal))
                         elif a.type_ == TokenType.NAME:
                             item_ref = ItemRef(cast(str, a.literal))
-                    delegate = (attr_ref, item_ref)
+                    source = (attr_ref, item_ref)
                 elif key == 'items':
                     _require(args, type_=TokenType.NAME)
-                    items = [ItemRef(cast(str, a.literal)) for a in args]
+                    source = [ItemRef(cast(str, a.literal)) for a in args]
                 elif key == 'wrap':
                     _require(args, length=1, type_=TokenType.BOOL)
                     self._wrap = cast(bool, args[0].literal)
@@ -486,16 +477,10 @@ class ContainerSection(Section):
                 if not e.pos:
                     e.pos = Pos('', stmt.key.row)
                 raise e
-        if items is not None and delegate is not None:
-            raise ParsingError("can't have both items and delegate in the "
-                               "same section", Pos(lines[0][1], lines[0][0]))
-        elif items is None and delegate is None:
+        if source is None:
             raise ParsingError('missing items or delegate field',
                                Pos(lines[0][1], lines[0][0]))
-        elif delegate is not None:
-            self._source = delegate
-        elif items is not None:
-            self._source = items
+        self._source = source
 
     @property
     def direction(self) -> Direction:
@@ -572,7 +557,7 @@ def parse_section(raw_section: RawSection, default_style: StyleSpec
     try:
         section_type = SectionType[type_name]
     except KeyError:
-        raise ParsingError('unknown section type', cmd_pos)
+        raise ParsingError(f'unknown section type {type_name}', cmd_pos)
 
     content = raw_section[1:]
     section: Section

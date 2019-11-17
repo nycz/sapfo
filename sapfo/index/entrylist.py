@@ -62,20 +62,19 @@ class EntryList(QtWidgets.QListWidget):
                 super().setData(role, new_data)
 
     class Delegate(QtWidgets.QStyledItemDelegate):
-        def __init__(self, tag_colors: Dict[str, str]) -> None:
+        def __init__(self, base_gui: str, override_gui: str,
+                     tag_colors: Dict[str, str]) -> None:
             super().__init__()
             self.tag_colors: Dict[str, declin.types.Color] = {}
             self.update_tag_colors(tag_colors)
-            # TODO: de-hardcode this
-            self.gui_path = (Path(__file__).resolve().parent.parent
-                             / 'data' / 'entry_layout.gui')
+            self.base_gui = base_gui
             self.gui_model: Optional[declin_qt.Model] = None
-            self.reload_gui_model()
+            self.update_gui(override_gui)
             self.layouts: Dict[str, List[declin_qt.Drawable]] = {}
 
-        def reload_gui_model(self, name: str = '') -> None:
+        def update_gui(self, user_gui: str) -> None:
             try:
-                gui_model = declin.parse(self.gui_path.read_text())
+                gui_model = declin.parse(self.base_gui, user_gui)
             except declin.common.ParsingError as e:
                 print('GUI PARSING ERROR', e)
             else:
@@ -127,7 +126,8 @@ class EntryList(QtWidgets.QListWidget):
     def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
                  dry_run: bool, sorted_by: SortBy,
                  active_filters: ActiveFilters,
-                 attributedata: AttributeData) -> None:
+                 attributedata: AttributeData,
+                 base_gui: str, override_gui: str) -> None:
         super().__init__(parent)
         self.dry_run = dry_run
         self.settings = settings
@@ -147,15 +147,12 @@ class EntryList(QtWidgets.QListWidget):
         settings.tag_colors_changed.connect(self.set_tag_colors)
         self.undostack: List[Entries] = []
         self.length_template = settings.entry_length_template
-        self.delegate = EntryList.Delegate(self.tag_colors)
+        self.delegate = EntryList.Delegate(base_gui, override_gui,
+                                           self.tag_colors)
         self.setItemDelegate(self.delegate)
-        self.fs_watcher = QtCore.QFileSystemWatcher([str(self.delegate.gui_path.parent)])
-        cast(Signal1[str], self.fs_watcher.directoryChanged
-             ).connect(self.reload_gui)
 
-    def reload_gui(self, name: str) -> None:
-        self.delegate.reload_gui_model()
-        cast(Signal0, self.model().layoutChanged).emit()
+    def update_gui(self, override: str) -> None:
+        self.delegate.update_gui(override)
 
     def set_length_template(self, length_template: str) -> None:
         if length_template == self.length_template:

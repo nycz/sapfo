@@ -121,7 +121,8 @@ class IndexView(QtWidgets.QWidget):
     quit = pyqtSignal(str)
 
     def __init__(self, parent: QtWidgets.QWidget, dry_run: bool,
-                 settings: Settings, statepath: Path, history_file: Path
+                 settings: Settings, statepath: Path, history_file: Path,
+                 base_gui: str, user_gui: str
                  ) -> None:
         super().__init__(parent)
         self.settings = settings
@@ -139,7 +140,7 @@ class IndexView(QtWidgets.QWidget):
         self.entry_view = EntryList(self, settings, dry_run,
                                     SortBy(*state['sorted by']),
                                     ActiveFilters(**state['active filters']),
-                                    self.attributedata)
+                                    self.attributedata, base_gui, user_gui)
         self.scroll_area.setWidget(self.entry_view)
         self.scroll_area.setFocusPolicy(Qt.NoFocus)
         self.scroll_area.setAlignment(Qt.AlignHCenter)

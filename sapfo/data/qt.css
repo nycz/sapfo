@@ -75,6 +75,7 @@ QProgressDialog QProgressBar::chunk {
 
 EntryList {
   margin: 10px 4px;
+  margin-bottom: 0;
   border: 0;
 }
 
