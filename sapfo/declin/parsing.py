@@ -1,7 +1,7 @@
 import enum
 from itertools import chain
 import re
-from typing import (cast, List, NamedTuple, Optional,
+from typing import (Any, cast, Dict, List, NamedTuple, Optional,
                     Set, Tuple, Union)
 
 from .common import Constants, ParsingError, Pos, Token, TokenType
@@ -271,6 +271,16 @@ class StyleSpec:
     def vertical_space(self) -> int:
         return self.top_space + self.bottom_space
 
+    def replace(self, **kwargs: Any) -> 'StyleSpec':
+        style = StyleSpec()
+        for var_name in style.__annotations__.keys():
+            clean_var_name = var_name[1:]  # drop the _ prefix
+            if clean_var_name in kwargs:
+                setattr(style, var_name, kwargs[clean_var_name])
+            else:
+                setattr(style, var_name, getattr(self, var_name))
+        return style
+
     @classmethod
     def load(cls, statements: List[Statement],
              default_style: Optional['StyleSpec'] = None
@@ -346,8 +356,13 @@ class SectionType(enum.Enum):
 class Section:
     _style: StyleSpec
 
-    def __init__(self, style: StyleSpec) -> None:
+    def __init__(self, name: str, style: StyleSpec) -> None:
+        self._name = name
         self._style = style
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     @property
     def style(self) -> StyleSpec:
@@ -359,10 +374,11 @@ class ItemSection(Section):
     _fmt: str = '{}'
     _date_fmt: str = ''
 
-    def __init__(self, lines: RawSection, default_style: StyleSpec) -> None:
+    def __init__(self, name: str, lines: RawSection,
+                 default_style: StyleSpec) -> None:
         statements = parse_statements(lines)
         style, remaining_statements = StyleSpec.load(statements, default_style)
-        super().__init__(style)
+        super().__init__(name, style)
         for stmt in remaining_statements:
             key = stmt.key.lexeme
             args = stmt.values
@@ -404,11 +420,11 @@ class ContainerSection(Section):
     _wrap: bool = True
     _spacing: int = 0
 
-    def __init__(self, lines: RawSection, default_style: StyleSpec,
+    def __init__(self, name: str, lines: RawSection, default_style: StyleSpec,
                  direction: Direction) -> None:
         statements = parse_statements(lines)
         style, remaining_statements = StyleSpec.load(statements, default_style)
-        super().__init__(style)
+        super().__init__(name, style)
         self._direction = direction
         items: Optional[List[ItemRef]] = None
         delegate: Optional[Tuple[AttributeRef, ItemRef]] = None
@@ -475,10 +491,11 @@ class LineSection(Section):
     _direction: Direction
     _thickness: int = 1
 
-    def __init__(self, lines: RawSection, default_style: StyleSpec) -> None:
+    def __init__(self, name: str, lines: RawSection,
+                 default_style: StyleSpec) -> None:
         statements = parse_statements(lines)
         style, remaining_statements = StyleSpec.load(statements, default_style)
-        super().__init__(style)
+        super().__init__(name, style)
         for stmt in remaining_statements:
             key = stmt.key.lexeme
             args = stmt.values
@@ -533,15 +550,15 @@ def parse_section(raw_section: RawSection, default_style: StyleSpec
     content = raw_section[1:]
     section: Section
     if section_type is SectionType.ITEM:
-        section = ItemSection(content, default_style)
+        section = ItemSection(name, content, default_style)
     elif section_type is SectionType.ROW:
-        section = ContainerSection(content, default_style,
+        section = ContainerSection(name, content, default_style,
                                    Direction.HORIZONTAL)
     elif section_type is SectionType.COLUMN:
-        section = ContainerSection(content, default_style,
+        section = ContainerSection(name, content, default_style,
                                    Direction.VERTICAL)
     elif section_type is SectionType.LINE:
-        section = LineSection(content, default_style)
+        section = LineSection(name, content, default_style)
     return name, section
 
 

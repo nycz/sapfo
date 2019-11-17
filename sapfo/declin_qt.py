@@ -1,13 +1,19 @@
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple
+from typing import Any, cast, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 from PyQt5.QtCore import Qt, QRect, QRectF, QSize
 from PyQt5.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
 
 from . import declin
 from .declin import (ContainerSection, ItemSection,
-                     LineSection, Model, Section, StyleSpec)
+                     LineSection, Section, StyleSpec)
 from .declin.types import Color, Direction, VerticalAlign
+
+
+class Model(NamedTuple):
+    main: str
+    sections: Dict[str, Section]
+    tag_colors: Dict[str, Color]
 
 
 class StretchableRect(NamedTuple):
@@ -230,6 +236,11 @@ def calc_size_item(input_value: Any, section: ItemSection,
     s = section.style
     data = [input_value[x.name] if x.name else input_value
             for x in section.data]
+    # Special hack for tag colors
+    if section.name == 'tag' and len(data) == 1 \
+            and data[0] in model.tag_colors:
+        s = s.replace(background_color=model.tag_colors[cast(str, data[0])])
+    # Some special formatting
     for n in range(len(data)):
         if isinstance(data[n], datetime):
             data[n] = data[n].strftime(section.date_fmt)
