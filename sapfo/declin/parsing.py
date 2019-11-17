@@ -1,7 +1,7 @@
 import enum
 from itertools import chain
 import re
-from typing import (Any, cast, Dict, List, NamedTuple, Optional,
+from typing import (Any, cast, List, NamedTuple, Optional,
                     Set, Tuple, Union)
 
 from .common import Constants, ParsingError, Pos, Token, TokenType
@@ -312,7 +312,8 @@ class StyleSpec:
                     _require(args, length=1, type_=TokenType.COLOR)
                     style._background_color = Color.parse(args[0].lexeme)
                 elif key == 'font':
-                    default_font = default_style.font if default_style else None
+                    default_font = (default_style.font
+                                    if default_style else None)
                     style._font = Font.load(args, default_font)
                 elif key == 'margin':
                     default_margin = (default_style.margin
@@ -339,7 +340,8 @@ class StyleSpec:
                 elif key == 'horizontal_align':
                     _require(args, length=1, type_=TokenType.CONSTANT)
                     style._horizontal_align \
-                        = HorizontalAlign._load(cast(Constants, args[0].literal))
+                        = HorizontalAlign._load(cast(Constants,
+                                                     args[0].literal))
                 else:
                     remaining.append(stmt)
             except ParsingError as e:
@@ -410,7 +412,7 @@ class ItemSection(Section):
                                           TokenType.STRING})
                     self._data = [AttributeRef(cast(str, a.literal))
                                   if a.type_ == TokenType.ATTRIBUTE
-                                  else a.literal for a in args]
+                                  else cast(str, a.literal) for a in args]
                 elif key == 'when_empty':
                     _require(args, length=1, type_=TokenType.NAME)
                     self._when_empty = ItemRef(args[0].lexeme)
