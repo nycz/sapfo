@@ -235,7 +235,8 @@ class EntryList(QtWidgets.QListWidget):
         return len(undo_batch)
 
     def edit_(self, pos: int, attribute: str, new_value: str) -> bool:
-        item = cast(EntryList.EntryItem, self.item(pos))
+        real_pos = self._visible_to_real_pos[pos]
+        item = cast(EntryList.EntryItem, self.item(real_pos))
         if item is None:
             raise IndexError
         old_entry = item._entry
