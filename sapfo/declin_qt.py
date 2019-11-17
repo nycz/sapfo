@@ -255,7 +255,7 @@ def calc_size_item(input_value: Any, section: ItemSection,
         elif isinstance(data[n], float) and section.date_fmt:
             data[n] = datetime.fromtimestamp(data[n]).strftime(
                 section.date_fmt)
-    text = section.fmt.format(*data)
+    text = section.fmt.format(*data).replace('\\n', '\n')
     if not text:
         return DrawGroup(Drawable(QRect(rect.x, rect.y, 0, 0), depth, s))
     font_metrics = QFontMetrics(get_font(s))
