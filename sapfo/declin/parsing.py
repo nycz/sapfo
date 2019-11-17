@@ -173,16 +173,30 @@ def _require(args: List[Token],
              length: Optional[int] = None,
              allow_empty: bool = False,
              type_: Optional[TokenType] = None,
-             arg_types: Optional[Set[TokenType]] = None,
+             types: Optional[Set[TokenType]] = None,
+             unique_types: Optional[Set[TokenType]] = None,
              ) -> None:
+    """
+    Check the arguments and raise ParsingError if they don't match the format.
+
+    length - check how many arguments are provided
+    allow_empty - allow zero or more arguments instead of one or more
+    type_ - all arguments has to this type
+    types - all arguments has to have one of these types
+    unique_types - for each type, there has to be one argument with that type
+
+    You can use multiple arguments at once but not all make sense.
+    """
     if length is not None and len(args) != length:
         raise ParsingError('invalid argument count')
     if type_ is not None and any(a.type_ != type_ for a in args):
         raise ParsingError(f'invalid argument type, expected {type_}')
-    if arg_types is not None:
-        if len(arg_types) != len(args):
+    if types is not None and any(a.type_ not in types for a in args):
+        raise ParsingError(f'invalid argument type, expected one of {types}')
+    if unique_types is not None:
+        if len(unique_types) != len(args):
             raise ParsingError('invalid argument count')
-        missing_types = arg_types - {a.type_ for a in args}
+        missing_types = unique_types - {a.type_ for a in args}
         if missing_types:
             raise ParsingError(f'missing argument types {missing_types}')
     if not allow_empty and not args:
@@ -370,7 +384,8 @@ class Section:
 
 
 class ItemSection(Section):
-    _data: List[AttributeRef]
+    _data: List[Union[AttributeRef, str]]
+    _when_empty: Optional[ItemRef] = None
     _fmt: str = '{}'
     _date_fmt: str = ''
 
@@ -391,8 +406,14 @@ class ItemSection(Section):
                     self._date_fmt = cast(str, args[0].literal)
                 elif key == 'data':
                     # TODO: accept literals
-                    _require(args, type_=TokenType.ATTRIBUTE)
-                    self._data = [AttributeRef(cast(str, a.literal)) for a in args]
+                    _require(args, types={TokenType.ATTRIBUTE,
+                                          TokenType.STRING})
+                    self._data = [AttributeRef(cast(str, a.literal))
+                                  if a.type_ == TokenType.ATTRIBUTE
+                                  else a.literal for a in args]
+                elif key == 'when_empty':
+                    _require(args, length=1, type_=TokenType.NAME)
+                    self._when_empty = ItemRef(args[0].lexeme)
                 else:
                     # TODO: better logging
                     print(f'unrecognized attribute: {key}')
@@ -402,7 +423,7 @@ class ItemSection(Section):
                 raise e
 
     @property
-    def data(self) -> List[AttributeRef]:
+    def data(self) -> List[Union[AttributeRef, str]]:
         return self._data
 
     @property
@@ -412,6 +433,10 @@ class ItemSection(Section):
     @property
     def date_fmt(self) -> str:
         return self._date_fmt
+
+    @property
+    def when_empty(self) -> Optional[ItemRef]:
+        return self._when_empty
 
 
 class ContainerSection(Section):
@@ -433,8 +458,8 @@ class ContainerSection(Section):
             args = stmt.values
             try:
                 if key == 'delegate':
-                    _require(args, arg_types={TokenType.ATTRIBUTE,
-                                              TokenType.NAME})
+                    _require(args, unique_types={TokenType.ATTRIBUTE,
+                                                 TokenType.NAME})
                     attr_ref: AttributeRef
                     item_ref: ItemRef
                     for a in args:

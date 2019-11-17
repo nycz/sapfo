@@ -7,7 +7,7 @@ from PyQt5.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
 from . import declin
 from .declin import (ContainerSection, ItemSection,
                      LineSection, Section, StyleSpec)
-from .declin.types import Color, Direction, VerticalAlign
+from .declin.types import AttributeRef, Color, Direction, VerticalAlign
 
 
 class Model(NamedTuple):
@@ -233,9 +233,13 @@ def calc_size_container(input_value: Dict[str, Any], section: ContainerSection,
 def calc_size_item(input_value: Any, section: ItemSection,
                    model: Model, rect: StretchableRect, depth: int,
                    ) -> DrawGroup:
-    s = section.style
-    data = [input_value[x.name] if x.name else input_value
+    data = [(input_value[x.name] if x.name else input_value)
+            if isinstance(x, AttributeRef) else x
             for x in section.data]
+    if section.when_empty and not any(x for x in data):
+        return calc_size(input_value, model.sections[section.when_empty.name],
+                         model, rect, depth)
+    s = section.style
     # Special hack for tag colors
     if section.name == 'tag' and len(data) == 1 \
             and data[0] in model.tag_colors:
