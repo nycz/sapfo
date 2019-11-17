@@ -154,7 +154,11 @@ def calc_size_container(input_value: Dict[str, Any], section: ContainerSection,
     elif isinstance(section.source, tuple):
         attr, delegate_ref = section.source
         delegate = model.sections[delegate_ref.name]
-        data = ((v, delegate) for v in input_value[attr.name])
+        # TODO: maybe not do a hack like this
+        if section.name == 'tags':
+            data = ((v, delegate) for v in sorted(input_value[attr.name]))
+        else:
+            data = ((v, delegate) for v in input_value[attr.name])
     left = s.left_space
     top = s.top_space
     hspace = s.horizontal_space
