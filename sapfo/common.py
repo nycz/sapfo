@@ -51,7 +51,6 @@ class Settings(QObject):
     backstory_viewer_formats_changed = pyqtSignal(dict)
     capitalize_all_words_in_title_changed = pyqtSignal(bool)
     editor_changed = pyqtSignal(str)
-    entry_length_template_changed = pyqtSignal(str)
     formatting_converters_changed = pyqtSignal(list)
     hotkeys_changed = pyqtSignal(dict)
     path_changed = pyqtSignal(Path)
@@ -67,8 +66,6 @@ class Settings(QObject):
         self.backstory_default_pages: Dict[str, str] = {}
         self.capitalize_all_words_in_title = True
         self.editor = ''
-        self.entry_length_template = \
-            '({wordcount:,}) – [{backstorywordcount:,}:{backstorypages:,}]'
         self.formatting_converters: List[List[str]] = []
         self.hotkeys: Dict[str, str] = {}
         self.path = Path('/')
@@ -135,11 +132,6 @@ class Settings(QObject):
               self.capitalize_all_words_in_title_changed)
         # Editor
         self.editor = u(get('editor'), self.editor, self.editor_changed)
-        # Entry length template
-        self.entry_length_template = \
-            u(get('entry length template'),
-              self.entry_length_template,
-              self.entry_length_template_changed)
         # Formatting converters
         self.formatting_converters = \
             u(get('formatting converters'),

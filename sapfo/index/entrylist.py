@@ -131,8 +131,6 @@ class EntryList(QtWidgets.QListWidget):
         super().__init__(parent)
         self.dry_run = dry_run
         self.settings = settings
-        settings.entry_length_template_changed.connect(
-            self.set_length_template)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setSpacing(0)  # spacing > 0 is just weird man
         # Model values
@@ -146,19 +144,12 @@ class EntryList(QtWidgets.QListWidget):
         self.tag_colors: Dict[str, str] = settings.tag_colors
         settings.tag_colors_changed.connect(self.set_tag_colors)
         self.undostack: List[Entries] = []
-        self.length_template = settings.entry_length_template
         self.delegate = EntryList.Delegate(base_gui, override_gui,
                                            self.tag_colors)
         self.setItemDelegate(self.delegate)
 
     def update_gui(self, override: str) -> None:
         self.delegate.update_gui(override)
-
-    def set_length_template(self, length_template: str) -> None:
-        if length_template == self.length_template:
-            return
-        self.length_template = length_template
-        # TODO: use this or move it fully to DECLIN
 
     def set_tag_colors(self, new_colors: Dict[str, str]) -> None:
         if self.tag_colors != new_colors:
