@@ -1,6 +1,6 @@
 import enum
 import re
-from typing import Collection, Dict, List, Optional, NamedTuple, Union
+from typing import Any, Collection, Dict, List, Optional, NamedTuple, Union
 
 
 class ParsingError(Exception):
@@ -23,8 +23,8 @@ def _expand_macros(string: str, macros: Dict[str, str]) -> str:
 
 class TokenType(enum.Enum):
     START_GROUP = enum.auto()
+    START_NEG_GROUP = enum.auto()
     END_GROUP = enum.auto()
-    INVERT = enum.auto()
     AND = enum.auto()
     OR = enum.auto()
     NAME = enum.auto()
@@ -47,6 +47,7 @@ def _tokenize(string: str) -> List[Token]:
         ',': TT.AND,
         '|': TT.OR,
     }
+    START_GROUPS = {TT.START_GROUP, TT.START_NEG_GROUP}
     INVERT = '-'
     nospace = re.sub(r'\s*([(),|])\s*', r'\1', string)
     tokens = [Token(TT.START_GROUP, '(')]
@@ -56,39 +57,42 @@ def _tokenize(string: str) -> List[Token]:
             # The new character is a special one, which ends the last token
             c_type = special_characters[c]
             if buf:
+                # Change into negative group if preceded by a -
+                if c_type is TT.START_GROUP and buf == INVERT:
+                    c_type = TT.START_NEG_GROUP
                 # Add the last token if we have one
-                if c_type is TT.START_GROUP and buf != INVERT:
+                elif c_type is TT.START_GROUP:
                     # Only valid non-special char before a new group
                     # is the semi-special - char
                     raise ParsingError('Invalid syntax: invalid starting '
                                        'parenthesis')
-                elif c_type is not TT.START_GROUP and buf == INVERT:
+                elif buf == INVERT:
                     # Can't filter on a lonely -
                     raise ParsingError(f'Invalid syntax: can\'t have a lone '
                                        f'"{INVERT}"')
-                elif c_type is TT.START_GROUP and buf == INVERT:
-                    # If we do have a lonely -, it means we invert this group
-                    tokens.append(Token(TT.INVERT, buf))
                 else:
                     tokens.append(Token(TT.NAME, buf))
                 buf = ''
             elif tokens[-1].type_ in special_characters.values():
                 last_type = tokens[-1].type_
-                if last_type is TT.END_GROUP and c_type is TT.START_GROUP:
+                if last_type is TT.END_GROUP and c_type in START_GROUPS:
                     raise ParsingError('Invalid syntax: a group can\'t start '
                                        'directly after another ended')
-                if len(tokens) == 1 and c_type is not TT.START_GROUP:
+                if len(tokens) == 1 and c_type not in START_GROUPS:
                     raise ParsingError(f'Invalid syntax: "{c}" can\'t '
                                        f'appear at the start of the filter')
-                if last_type is TT.START_GROUP and c_type is TT.END_GROUP:
+                if last_type in START_GROUPS and c_type is TT.END_GROUP:
                     raise ParsingError('Invalid syntax: can\'t have an '
                                        'empty group')
                 if last_type is not TT.END_GROUP \
-                        and c_type is not TT.START_GROUP:
+                        and c_type not in START_GROUPS:
                     raise ParsingError(f'Invalid syntax: "{c}" can\'t '
                                        f'follow "{tokens[-1].lexeme}"')
             tokens.append(Token(c_type, c))
         else:
+            if tokens[-1].type_ is TT.END_GROUP:
+                raise ParsingError(f'Invalid syntax: "{c}" can\'t follow '
+                                   f'a closed group')
             buf += c
     if buf:
         tokens.append(Token(TT.NAME, buf))
@@ -101,40 +105,50 @@ class Mode(enum.Enum):
 
 
 class Group:
-    def __init__(self, mode: Optional[Mode],
+    def __init__(self, mode: Optional[Mode], invert: bool,
                  content: List[Union['Group', str]]) -> None:
         self.mode = mode or Mode.OR
         self.content = content
+        self.invert = invert
 
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__}: {self.mode} [{self.content}]>'
+        invert_str = '(NOT) ' if self.invert else ''
+        return (f'<{self.__class__.__name__}: {invert_str}'
+                f'{self.mode} [{self.content}]>')
+
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, self.__class__) \
+            and self.mode == other.mode \
+            and self.invert == other.invert \
+            and self.content == other.content
 
 
-def _read_from(tokens: List[Token], invert: bool = False) -> Group:
+def _read_from(tokens: List[Token]) -> Group:
     if not tokens:
         raise ParsingError('No tokens')
     TT = TokenType
     modes = {TT.AND: Mode.AND, TT.OR: Mode.OR}
     mode: Optional[Mode] = None
     groups: List[Union[Group, str]] = []
-    if tokens.pop(0).type_ != TT.START_GROUP:
+    opening_token = tokens.pop(0)
+    if opening_token.type_ not in {TT.START_GROUP, TT.START_NEG_GROUP}:
         raise ParsingError(f'Invalid syntax: expected a group but got '
-                           f'"{tokens[0].lexeme}"')
-    invert = False
+                           f'"{opening_token.lexeme}"')
+    invert = opening_token.type_ is TT.START_NEG_GROUP
     while tokens:
         token = tokens.pop(0)
         if token.type_ is TT.END_GROUP:
-            return Group(mode, groups)
-        elif token.type_ is TT.INVERT:
-            # The INVERT token only appears before a START_GROUP
-            # token but that is ensured in the tokenizer
-            invert = True
-        elif token.type_ is TT.START_GROUP:
+            if len(groups) == 1 and isinstance(groups[0], Group):
+                if invert:
+                    groups[0].invert = invert != groups[0].invert
+                return groups[0]
+            else:
+                return Group(mode, invert, groups)
+        elif token.type_ is TT.START_GROUP \
+                or token.type_ is TT.START_NEG_GROUP:
             # Re-add the token for peace of mind and consistency
             tokens.insert(0, token)
-            groups.append(_read_from(tokens, invert))
-            # Reset the invert-flag
-            invert = False
+            groups.append(_read_from(tokens))
         elif token.type_ is TT.AND or token.type_ is TT.OR:
             new_mode = modes[token.type_]
             if mode is not None and mode is not new_mode:
@@ -187,9 +201,11 @@ def _parse(group: Group, oldtags: Collection[str]) -> bool:
             return _parse(item, oldtags)
 
     if group.mode is Mode.AND:
-        return all(handle(sub_group) for sub_group in group.content)
+        return all(handle(sub_group)
+                   for sub_group in group.content) != group.invert
     elif group.mode is Mode.OR:
-        return any(handle(sub_group) for sub_group in group.content)
+        return any(handle(sub_group)
+                   for sub_group in group.content) != group.invert
     else:
         raise ParsingError('Invalid expression')
 
