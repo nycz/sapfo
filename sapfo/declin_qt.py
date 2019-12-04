@@ -237,7 +237,7 @@ def calc_size_container(input_value: Dict[str, Any], section: ContainerSection,
 def calc_size_item(input_value: Any, section: ItemSection,
                    model: Model, rect: StretchableRect, depth: int,
                    ) -> DrawGroup:
-    data = [(input_value[x.name] if x.name else input_value)
+    data = [(input_value.get(x.name, None) if x.name else input_value)
             if isinstance(x, AttributeRef) else x
             for x in section.data]
     if section.when_empty and not any(x for x in data):
@@ -250,7 +250,9 @@ def calc_size_item(input_value: Any, section: ItemSection,
         s = s.replace(background_color=model.tag_colors[cast(str, data[0])])
     # Some special formatting
     for n in range(len(data)):
-        if isinstance(data[n], datetime):
+        if data[n] is None:
+            data[n] = ''
+        elif isinstance(data[n], datetime):
             data[n] = data[n].strftime(section.date_fmt)
         elif isinstance(data[n], float) and section.date_fmt:
             data[n] = datetime.fromtimestamp(data[n]).strftime(

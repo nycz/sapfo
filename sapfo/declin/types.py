@@ -1,6 +1,6 @@
 import enum
 import re
-from typing import cast, List, Optional, TypeVar, Union
+from typing import Any, cast, List, Optional, TypeVar, Union
 
 from .common import Constants, ParsingError, Token, TokenType
 
@@ -65,6 +65,9 @@ class AttributeRef(BaseType):
     def name(self) -> str:
         return self._name
 
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, self.__class__) and self._name == other._name
+
 
 class ItemRef(BaseType):
     def __init__(self, name: str) -> None:
@@ -73,6 +76,9 @@ class ItemRef(BaseType):
     @property
     def name(self) -> str:
         return self._name
+
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, self.__class__) and self._name == other._name
 
 
 class Color(BaseType):
@@ -97,6 +103,13 @@ class Color(BaseType):
     @property
     def alpha(self) -> int:
         return self._alpha
+
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, self.__class__) \
+            and self._red == other._red \
+            and self._green == other._green \
+            and self._blue == other._blue \
+            and self._alpha == other._alpha
 
     @classmethod
     def parse(cls, text: str) -> 'Color':
@@ -165,6 +178,11 @@ class Border(BaseType):
             return Border(thickness or default_border.thickness,
                           color or default_border.color)
 
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, self.__class__) \
+            and self._thickness == other._thickness \
+            and self._color == other._color
+
 
 class Font(BaseType):
     def __init__(self, family: str, size: int, bold: bool, italic: bool
@@ -189,6 +207,13 @@ class Font(BaseType):
     @property
     def italic(self) -> bool:
         return self._italic
+
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, self.__class__) \
+            and self._family == other._family \
+            and self._size == other._size \
+            and self._bold == other._bold \
+            and self._italic == other._italic
 
     @classmethod
     def load(cls, tokens: List[Token], default_font: Optional['Font'] = None
@@ -260,6 +285,13 @@ class Margins(BaseType):
     @property
     def bottom(self) -> int:
         return self._bottom
+
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, self.__class__) \
+            and self._top == other._top \
+            and self._left == other._left \
+            and self._right == other._right \
+            and self._bottom == other._bottom
 
     @classmethod
     def load(cls, tokens: List[Token],
