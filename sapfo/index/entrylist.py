@@ -129,7 +129,7 @@ class EntryList(QtWidgets.QListWidget):
                  attributedata: AttributeData,
                  base_gui: str, override_gui: str) -> None:
         super().__init__(parent)
-        self.setEnabled(False)
+        self.setFocusPolicy(Qt.NoFocus)
         self.dry_run = dry_run
         self.settings = settings
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
