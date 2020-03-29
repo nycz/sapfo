@@ -182,13 +182,6 @@ In essence, it's a whole bunch of ORs (`|`) and ANDs (`,`) with parentheses to i
     * The popup screen shown from `lt[a]` is closed by pressing enter, with or without a command entered in the terminal (a command will be executed if present).
 
 
-The style config
-----------------
-There are three stylesheets: `index_page.css` (for the index view), `viewer_page` (for when reading a single entry), and `qt.css` (for everything else, mostly the terminal and the backstory window).
-
-All three can be overridden partially or completely by a matching file in the config directory called `[stylesheet name]_override.css`, for example `index_page_override.css`.
-
-
-Note to self
-------------
-Use load() instead of setUrl(). Segfaults start popping up all over the place when setUrl is around...
+DECLIN
+------
+Styling and GUI changes are now made with a custom domain specific language called DECLIN. To edit the standard layout, copy `sapfo/data/entry_layout.decl` to your config directory and edit at will. A syntax file for vim is provided and can be used by symlinking: `ln -s path/to/sapfo/declin.vim path/to/vim/syntax/`
