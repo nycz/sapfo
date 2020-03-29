@@ -20,7 +20,7 @@ from .common import ActiveFilters, LOCAL_DIR, Settings, SortBy
 from .declarative import fix_layout, hbox, label, Stretch, vbox
 from .index.entrylist import EntryList, entry_attributes, index_stories
 from .index.terminal import Terminal
-from .taggedlist import NONEMPTY_SEARCH
+from .taggedlist import AttrNames, make_abbrev_dict, NONEMPTY_SEARCH
 
 
 class IconWidget(QtSvg.QSvgWidget):
@@ -99,7 +99,9 @@ class StatusBar(QtWidgets.QFrame):
         for cmd, payload in filters._asdict().items():
             if payload is None:
                 continue
-            if cmd in {'description', 'title', 'recap'}:
+            if cmd in {AttrNames.DESCRIPTION.name,
+                       AttrNames.TITLE.name,
+                       AttrNames.RECAP.name}:
                 if payload == '':
                     payload = '<empty>'
                 elif payload == NONEMPTY_SEARCH:
@@ -201,7 +203,7 @@ class IndexView(QtWidgets.QWidget):
                     k: None for k, d in self.attributedata.items()
                     if 'filter' in d
                 },
-                'sorted by': ('title', False)
+                'sorted by': (AttrNames.TITLE.name, False)
             }
 
     def save_state(self) -> None:
@@ -258,29 +260,36 @@ class IndexView(QtWidgets.QWidget):
                       ('[ndrtcbp]', 'Don\'t apply any filter, instead set the '
                                     'terminal\'s input text to the specified '
                                     'filter\'s current value.'),
-                      ('n', 'Filter on titles (case insensitive).'),
-                      ('d', 'Filter on descriptions (case insensitive).'),
-                      ('r', 'Filter on recaps (case insensitive).'),
-                      ('t', 'Filter on tags. Supports AND (comma , ), '
-                            'OR (vertical bar | ), NOT prefix (dash - ), and '
-                            'tag macros (use @ as prefix) specified in the '
-                            'config. AND and OR can\'t be used mixed without '
-                            'explicit parentheses to specify precedence. '
-                            'Spaces are allowed in tag names, but not (),| . '
-                            'Tags are case sensitive.'),
+                      (AttrNames.TITLE.abbrev,
+                       'Filter on titles (case insensitive).'),
+                      (AttrNames.DESCRIPTION.abbrev,
+                       'Filter on descriptions (case insensitive).'),
+                      (AttrNames.RECAP.abbrev,
+                       'Filter on recaps (case insensitive).'),
+                      (AttrNames.TAGS.abbrev,
+                       'Filter on tags. Supports AND (comma , ), '
+                       'OR (vertical bar | ), NOT prefix (dash - ), and '
+                       'tag macros (use @ as prefix) specified in the '
+                       'config. AND and OR can\'t be used mixed without '
+                       'explicit parentheses to specify precedence. '
+                       'Spaces are allowed in tag names, but not (),| . '
+                       'Tags are case sensitive.'),
                       ('[ndrt]_', 'Show only entries with this '
                                   'attribute empty.'),
                       ('[ndrt]*', 'Show no entries with this '
                                   'attribute empty.'),
-                      ('c', 'Filter on wordcount. Supports the operators '
-                            '> < >= <= followed by the target number. A "k" '
-                            'suffix in the number is replaced by 000. '
-                            'Operator expressions can be combined without any '
-                            'delimiters. Eg.: >900<=50k'),
-                      ('b', 'Filter on backstory wordcount. This uses '
-                            'the same syntax as the wordcount filter.'),
-                      ('p', 'Filter on number of backstory pages. This uses '
-                            'the same syntax as the wordcount filter.')),
+                      (AttrNames.WORDCOUNT.abbrev,
+                       'Filter on wordcount. Supports the operators '
+                       '> < >= <= followed by the target number. A "k" '
+                       'suffix in the number is replaced by 000. '
+                       'Operator expressions can be combined without any '
+                       'delimiters. Eg.: >900<=50k'),
+                      (AttrNames.BACKSTORY_WORDCOUNT.abbrev,
+                       'Filter on backstory wordcount. This uses '
+                       'the same syntax as the wordcount filter.'),
+                      (AttrNames.BACKSTORY_PAGES.abbrev,
+                       'Filter on number of backstory pages. This uses '
+                       'the same syntax as the wordcount filter.')),
         ))
 
         def complete_tag_filter(name: str, match_text: str) -> List[str]:
@@ -296,7 +305,7 @@ class IndexView(QtWidgets.QWidget):
         # TODO: insert an extra space before the first tag maybe
         self.terminal.add_autocompletion_pattern(AutocompletionPattern(
             'filter-entries-tags',
-            prefix=r'ft\s*',
+            prefix=rf'f{AttrNames.TAGS.abbrev}\s*',
             start=r'(^|[(,|])\s*',
             end=r'([),|]|$)',
             illegal_chars='()|,',
@@ -309,11 +318,16 @@ class IndexView(QtWidgets.QWidget):
             short_name='s',
             arg_help=(('[ncbpm][!<>]', 'Sort using the specified '
                                        'key and order.'),
-                      ('n', 'Sort by title.'),
-                      ('c', 'Sort by wordcount.'),
-                      ('b', 'Sort by backstory wordcount.'),
-                      ('p', 'Sort by number of backstory pages.'),
-                      ('m', 'Sort by last modified date.'),
+                      (AttrNames.TITLE.abbrev,
+                       'Sort by title.'),
+                      (AttrNames.WORDCOUNT.abbrev,
+                       'Sort by wordcount.'),
+                      (AttrNames.BACKSTORY_WORDCOUNT.abbrev,
+                       'Sort by backstory wordcount.'),
+                      (AttrNames.BACKSTORY_PAGES.abbrev,
+                       'Sort by number of backstory pages.'),
+                      (AttrNames.LAST_MODIFIED.abbrev,
+                       'Sort by last modified date.'),
                       ('!', 'Reverse sort order.'),
                       ('<', 'Sort ascending.'),
                       ('>', 'Sort descending.')),
@@ -344,7 +358,7 @@ class IndexView(QtWidgets.QWidget):
 
         self.terminal.add_autocompletion_pattern(AutocompletionPattern(
             'edit-entries-tags',
-            prefix=r'et[*0-9]\s*',
+            prefix=rf'e{AttrNames.TAGS.abbrev}[*0-9]\s*',
             start=r'(^|,)\s*',
             end=r'(,|$)',
             illegal_chars='()|,',
@@ -412,12 +426,14 @@ class IndexView(QtWidgets.QWidget):
             self.count_length,
             short_name='c',
             args=ArgumentRules.REQUIRED,
-            arg_help=(('c', 'Show combined wordcount '
-                            'for all visible entries.'),
-                      ('b', 'Show combined backstory wordcount '
-                            'for all visible entries.'),
-                      ('p', 'Show combined number of backstory pages '
-                            'for all visible entries.')),
+            arg_help=((AttrNames.WORDCOUNT.abbrev,
+                       'Show combined wordcount for all visible entries.'),
+                      (AttrNames.BACKSTORY_WORDCOUNT.abbrev,
+                       'Show combined backstory wordcount '
+                       'for all visible entries.'),
+                      (AttrNames.BACKSTORY_PAGES.abbrev,
+                       'Show combined number of backstory pages '
+                       'for all visible entries.')),
         ))
         self.terminal.add_command(Command(
             'external_edit', 'Open entry file in external editor',
@@ -526,13 +542,13 @@ class IndexView(QtWidgets.QWidget):
         nothing in that particular category (eg. empty description).
         If arg is a category, prompt with the active filter (if any).
         """
-        filters = {'n': 'title',
-                   'd': 'description',
-                   'r': 'recap',
-                   't': 'tags',
-                   'c': 'wordcount',
-                   'b': 'backstorywordcount',
-                   'p': 'backstorypages'}
+        filters = make_abbrev_dict(AttrNames.TITLE,
+                                   AttrNames.DESCRIPTION,
+                                   AttrNames.RECAP,
+                                   AttrNames.TAGS,
+                                   AttrNames.WORDCOUNT,
+                                   AttrNames.BACKSTORY_WORDCOUNT,
+                                   AttrNames.BACKSTORY_PAGES)
         filterchars = ''.join(filters)
         # Print active filters
         if not arg:
@@ -600,11 +616,11 @@ class IndexView(QtWidgets.QWidget):
 
         If arg is not specified, print the current sort order.
         """
-        acronyms = {'n': 'title',
-                    'c': 'wordcount',
-                    'b': 'backstorywordcount',
-                    'p': 'backstorypages',
-                    'm': 'lastmodified'}
+        acronyms = make_abbrev_dict(AttrNames.TITLE,
+                                    AttrNames.WORDCOUNT,
+                                    AttrNames.BACKSTORY_WORDCOUNT,
+                                    AttrNames.BACKSTORY_PAGES,
+                                    AttrNames.LAST_MODIFIED)
         if not arg:
             self.error('Nothing to sort by')
             return
@@ -656,15 +672,21 @@ class IndexView(QtWidgets.QWidget):
             else:
                 self.print_(f'{edits} edits reverted')
             return
-        replace_tags = re.fullmatch(r't\*\s*(.*?)\s*,\s*(.*?)\s*', arg)
-        main_data = re.fullmatch(r'[rdtn](\d+)(.*)', arg)
+        replace_tags = re.fullmatch(AttrNames.TAGS.abbrev
+                                    + r'\*\s*(.*?)\s*,\s*(.*?)\s*', arg)
+        abbrevs = ''.join(x.abbrev for x in [AttrNames.RECAP,
+                                             AttrNames.DESCRIPTION,
+                                             AttrNames.TAGS,
+                                             AttrNames.TITLE])
+        main_data = re.fullmatch(rf'[{abbrevs}](\d+)(.*)', arg)
         # Replace/add/remove a bunch of tags
         if replace_tags:
             oldtag, newtag = replace_tags.groups()
             if not oldtag and not newtag:
                 self.error('No tags specified, nothing to do')
                 return
-            count = self.entry_view.replace_tags(oldtag, newtag, 'tags')
+            count = self.entry_view.replace_tags(oldtag, newtag,
+                                                 AttrNames.TAGS.name)
             if count > 0:
                 self.print_(f'Edited tags in {count} entries')
             else:
@@ -676,16 +698,23 @@ class IndexView(QtWidgets.QWidget):
                 self.error('Index out of range')
                 return
             payload = main_data.group(2).strip()
-            category = {'d': 'description', 'n': 'title', 'r': 'recap',
-                        't': 'tags'}[arg[0]]
+            category = make_abbrev_dict(AttrNames.DESCRIPTION,
+                                        AttrNames.TITLE,
+                                        AttrNames.RECAP,
+                                        AttrNames.TAGS)[arg[0]]
+            # category = {'d': AttrNames.DESCRIPTION,
+                        # 'n': AttrNames.TITLE,
+                        # 'r': AttrNames.RECAP,
+                        # 't': AttrNames.TAGS}[arg[0]]
             # No data specified, so the current is provided instead
             if not payload:
                 data = getattr(self.entry_view.visible_entry(entry_id),
                                category)
-                new = ', '.join(sorted(data)) if arg[0] == 't' else data
+                new = (', '.join(sorted(data))
+                       if arg[0] == AttrNames.TAGS.abbrev else data)
                 self.set_terminal_text('e' + arg.strip() + ' ' + new)
             else:
-                if arg[0] == 'r' and payload == '-':
+                if arg[0] == AttrNames.RECAP.abbrev and payload == '-':
                     # Clear recap if the arg is -
                     payload = ''
                 edited = self.entry_view.edit_(entry_id, category, payload)

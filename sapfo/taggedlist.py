@@ -6,6 +6,33 @@ from typing import (Any, Callable, Dict, FrozenSet, Iterable, NamedTuple,
 from .tagsystem import compile_tag_filter, match_tag_filter
 
 
+class Attr(NamedTuple):
+    name: str
+    abbrev: str
+
+
+class HiddenAttr(NamedTuple):
+    name: str
+
+
+class AttrNames:
+    INDEX = HiddenAttr('index_')
+    TITLE = Attr('title', 'n')
+    TAGS = Attr('tags', 't')
+    DESCRIPTION = Attr('description', 'd')
+    WORDCOUNT = Attr('wordcount', 'c')
+    BACKSTORY_WORDCOUNT = Attr('backstorywordcount', 'b')
+    BACKSTORY_PAGES = Attr('backstorypages', 'p')
+    FILE = HiddenAttr('file')
+    LAST_MODIFIED = Attr('lastmodified', 'm')
+    METADATA_FILE = HiddenAttr('metadatafile')
+    RECAP = Attr('recap', 'r')
+
+
+def make_abbrev_dict(*attrs: Attr) -> Dict[str, str]:
+    return {a.abbrev: a.name for a in attrs}
+
+
 class Entry(NamedTuple):
     index_: int
     title: str
@@ -18,6 +45,10 @@ class Entry(NamedTuple):
     lastmodified: float
     metadatafile: Path
     recap: str
+
+
+assert {v.name for k, v in AttrNames.__dict__.items()
+        if not k.startswith('_')} == set(Entry._fields)
 
 
 Entries = Tuple[Entry, ...]
