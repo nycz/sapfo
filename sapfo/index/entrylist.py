@@ -4,13 +4,11 @@ import os
 from pathlib import Path
 import pickle
 import re
-from typing import (Any, Callable, cast, Dict, FrozenSet, Iterable,
+from typing import (Any, Callable, Dict, FrozenSet, Iterable,
                     List, Optional, Tuple)
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
-
-from libsyntyche.widgets import Signal0, Signal1
 
 from .. import declin, declin_qt
 from ..common import ActiveFilters, CACHE_DIR, Settings, SortBy
@@ -18,108 +16,59 @@ from ..taggedlist import (AttributeData, edit_entry, Entries, Entry,
                           filter_entry, FilterFuncs, ParseFuncs)
 
 
-class EntryList(QtWidgets.QListWidget):
+def calc_entry_layout(entry: Entry, visible_pos: int,
+                      m: declin_qt.Model, y: int, width: int,
+                      ) -> declin_qt.DrawGroup:
+    entry_dict = entry._asdict()
+    entry_dict['pos'] = visible_pos
+    rect = declin_qt.StretchableRect(0, y,
+                                     width=width)
+    return declin_qt.calc_size(entry_dict, m.sections[m.main],
+                               m, rect, 0)
 
-    ENTRY_ROLE = QtCore.Qt.UserRole
-    POS_ROLE = QtCore.Qt.UserRole + 1
 
-    class SortInfo:
-        def __init__(self, key: str, reverse: bool) -> None:
-            self.key = key
-            self.reverse = reverse
+class EntryItem:
+    def __init__(self, entry: Entry, group: declin_qt.DrawGroup,
+                 real_pos: int) -> None:
+        self._entry = entry
+        self.group = group
+        self.pos = real_pos
+        self._visible_pos = real_pos
+        self._hidden = False
+        self.needs_refresh = False
 
-    class EntryItem(QtWidgets.QListWidgetItem):
-        def __init__(self, entry: Entry, relative_pos: int,
-                     sort_info: 'EntryList.SortInfo',
-                     parent: Optional[QtWidgets.QListWidget] = None
-                     ) -> None:
-            super().__init__(parent)
-            self._entry = entry
-            self._relative_pos = relative_pos
-            self._sort_info = sort_info
+    @property
+    def entry(self) -> Entry:
+        return self._entry
 
-        def __lt__(self, other: QtWidgets.QListWidgetItem) -> bool:
-            if not isinstance(other, EntryList.EntryItem):
-                return False
-            result: bool = (getattr(self._entry, self._sort_info.key)
-                            < getattr(other._entry, self._sort_info.key))
-            return result
+    @entry.setter
+    def entry(self, new_entry: Entry) -> None:
+        if self._entry != new_entry:
+            self._entry = new_entry
+            self.needs_refresh = True
 
-        def data(self, role: int) -> Any:
-            if role == EntryList.ENTRY_ROLE:
-                return self._entry
-            elif role == EntryList.POS_ROLE:
-                return self._relative_pos
-            else:
-                return super().data(role)
+    @property
+    def visible_pos(self) -> int:
+        return self._visible_pos
 
-        def setData(self, role: int, new_data: Any) -> None:
-            if role == EntryList.ENTRY_ROLE:
-                self._entry = new_data
-            elif role == EntryList.POS_ROLE:
-                self._relative_pos = new_data
-            else:
-                super().setData(role, new_data)
+    @visible_pos.setter
+    def visible_pos(self, new_pos: int) -> None:
+        if self._visible_pos != new_pos:
+            self._visible_pos = new_pos
+            self.needs_refresh = True
 
-    class Delegate(QtWidgets.QStyledItemDelegate):
-        def __init__(self, base_gui: str, override_gui: str,
-                     tag_colors: Dict[str, str]) -> None:
-            super().__init__()
-            self.tag_colors: Dict[str, declin.types.Color] = {}
-            self.update_tag_colors(tag_colors)
-            self.base_gui = base_gui
-            self.gui_model: Optional[declin_qt.Model] = None
-            self.update_gui(override_gui)
-            self.layouts: Dict[str, List[declin_qt.Drawable]] = {}
+    @property
+    def hidden(self) -> bool:
+        return self._hidden
 
-        def update_gui(self, user_gui: str) -> None:
-            try:
-                gui_model = declin.parse(self.base_gui, user_gui)
-            except declin.common.ParsingError as e:
-                print('GUI PARSING ERROR', e)
-            else:
-                self.gui_model = declin_qt.Model(main=gui_model.main,
-                                                 sections=gui_model.sections,
-                                                 tag_colors=self.tag_colors)
+    @hidden.setter
+    def hidden(self, new_val: bool) -> None:
+        if self._hidden != new_val:
+            self._hidden = new_val
+            self.needs_refresh = True
 
-        def update_tag_colors(self, tag_colors: Dict[str, str]) -> None:
-            self.tag_colors = {}
-            for tag, raw_color in tag_colors.items():
-                try:
-                    color = declin.types.Color.parse(raw_color)
-                except declin.common.ParsingError as e:
-                    print('BROKEN COLOR', tag, raw_color, e)
-                else:
-                    self.tag_colors[tag] = color
 
-        def sizeHint(self, option: QtWidgets.QStyleOptionViewItem,
-                     index: QtCore.QModelIndex) -> QtCore.QSize:
-            entry = index.data(EntryList.ENTRY_ROLE)
-            m = self.gui_model
-            if m is not None:
-                start_point = m.sections[m.main]
-                rect = declin_qt.StretchableRect(option.rect.x(),
-                                                 option.rect.y(),
-                                                 width=option.rect.width())
-                entry_dict = entry._asdict()
-                entry_dict['pos'] = index.data(EntryList.POS_ROLE)
-                group = declin_qt.calc_size(entry_dict, start_point,
-                                            m, rect, 0)
-                self.layouts[entry.index_] = list(group.flatten())
-                return group.size()
-            else:
-                return super().sizeHint(option, index)
-
-        def paint(self, painter: QtGui.QPainter,
-                  option: QtWidgets.QStyleOptionViewItem,
-                  index: QtCore.QModelIndex) -> None:
-            painter.save()
-            painter.setRenderHint(QtGui.QPainter.Antialiasing, on=True)
-            entry = index.data(EntryList.ENTRY_ROLE)
-            for item in sorted(self.layouts[entry.index_],
-                               key=attrgetter('depth'), reverse=True):
-                item.draw(painter, y_offset=option.rect.y())
-            painter.restore()
+class EntryList(QtWidgets.QWidget):
 
     visible_count_changed = QtCore.pyqtSignal(int, int)
 
@@ -127,35 +76,99 @@ class EntryList(QtWidgets.QListWidget):
                  dry_run: bool, sorted_by: SortBy,
                  active_filters: ActiveFilters,
                  attributedata: AttributeData,
-                 base_gui: str, override_gui: str) -> None:
+                 base_gui: str, user_gui: str) -> None:
         super().__init__(parent)
         self.setFocusPolicy(Qt.NoFocus)
+        self._visible_to_real_pos: Dict[int, int] = {}
+        self._minimum_height = 0
         self.dry_run = dry_run
         self.settings = settings
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setSpacing(0)  # spacing > 0 is just weird man
         # Model values
         self._entries: Entries = tuple()
-        self._visible_to_real_pos: Dict[int, int] = {}
         self.active_filters = active_filters
         self.attributedata = attributedata
         self.sorted_by = sorted_by
-        self.sort_info = self.SortInfo(self.sorted_by.key,
-                                       self.sorted_by.descending)
-        self.tag_colors: Dict[str, str] = settings.tag_colors
+        self.raw_tag_colors: Dict[str, str] = settings.tag_colors
+        self.tag_colors: Dict[str, declin.types.Color] = {}
+        self.update_tag_colors(self.raw_tag_colors)
         settings.tag_colors_changed.connect(self.set_tag_colors)
         self.undostack: List[Entries] = []
-        self.delegate = EntryList.Delegate(base_gui, override_gui,
-                                           self.tag_colors)
-        self.setItemDelegate(self.delegate)
+        self.entry_items: List[EntryItem] = []
+        self.base_gui = base_gui
+        self.user_gui = user_gui
+        self.gui_model: declin_qt.Model
+        self.update_gui()
 
-    def update_gui(self, override: str) -> None:
-        self.delegate.update_gui(override)
+    def count(self) -> int:
+        return len(self.entry_items)
+
+    def resizeEvent(self, ev: QtGui.QResizeEvent) -> None:
+        super().resizeEvent(ev)
+        if self.width() != ev.oldSize().width():
+            self.update_gui()
+
+    def paintEvent(self, ev: QtGui.QPaintEvent) -> None:
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, on=True)
+        min_y = ev.rect().y()
+        max_y = ev.rect().y() + ev.rect().height()
+        for n, real_pos in sorted(self._visible_to_real_pos.items()):
+            item = self.entry_items[real_pos]
+            r = item.group.drawable.rect
+            if r.bottom() < min_y or r.top() > max_y:
+                continue
+            for drawitem in sorted(item.group.flatten(),
+                                   key=attrgetter('depth'), reverse=True):
+                r = drawitem.rect
+                if r.bottom() < min_y or r.top() > max_y:
+                    continue
+                drawitem.draw(painter)
+
+    def recalc_sizes(self) -> None:
+        y = 0
+        width = self.width()
+        for n, real_pos in sorted(self._visible_to_real_pos.items()):
+            item = self.entry_items[real_pos]
+            group = calc_entry_layout(item.entry, real_pos, self.gui_model,
+                                      y, width)
+            item.group = group
+            y += group.size().height()
+        self._minimum_height = y
+        self.updateGeometry()
+
+    def minimumSizeHint(self) -> QtCore.QSize:
+        return QtCore.QSize(0, self._minimum_height)
+
+    def update_gui(self, user_gui: Optional[str] = None) -> None:
+        if user_gui is None:
+            user_gui = self.user_gui
+        else:
+            self.user_gui = user_gui
+        try:
+            gui_model = declin.parse(self.base_gui, user_gui)
+        except declin.common.ParsingError as e:
+            print('GUI PARSING ERROR', e)
+        else:
+            self.gui_model = declin_qt.Model(main=gui_model.main,
+                                             sections=gui_model.sections,
+                                             tag_colors=self.tag_colors)
+        self.recalc_sizes()
+        self.update()
+
+    def update_tag_colors(self, tag_colors: Dict[str, str]) -> None:
+        self.tag_colors = {}
+        for tag, raw_color in tag_colors.items():
+            try:
+                color = declin.types.Color.parse(raw_color)
+            except declin.common.ParsingError as e:
+                print('BROKEN COLOR', tag, raw_color, e)
+            else:
+                self.tag_colors[tag] = color
 
     def set_tag_colors(self, new_colors: Dict[str, str]) -> None:
-        if self.tag_colors != new_colors:
-            self.tag_colors = new_colors
-            self.delegate.update_tag_colors(new_colors)
+        if self.raw_tag_colors != new_colors:
+            self.raw_tag_colors = new_colors
+            self.update_tag_colors(new_colors)
 
     @property
     def entries(self) -> Iterable[Entry]:
@@ -165,89 +178,98 @@ class EntryList(QtWidgets.QListWidget):
     def visible_entries(self) -> Iterable[Entry]:
         entries = []
         for n in self._visible_to_real_pos.values():
-            entry: Entry = self.item(n).data(self.ENTRY_ROLE)
-            entries.append(entry)
+            entries.append(self.entry_items[n].entry)
         return entries
 
     def set_entries(self, new_entries: Entries,
                     progress: QtWidgets.QProgressDialog) -> None:
         self._entries = new_entries
-        count = self.count()
-        for _ in range(count):
-            self.takeItem(0)
+        self.entry_items.clear()
+        y = 0
+        width = self.width()
         for n, entry in enumerate(new_entries):
-            self.addItem(self.EntryItem(entry, n, self.sort_info, self))
-        self.sort()
+            group = calc_entry_layout(entry, n, self.gui_model, y, width)
+            self.entry_items.append(EntryItem(entry, group, n))
+            y += group.size().height()
         self.filter_()
+        self.sort()
 
     def visible_entry(self, pos: int) -> Entry:
-        entry: Entry = self.item(self._visible_to_real_pos[pos]
-                                 ).data(self.ENTRY_ROLE)
-        return entry
+        return self.entry_items[self._visible_to_real_pos[pos]].entry
 
     def visible_count(self) -> int:
-        return sum(not self.isRowHidden(n) for n in range(self.count()))
+        return len(self._visible_to_real_pos)
 
     def sort(self) -> None:
-        self.sort_info.key = self.sorted_by.key
-        self.sortItems(Qt.DescendingOrder if self.sorted_by.descending
-                       else Qt.AscendingOrder)
-        self._visible_to_real_pos = {}
+        self.entry_items.sort(
+            key=lambda e: getattr(e.entry, self.sorted_by.key),
+            reverse=self.sorted_by.descending
+        )
+        self._visible_to_real_pos.clear()
         pos = 0
-        for n in range(self.count()):
-            if not self.isRowHidden(n):
+        y = 0
+        width = self.width()
+        for n, item in enumerate(self.entry_items):
+            if not item.hidden:
                 self._visible_to_real_pos[pos] = n
-                self.item(n).setData(self.POS_ROLE, pos)
+                item.visible_pos = pos
+                item.group = calc_entry_layout(item.entry, pos, self.gui_model,
+                                               y, width)
+                y += item.group.size().height()
                 pos += 1
+        self.update()
 
     def filter_(self) -> None:
         filter_list = [(k, v) for k, v
                        in self.active_filters._asdict().items()
                        if v is not None]
-        self._visible_to_real_pos = {}
+        self._visible_to_real_pos.clear()
         pos = 0
-        count = self.count()
-        for n in range(count):
-            item = self.item(n)
-            if filter_entry(item.data(self.ENTRY_ROLE), filter_list,
+        y = 0
+        width = self.width()
+        for n, item in enumerate(self.entry_items):
+            if filter_entry(item.entry, filter_list,
                             self.attributedata, self.settings.tag_macros):
-                item.setData(self.POS_ROLE, pos)
-                self.setRowHidden(n, False)
+                item.visible_pos = pos
+                item.hidden = False
+                item.group = calc_entry_layout(item.entry, pos,
+                                               self.gui_model, y, width)
+                y += item.group.size().height()
                 self._visible_to_real_pos[pos] = n
                 pos += 1
             else:
-                self.setRowHidden(n, True)
-        self.visible_count_changed.emit(pos, count)
+                item.hidden = True
+        self._minimum_height = y
+        self.updateGeometry()
+        self.visible_count_changed.emit(pos, len(self.entry_items))
+        self.update()
 
     def undo(self) -> int:
         if not self.undostack:
             return 0
-        items = {item._entry.index_: item
-                 for item in (cast(EntryList.EntryItem, self.item(i))
-                              for i in range(self.count()))}
+        items = {item.entry.index_: item for item in self.entry_items}
         undo_batch = self.undostack.pop()
         for entry in undo_batch:
             item = items[entry.index_]
-            item.setData(self.ENTRY_ROLE, entry)
-            index = self.indexFromItem(item)
-            self.dataChanged(index, index)
+            item.entry = entry
         if not self.dry_run:
             write_metadata(undo_batch)
+        self.sort()
+        self.filter_()
         return len(undo_batch)
 
     def edit_(self, pos: int, attribute: str, new_value: str) -> bool:
         real_pos = self._visible_to_real_pos[pos]
-        item = cast(EntryList.EntryItem, self.item(real_pos))
-        if item is None:
-            raise IndexError
-        old_entry = item._entry
+        item = self.entry_items[real_pos]
+        old_entry = item.entry
         new_entry = edit_entry(old_entry, attribute, new_value,
                                self.attributedata)
         if new_entry != old_entry:
             self.undostack.append((old_entry,))
-            item.setData(self.ENTRY_ROLE, new_entry)
+            item.entry = new_entry
             if not self.dry_run:
                 write_metadata([new_entry])
+            self.sort()
             self.filter_()
             return True
         return False
@@ -284,20 +306,21 @@ class EntryList(QtWidgets.QListWidget):
 
         old_entries = []
         new_entries = []
-        for n in range(self.count()):
-            item = self.item(n)
-            entry: Entry = item.data(self.ENTRY_ROLE)
-            if self.isRowHidden(n):
+        for n, item in enumerate(self.entry_items):
+            if item.hidden:
                 continue
+            entry = item.entry
             new_entry = replace_tag(entry)
             if new_entry != entry:
                 old_entries.append(entry)
                 new_entries.append(new_entry)
-                item.setData(self.ENTRY_ROLE, new_entry)
+                item.entry = new_entry
+
         if old_entries:
             self.undostack.append(tuple(old_entries))
         if not self.dry_run:
             write_metadata(tuple(new_entries))
+        self.sort()
         self.filter_()
         return len(old_entries)
 
