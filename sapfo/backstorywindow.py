@@ -727,8 +727,10 @@ class BackstoryWindow(QtWidgets.QFrame):
                 self.textarea.setPlainText(data)
                 self.textarea.document().setModified(False)
                 self.revisionactive = True
+                changed_date = datetime.fromtimestamp(revfname.stat().st_mtime)
                 self.revisionnotice.setText(f'Showing revision {arg}. '
-                                            f'Changes will not be saved.')
+                                            f'Changes will not be saved.\n'
+                                            f'Last modified: {changed_date}')
                 self.revisionnotice.show()
         elif arg == '#':
             self.terminal.print_(f'Current revision: {jsondata["revision"]}')
