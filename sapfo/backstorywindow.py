@@ -193,7 +193,7 @@ class TabBar(QtWidgets.QTabBar):
                 self.set_tab_index.emit(tab)
 
     def wheelEvent(self, ev: QtGui.QWheelEvent) -> None:
-        self.change_tab(-ev.angleDelta().y())
+        self.change_tab(-(ev.angleDelta().y() + ev.angleDelta().x()))
 
     def next_tab(self) -> None:
         self.change_tab(1)
