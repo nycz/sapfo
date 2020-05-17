@@ -923,17 +923,22 @@ class BackstoryWindow(QtWidgets.QFrame):
             self.cmd_new_page,
             short_name='n',
             args=ArgumentRules.REQUIRED,
+            arg_help=(('filename.txt',
+                       'Create a new page with the specified filename.'),),
         ))
         t.add_command(Command(
             'delete-page', 'Delete page',
             self.cmd_delete_current_page,
             short_name='d',
+            arg_help=(('', 'Delete the open page.'),
+                      ('!', 'Confirm the deletion.')),
         ))
         t.add_command(Command(
             'rename-page', 'Rename page',
             self.cmd_rename_current_page,
             short_name='r',
             args=ArgumentRules.REQUIRED,
+            arg_help=(('Foobar', 'Rename the page to "Foobar".'),),
         ))
         t.add_command(Command(
             'save-page', 'Save page',
@@ -942,9 +947,12 @@ class BackstoryWindow(QtWidgets.QFrame):
             args=ArgumentRules.NONE,
         ))
         t.add_command(Command(
-            'print-filename', 'Print name of the active file',
+            'print-filename', 'Print info about the open file',
             self.cmd_print_filename,
             short_name='f',
+            arg_help=(('', 'Print the name of the active file.'),
+                      ('c', 'Print the last modified date '
+                       'of the active file.')),
         ))
         t.add_command(Command(
             'count-words', 'Print the page\'s wordcount',
@@ -953,14 +961,20 @@ class BackstoryWindow(QtWidgets.QFrame):
             args=ArgumentRules.NONE,
         ))
         t.add_command(Command(
-            'quit', 'Quit (q! to force)',
+            'quit', 'Quit',
             self.cmd_quit,
             short_name='q',
+            arg_help=(('', 'Close the window.'),
+                      ('!', 'Force close the window.')),
         ))
         t.add_command(Command(
             'revision-control', 'Revision control',
             self.cmd_revision_control,
             short_name='#',
+            arg_help=(('', 'Show latest revision.'),
+                      ('+', 'Add new revision.'),
+                      ('2', 'Show revision 2 (works with any number).'),
+                      ('#', 'Print current revision.')),
         ))
         t.add_command(Command(
             'external-edit', 'Open in external program/editor',
@@ -974,6 +988,24 @@ class BackstoryWindow(QtWidgets.QFrame):
             short_name='/',
             args=ArgumentRules.REQUIRED,
             strip_input=False,
+            arg_help=(('foo', 'Search for "foo".'),
+                      ('foo/b', 'Search backwards for "foo". '
+                       '(Can be combined with the other flags '
+                       'in any order.)'),
+                      ('foo/i', 'Search case-insensitively for '
+                       '"foo". (Can be combined with the other '
+                       'flags in any order.)'),
+                      ('foo/w', 'Search for "foo", only matching '
+                       'whole words. (Can be combined with the '
+                       'other flags in any order.)'),
+                      ('foo/bar/', 'Replace the first instance '
+                       'of "foo" with "bar", starting from the '
+                       'cursor\'s position.'),
+                      ('foo/bar/[biw]', 'The flags works just '
+                       'like in the search action.'),
+                      ('foo/bar/a', 'Replace all instances '
+                       'of "foo" with "bar". (Can be combined '
+                       'with the other flags in any order.)')),
         ))
         t.add_command(Command(
             'color-picker', 'Color picker',
