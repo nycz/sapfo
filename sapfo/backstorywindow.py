@@ -718,7 +718,7 @@ class BackstoryWindow(QtWidgets.QFrame):
             if not saved:
                 return
             try:
-                data = read_metadata(file)[1]
+                data = read_metadata(revfname)[1]
             except Exception as e:
                 print(str(e))
                 self.terminal.error('Something went wrong '
