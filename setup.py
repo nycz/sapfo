@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='sapfo',
-    version='1.5',
+    version='1.5.0',
     description='Organize your novel/story writing files',
     url='https://github.com/nycz/sapfo',
     author='nycz',
@@ -17,7 +17,7 @@ setup(
         'Topic :: Other/Nonlisted Topic',
     ],
     packages=find_packages(exclude=['thoughts', 'tests']),
-    # install_requires=['PyQt5', 'PyYAML', 'pyenchant'],
+    install_requires=['PyQt5', 'libsyntyche'],
     include_package_data=True,
     entry_points={
         'gui_scripts': [
