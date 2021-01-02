@@ -11,7 +11,8 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
 
 from .. import declin, declin_qt
-from ..common import ActiveFilters, CACHE_DIR, Settings, SortBy
+from ..common import (ActiveFilters, CACHE_DIR, Settings, SortBy,
+                      STATE_FILTER_KEY, STATE_SORT_KEY)
 from ..taggedlist import (AttrNames, AttributeData, edit_entry, Entries, Entry,
                           filter_entry, FilterFuncs, ParseFuncs)
 
@@ -88,17 +89,17 @@ class EntryList(QtWidgets.QWidget):
             state = pickle.loads(statepath.read_bytes())
         except FileNotFoundError:
             state = {
-                'active filters': {
+                STATE_FILTER_KEY: {
                     k: None for k, d in self.attributedata.items()
                     if 'filter' in d
                 },
-                'sorted by': (AttrNames.TITLE.name, False)
+                STATE_SORT_KEY: (AttrNames.TITLE.name, False)
             }
         for k, d in self.attributedata.items():
-            if 'filter' in d and k not in state['active filters']:
-                state['active filters'][k] = None
-        self.active_filters = ActiveFilters(**state['active filters'])
-        self.sorted_by = SortBy(*state['sorted by'])
+            if 'filter' in d and k not in state[STATE_FILTER_KEY]:
+                state[STATE_FILTER_KEY][k] = None
+        self.active_filters = ActiveFilters(**state[STATE_FILTER_KEY])
+        self.sorted_by = SortBy(*state[STATE_SORT_KEY])
         # Model values
         self._entries: Entries = tuple()
         self.raw_tag_colors: Dict[str, str] = settings.tag_colors

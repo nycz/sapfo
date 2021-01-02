@@ -16,7 +16,8 @@ from libsyntyche.cli import ArgumentRules, AutocompletionPattern, Command
 from libsyntyche.terminal import MessageTray
 
 from . import tagsystem
-from .common import ActiveFilters, LOCAL_DIR, Settings, SortBy
+from .common import (ActiveFilters, LOCAL_DIR, Settings, SortBy,
+                     STATE_FILTER_KEY, STATE_SORT_KEY)
 from .declarative import hbox, label, Stretch, vbox
 from .index.entrylist import EntryList, index_stories
 from .index.taginfolist import TagInfoList
@@ -187,8 +188,8 @@ class IndexView(QtWidgets.QWidget):
 
     def save_state(self) -> None:
         state = {
-            'active filters': self.entry_view.active_filters._asdict(),
-            'sorted by': list(self.entry_view.sorted_by)
+            STATE_FILTER_KEY: self.entry_view.active_filters._asdict(),
+            STATE_SORT_KEY: list(self.entry_view.sorted_by)
         }
         self.statepath.write_bytes(pickle.dumps(state))
 

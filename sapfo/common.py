@@ -15,6 +15,9 @@ CACHE_DIR = Path.home() / '.cache' / 'sapfo'
 CSS_FILE = 'qt.css'
 DECLIN_FILE = 'entry_layout.decl'
 
+STATE_SORT_KEY = 'sorted by'
+STATE_FILTER_KEY = 'active filters'
+
 
 class ActiveFilters(NamedTuple):
     title: Optional[str]
