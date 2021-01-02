@@ -129,7 +129,7 @@ class EntryList(QtWidgets.QWidget):
         width = self.width()
         for n, real_pos in sorted(self._visible_to_real_pos.items()):
             item = self.entry_items[real_pos]
-            group = calc_entry_layout(item.entry, real_pos, self.gui_model,
+            group = calc_entry_layout(item.entry, n, self.gui_model,
                                       y, width)
             item.group = group
             y += group.size().height()
