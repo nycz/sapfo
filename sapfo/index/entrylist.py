@@ -12,7 +12,7 @@ from PyQt5.QtCore import Qt
 
 from .. import declin, declin_qt
 from ..common import ActiveFilters, CACHE_DIR, Settings, SortBy
-from ..taggedlist import (AttributeData, edit_entry, Entries, Entry,
+from ..taggedlist import (AttrNames, AttributeData, edit_entry, Entries, Entry,
                           filter_entry, FilterFuncs, ParseFuncs)
 
 
@@ -73,9 +73,7 @@ class EntryList(QtWidgets.QWidget):
     visible_count_changed = QtCore.pyqtSignal(int, int)
 
     def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
-                 dry_run: bool, sorted_by: SortBy,
-                 active_filters: ActiveFilters,
-                 attributedata: AttributeData,
+                 dry_run: bool, statepath: Path,
                  base_gui: str, user_gui: str) -> None:
         super().__init__(parent)
         self.setFocusPolicy(Qt.NoFocus)
@@ -83,11 +81,26 @@ class EntryList(QtWidgets.QWidget):
         self._minimum_height = 0
         self.dry_run = dry_run
         self.settings = settings
+        # Attribute data
+        self.attributedata = entry_attributes()
+        state: Dict[str, Any]
+        try:
+            state = pickle.loads(statepath.read_bytes())
+        except FileNotFoundError:
+            state = {
+                'active filters': {
+                    k: None for k, d in self.attributedata.items()
+                    if 'filter' in d
+                },
+                'sorted by': (AttrNames.TITLE.name, False)
+            }
+        for k, d in self.attributedata.items():
+            if 'filter' in d and k not in state['active filters']:
+                state['active filters'][k] = None
+        self.active_filters = ActiveFilters(**state['active filters'])
+        self.sorted_by = SortBy(*state['sorted by'])
         # Model values
         self._entries: Entries = tuple()
-        self.active_filters = active_filters
-        self.attributedata = attributedata
-        self.sorted_by = sorted_by
         self.raw_tag_colors: Dict[str, str] = settings.tag_colors
         self.tag_colors: Dict[str, declin.types.Color] = {}
         self.update_tag_colors(self.raw_tag_colors)

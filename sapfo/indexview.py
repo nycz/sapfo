@@ -18,7 +18,7 @@ from libsyntyche.terminal import MessageTray
 from . import tagsystem
 from .common import ActiveFilters, LOCAL_DIR, Settings, SortBy
 from .declarative import hbox, label, Stretch, vbox
-from .index.entrylist import EntryList, entry_attributes, index_stories
+from .index.entrylist import EntryList, index_stories
 from .index.taginfolist import TagInfoList
 from .index.terminal import Terminal
 from .taggedlist import AttrNames, make_abbrev_dict, NONEMPTY_SEARCH
@@ -129,21 +129,12 @@ class IndexView(QtWidgets.QWidget):
                  ) -> None:
         super().__init__(parent)
         self.settings = settings
-        # Attribute data
-        self.attributedata = entry_attributes()
-        # State
         self.statepath = statepath
-        state = self.load_state()
-        for k, d in self.attributedata.items():
-            if 'filter' in d and k not in state['active filters']:
-                state['active filters'][k] = None
         # Main view
         self.scroll_area = QtWidgets.QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
         self.entry_view = EntryList(self, settings, dry_run,
-                                    SortBy(*state['sorted by']),
-                                    ActiveFilters(**state['active filters']),
-                                    self.attributedata, base_gui, user_gui)
+                                    statepath, base_gui, user_gui)
         self.scroll_area.setWidget(self.entry_view)
         self.scroll_area.setFocusPolicy(Qt.NoFocus)
         self.scroll_area.setAlignment(Qt.AlignHCenter)
@@ -193,19 +184,6 @@ class IndexView(QtWidgets.QWidget):
     def setStyleSheet(self, css: str) -> None:
         super().setStyleSheet(css)
         self.terminal.setStyleSheet(css)
-
-    def load_state(self) -> Dict[str, Any]:
-        try:
-            state: Dict[str, Any] = pickle.loads(self.statepath.read_bytes())
-            return state
-        except FileNotFoundError:
-            return {
-                'active filters': {
-                    k: None for k, d in self.attributedata.items()
-                    if 'filter' in d
-                },
-                'sorted by': (AttrNames.TITLE.name, False)
-            }
 
     def save_state(self) -> None:
         state = {
