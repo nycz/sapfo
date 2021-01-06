@@ -1,9 +1,8 @@
 import enum
 import re
-from typing import Any, cast, List, Optional, TypeVar, Union
+from typing import Any, List, Optional, TypeVar, Union, cast
 
 from .common import Constants, ParsingError, Token, TokenType
-
 
 C = TypeVar('C')
 

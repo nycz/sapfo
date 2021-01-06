@@ -1,6 +1,6 @@
 import enum
 import re
-from typing import Any, Collection, Dict, List, Optional, NamedTuple, Union
+from typing import Any, Collection, Dict, List, NamedTuple, Optional, Union
 
 
 class ParsingError(Exception):

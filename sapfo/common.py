@@ -1,11 +1,10 @@
 import json
-from pathlib import Path
 import shutil
-from typing import (Any, Dict, FrozenSet, List, NamedTuple, Optional,
-                    Set, Tuple, Type, TypeVar, Union)
+from pathlib import Path
+from typing import (Any, Dict, FrozenSet, List, NamedTuple, Optional, Set,
+                    Tuple, Type, TypeVar, Union)
 
-from PyQt5.QtCore import pyqtSignal, QObject
-
+from PyQt5.QtCore import QObject, pyqtSignal
 
 LOCAL_DIR = Path(__file__).resolve().parent
 DATA_DIR = LOCAL_DIR / 'data'

@@ -1,14 +1,12 @@
 import enum
-from itertools import chain
 import re
-from typing import (Any, cast, List, NamedTuple, Optional,
-                    Set, Tuple, Union)
+from itertools import chain
+from typing import Any, List, NamedTuple, Optional, Set, Tuple, Union, cast
 
+from ..taggedlist import NewAttr, NewAttrType, builtin_attrs
 from .common import Constants, ParsingError, Pos, Token, TokenType
-from .types import (AttributeRef, Border, Color, Direction,
-                    Font, HorizontalAlign, ItemRef, Margins, VerticalAlign)
-from ..taggedlist import builtin_attrs, NewAttr, NewAttrType
-
+from .types import (AttributeRef, Border, Color, Direction, Font,
+                    HorizontalAlign, ItemRef, Margins, VerticalAlign)
 
 COMMENT_CHAR = ';'
 SPECIAL_PREFIX = '!'

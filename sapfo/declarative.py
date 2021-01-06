@@ -1,11 +1,12 @@
-from typing import (Any, cast, Iterable, Mapping, Optional,
-                    Tuple, Type, TypeVar, Union)
+from typing import (Any, Iterable, Mapping, Optional, Tuple, Type, TypeVar,
+                    Union, cast)
 
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import (QBoxLayout, QGridLayout, QHBoxLayout, QLayout,
                              QVBoxLayout, QWidget)
 
 from .flowlayout import FlowLayout
+
 __all__ = ['grid', 'hflow', 'hbox', 'vbox', 'label']
 
 

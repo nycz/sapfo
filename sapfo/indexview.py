@@ -1,30 +1,30 @@
-from collections import Counter
 import json
-from operator import itemgetter
 import os.path
-from pathlib import Path
 import pickle
 import re
 import subprocess
+from collections import Counter
+from operator import itemgetter
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Match, Optional, Tuple
-
-from PyQt5 import QtCore, QtGui, QtSvg, QtWidgets
-from PyQt5.QtCore import pyqtProperty, pyqtSignal, Qt
-from PyQt5.QtGui import QColor
 
 from libsyntyche.cli import ArgumentRules, AutocompletionPattern, Command
 from libsyntyche.terminal import MessageTray
+from PyQt5 import QtCore, QtGui, QtSvg, QtWidgets
+from PyQt5.QtCore import Qt, pyqtProperty, pyqtSignal
+from PyQt5.QtGui import QColor
 
 from . import tagsystem
-from .common import (ActiveFilters, LOCAL_DIR, Settings, SortBy,
-                     STATE_FILTER_KEY, STATE_SORT_KEY)
-from .declarative import hbox, label, Stretch, vbox
+from .common import (LOCAL_DIR, STATE_FILTER_KEY, STATE_SORT_KEY,
+                     ActiveFilters, Settings, SortBy)
+from .declarative import Stretch, hbox, label, vbox
 from .index.entrylist import EntryList, index_stories
 from .index.taginfolist import TagInfoList
 from .index.terminal import Terminal
 from .taggedlist import (ATTR_BACKSTORY_PAGES, ATTR_BACKSTORY_WORDCOUNT,
                          ATTR_FILE, ATTR_TAGS, ATTR_TITLE, ATTR_WORDCOUNT,
-                         AttributeData, AttrParseError, NewAttrType, NONEMPTY_SEARCH)
+                         NONEMPTY_SEARCH, AttributeData, AttrParseError,
+                         NewAttrType)
 
 
 class IconWidget(QtSvg.QSvgWidget):

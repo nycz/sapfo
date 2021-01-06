@@ -1,23 +1,22 @@
 import json
-from operator import attrgetter
 import os
-from pathlib import Path
 import pickle
 import re
-from typing import (Any, Dict, FrozenSet, Iterable,
-                    List, Optional, Tuple)
+from operator import attrgetter
+from pathlib import Path
+from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Tuple
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
 
 from .. import declin, declin_qt
-from ..common import (CACHE_DIR, Settings, SortBy,
-                      STATE_FILTER_KEY, STATE_SORT_KEY)
-from ..taggedlist import (ATTR_BACKSTORY_PAGES, ATTR_BACKSTORY_WORDCOUNT, ATTR_FILE,
-                          ATTR_INDEX, ATTR_LAST_MODIFIED, ATTR_METADATA_FILE,
-                          ATTR_TITLE, ATTR_WORDCOUNT,
-                          AttributeData, builtin_attrs, edit_entry,
-                          Entries, Entry, filter_entry)
+from ..common import (CACHE_DIR, STATE_FILTER_KEY, STATE_SORT_KEY, Settings,
+                      SortBy)
+from ..taggedlist import (ATTR_BACKSTORY_PAGES, ATTR_BACKSTORY_WORDCOUNT,
+                          ATTR_FILE, ATTR_INDEX, ATTR_LAST_MODIFIED,
+                          ATTR_METADATA_FILE, ATTR_TITLE, ATTR_WORDCOUNT,
+                          AttributeData, Entries, Entry, builtin_attrs,
+                          edit_entry, filter_entry)
 
 
 def calc_entry_layout(entry: Entry, visible_pos: int,

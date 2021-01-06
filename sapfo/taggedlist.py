@@ -1,8 +1,8 @@
 import enum
-from pathlib import Path
 import re
-from typing import (Any, Dict, FrozenSet, ItemsView, Iterable, Mapping, NamedTuple,
-                    Optional, Tuple, Union, ValuesView)
+from pathlib import Path
+from typing import (Any, Dict, FrozenSet, ItemsView, Iterable, Mapping,
+                    NamedTuple, Optional, Tuple, Union, ValuesView)
 
 from .tagsystem import compile_tag_filter, match_tag_filter
 
@@ -128,7 +128,7 @@ def _filter_text(attribute: str, payload: str, entries: Entries
 
 def _filter_number(attribute: str, payload: str, entries: Entries
                    ) -> Iterable[Entry]:
-    from operator import lt, gt, le, ge
+    from operator import ge, gt, le, lt
     compfuncs = {'<': lt, '>': gt, '<=': le, '>=': ge}
     expressions = [(compfuncs[m.group(1)], int(m.group(2).replace('k', '000')))
                    for m in re.finditer(r'([<>][=]?)(\d+k?)', payload)]

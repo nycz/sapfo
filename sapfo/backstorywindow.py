@@ -1,27 +1,25 @@
-from datetime import datetime
 import enum
-from itertools import chain
 import json
-from pathlib import Path
 import re
 import shutil
 import subprocess
-from typing import (Any, Callable, cast, Dict, Iterable, List,
-                    NamedTuple, Optional, Set, Tuple, Union)
-
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import pyqtSignal, Qt, QRect
-from PyQt5.QtGui import QTextCharFormat
+from datetime import datetime
+from itertools import chain
+from pathlib import Path
+from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
+                    Set, Tuple, Union, cast)
 
 from libsyntyche import terminal
 from libsyntyche.cli import ArgumentRules, Command
 from libsyntyche.texteditor import SearchAndReplaceable
 from libsyntyche.widgets import Signal0
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QRect, Qt, pyqtSignal
+from PyQt5.QtGui import QTextCharFormat
 
 from .common import Settings
-from .declarative import hbox, vbox, Stretch
+from .declarative import Stretch, hbox, vbox
 from .taggedlist import ATTR_FILE, ATTR_TITLE, Entry
-
 
 Color = Union[QtGui.QColor, Qt.GlobalColor]
 

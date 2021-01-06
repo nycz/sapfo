@@ -1,12 +1,12 @@
 from datetime import datetime
-from typing import Any, cast, Dict, Iterable, List, NamedTuple, Optional, Tuple
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple, cast
 
-from PyQt5.QtCore import Qt, QRect, QRectF, QSize
+from PyQt5.QtCore import QRect, QRectF, QSize, Qt
 from PyQt5.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
 
 from . import declin
-from .declin import (ContainerSection, ItemSection,
-                     LineSection, Section, StyleSpec)
+from .declin import (ContainerSection, ItemSection, LineSection, Section,
+                     StyleSpec)
 from .declin.types import AttributeRef, Color, Direction, VerticalAlign
 
 

@@ -1,8 +1,7 @@
 from pathlib import Path
 
-from PyQt5 import QtWidgets
-
 from libsyntyche import terminal
+from PyQt5 import QtWidgets
 
 
 class Terminal(terminal.Terminal):

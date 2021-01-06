@@ -1,8 +1,8 @@
 from operator import itemgetter
-from typing import cast, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, cast
 
 from PyQt5 import QtGui, QtWidgets
-from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 
 from ..common import Settings
 from ..declarative import fix_layout, label

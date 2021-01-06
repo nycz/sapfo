@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple
 
-from PyQt5 import QtGui, QtCore, QtWidgets
+from libsyntyche.cli import ArgumentRules, Command
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
 
-from libsyntyche.cli import ArgumentRules, Command
-
 from .backstorywindow import BackstoryWindow
-from .common import CSS_FILE, DATA_DIR, DECLIN_FILE, read_with_default, Settings
+from .common import (CSS_FILE, DATA_DIR, DECLIN_FILE, Settings,
+                     read_with_default)
 from .indexview import IndexView
 from .taggedlist import ATTR_FILE, Entry
 

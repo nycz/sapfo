@@ -1,10 +1,9 @@
 from pathlib import Path
 from typing import Dict, NamedTuple
 
+from ..taggedlist import NewAttr
 from . import parsing
 from .common import ParsingError, Pos
-from ..taggedlist import NewAttr
-
 
 StyleSpec = parsing.StyleSpec
 Section = parsing.Section
