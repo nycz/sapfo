@@ -4,28 +4,29 @@ import os
 from pathlib import Path
 import pickle
 import re
-from typing import (Any, Callable, Dict, FrozenSet, Iterable,
+from typing import (Any, Dict, FrozenSet, Iterable,
                     List, Optional, Tuple)
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
 
 from .. import declin, declin_qt
-from ..common import (ActiveFilters, CACHE_DIR, Settings, SortBy,
+from ..common import (CACHE_DIR, Settings, SortBy,
                       STATE_FILTER_KEY, STATE_SORT_KEY)
-from ..taggedlist import (AttrNames, AttributeData, edit_entry, Entries, Entry,
-                          filter_entry, FilterFuncs, ParseFuncs)
+from ..taggedlist import (ATTR_BACKSTORY_PAGES, ATTR_BACKSTORY_WORDCOUNT, ATTR_FILE,
+                          ATTR_INDEX, ATTR_LAST_MODIFIED, ATTR_METADATA_FILE,
+                          ATTR_TITLE, ATTR_WORDCOUNT,
+                          AttributeData, builtin_attrs, edit_entry,
+                          Entries, Entry, filter_entry)
 
 
 def calc_entry_layout(entry: Entry, visible_pos: int,
                       m: declin_qt.Model, y: int, width: int,
                       ) -> declin_qt.DrawGroup:
-    entry_dict = entry._asdict()
+    entry_dict = entry.as_dict()
     entry_dict['pos'] = visible_pos
-    rect = declin_qt.StretchableRect(0, y,
-                                     width=width)
-    return declin_qt.calc_size(entry_dict, m.sections[m.main],
-                               m, rect, 0)
+    rect = declin_qt.StretchableRect(0, y, width=width)
+    return declin_qt.calc_size(entry_dict, m.sections[m.main], m, rect, 0)
 
 
 class EntryItem:
@@ -82,24 +83,6 @@ class EntryList(QtWidgets.QWidget):
         self._minimum_height = 0
         self.dry_run = dry_run
         self.settings = settings
-        # Attribute data
-        self.attributedata = entry_attributes()
-        state: Dict[str, Any]
-        try:
-            state = pickle.loads(statepath.read_bytes())
-        except FileNotFoundError:
-            state = {
-                STATE_FILTER_KEY: {
-                    k: None for k, d in self.attributedata.items()
-                    if 'filter' in d
-                },
-                STATE_SORT_KEY: (AttrNames.TITLE.name, False)
-            }
-        for k, d in self.attributedata.items():
-            if 'filter' in d and k not in state[STATE_FILTER_KEY]:
-                state[STATE_FILTER_KEY][k] = None
-        self.active_filters = ActiveFilters(**state[STATE_FILTER_KEY])
-        self.sorted_by = SortBy(*state[STATE_SORT_KEY])
         # Model values
         self._entries: Entries = tuple()
         self.raw_tag_colors: Dict[str, str] = settings.tag_colors
@@ -108,10 +91,30 @@ class EntryList(QtWidgets.QWidget):
         settings.tag_colors_changed.connect(self.set_tag_colors)
         self.undostack: List[Entries] = []
         self.entry_items: List[EntryItem] = []
+        # Attribute data
         self.base_gui = base_gui
         self.user_gui = user_gui
         self.gui_model: declin_qt.Model
-        self.update_gui()
+        self.attribute_data: AttributeData
+        self.update_gui(recalc_and_redraw=False)
+        state: Dict[str, Any]
+        try:
+            state = pickle.loads(statepath.read_bytes())
+        except FileNotFoundError:
+            state = {
+                STATE_FILTER_KEY: {
+                    name: None for name, a in self.attribute_data.items()
+                    if a._is_filterable
+                },
+                STATE_SORT_KEY: (ATTR_TITLE, False)
+            }
+        for name, a in self.attribute_data.items():
+            if a._is_filterable and name not in state[STATE_FILTER_KEY]:
+                state[STATE_FILTER_KEY][name] = None
+        self.active_filters = state[STATE_FILTER_KEY]
+        self.sorted_by = SortBy(*state[STATE_SORT_KEY])
+        self.recalc_sizes()
+        self.update()
 
     def count(self) -> int:
         return len(self.entry_items)
@@ -153,7 +156,8 @@ class EntryList(QtWidgets.QWidget):
     def minimumSizeHint(self) -> QtCore.QSize:
         return QtCore.QSize(0, self._minimum_height)
 
-    def update_gui(self, user_gui: Optional[str] = None) -> None:
+    def update_gui(self, user_gui: Optional[str] = None,
+                   recalc_and_redraw: bool = True) -> None:
         if user_gui is None:
             user_gui = self.user_gui
         else:
@@ -163,11 +167,14 @@ class EntryList(QtWidgets.QWidget):
         except declin.common.ParsingError as e:
             print('GUI PARSING ERROR', e)
         else:
+            self.attribute_data = builtin_attrs.copy()
+            self.attribute_data.update(gui_model.attributes)
             self.gui_model = declin_qt.Model(main=gui_model.main,
                                              sections=gui_model.sections,
                                              tag_colors=self.tag_colors)
-        self.recalc_sizes()
-        self.update()
+        if recalc_and_redraw:
+            self.recalc_sizes()
+            self.update()
 
     def update_tag_colors(self, tag_colors: Dict[str, str]) -> None:
         self.tag_colors = {}
@@ -216,7 +223,7 @@ class EntryList(QtWidgets.QWidget):
 
     def sort(self) -> None:
         self.entry_items.sort(
-            key=lambda e: getattr(e.entry, self.sorted_by.key),
+            key=lambda e: e.entry[self.sorted_by.key],
             reverse=self.sorted_by.descending
         )
         self._visible_to_real_pos.clear()
@@ -235,7 +242,7 @@ class EntryList(QtWidgets.QWidget):
 
     def filter_(self) -> None:
         filter_list = [(k, v) for k, v
-                       in self.active_filters._asdict().items()
+                       in self.active_filters.items()
                        if v is not None]
         self._visible_to_real_pos.clear()
         pos = 0
@@ -243,7 +250,7 @@ class EntryList(QtWidgets.QWidget):
         width = self.width()
         for n, item in enumerate(self.entry_items):
             if filter_entry(item.entry, filter_list,
-                            self.attributedata, self.settings.tag_macros):
+                            self.attribute_data, self.settings.tag_macros):
                 item.visible_pos = pos
                 item.hidden = False
                 item.group = calc_entry_layout(item.entry, pos,
@@ -261,13 +268,13 @@ class EntryList(QtWidgets.QWidget):
     def undo(self) -> int:
         if not self.undostack:
             return 0
-        items = {item.entry.index_: item for item in self.entry_items}
+        items = {item.entry[ATTR_INDEX]: item for item in self.entry_items}
         undo_batch = self.undostack.pop()
         for entry in undo_batch:
-            item = items[entry.index_]
+            item = items[entry[ATTR_INDEX]]
             item.entry = entry
         if not self.dry_run:
-            write_metadata(undo_batch)
+            write_metadata(undo_batch, self.attribute_data)
         self.sort()
         self.filter_()
         return len(undo_batch)
@@ -277,12 +284,12 @@ class EntryList(QtWidgets.QWidget):
         item = self.entry_items[real_pos]
         old_entry = item.entry
         new_entry = edit_entry(old_entry, attribute, new_value,
-                               self.attributedata)
+                               self.attribute_data)
         if new_entry != old_entry:
             self.undostack.append((old_entry,))
             item.entry = new_entry
             if not self.dry_run:
-                write_metadata([new_entry])
+                write_metadata([new_entry], self.attribute_data)
             self.sort()
             self.filter_()
             return True
@@ -313,10 +320,10 @@ class EntryList(QtWidgets.QWidget):
         def replace_tag(entry: Entry) -> Entry:
             # Only replace in visible entries
             # and in entries where the old tag exists, if it's specified
-            if oldtagstr and oldtagstr not in getattr(entry, attribute):
+            if oldtagstr and oldtagstr not in entry[attribute]:
                 return entry
-            tags = (getattr(entry, attribute) - oldtag) | newtag
-            return entry._replace(**{attribute: tags})
+            tags = (entry[attribute] - oldtag) | newtag
+            return entry.replace(**{attribute: tags})
 
         old_entries = []
         new_entries = []
@@ -333,7 +340,7 @@ class EntryList(QtWidgets.QWidget):
         if old_entries:
             self.undostack.append(tuple(old_entries))
         if not self.dry_run:
-            write_metadata(tuple(new_entries))
+            write_metadata(tuple(new_entries), self.attribute_data)
         self.sort()
         self.filter_()
         return len(old_entries)
@@ -365,8 +372,8 @@ def get_backstory_data(file: Path, cached_data: Dict[str, Any]
     return wordcount, pages
 
 
-def index_stories(root: Path, progress: QtWidgets.QProgressDialog
-                  ) -> Entries:
+def index_stories(root: Path, progress: QtWidgets.QProgressDialog,
+                  attributes: AttributeData) -> Entries:
     progress.setLabelText('Loading cache...')
     cache_file = CACHE_DIR / 'index.pickle'
     if cache_file.exists():
@@ -390,6 +397,13 @@ def index_stories(root: Path, progress: QtWidgets.QProgressDialog
                 n += 1
                 continue
             metadata = json.loads(metafile.read_text(encoding='utf-8'))
+            entry_dict: Dict[str, Any] = {}
+            for key, value in metadata.items():
+                if key not in attributes:
+                    raise KeyError(f'Unrecognized attribute {key} '
+                                   f'in file {dir_root / fname}')
+                entry_dict[key] = attributes[key]._load_value(value)
+            entry_dict[ATTR_INDEX] = i
             file = dir_root / fname
             stat = file.stat()
             if file in cached_data \
@@ -399,22 +413,13 @@ def index_stories(root: Path, progress: QtWidgets.QProgressDialog
                 wordcount = len(file.read_text().split())
                 cached_data[file] = {'modified': stat.st_mtime,
                                      'wordcount': wordcount}
-            backstory_wordcount, backstory_pages = \
-                get_backstory_data(file, cached_data)
-            entry = Entry(
-                index_=i,
-                title=metadata['title'],
-                tags=frozenset(metadata['tags']),
-                description=metadata['description'],
-                wordcount=wordcount,
-                backstorywordcount=backstory_wordcount,
-                backstorypages=backstory_pages,
-                file=file,
-                lastmodified=stat.st_mtime,
-                metadatafile=metafile,
-                recap=metadata.get('recap', ''),
-            )
-            entries.append(entry)
+            (entry_dict[ATTR_BACKSTORY_WORDCOUNT],
+             entry_dict[ATTR_BACKSTORY_PAGES]) = get_backstory_data(file, cached_data)
+            entry_dict[ATTR_WORDCOUNT] = wordcount
+            entry_dict[ATTR_FILE] = file
+            entry_dict[ATTR_LAST_MODIFIED] = stat.st_mtime
+            entry_dict[ATTR_METADATA_FILE] = metafile
+            entries.append(Entry(entry_dict))
             i += 1
             n += 1
     progress.setMaximum(0)
@@ -424,33 +429,11 @@ def index_stories(root: Path, progress: QtWidgets.QProgressDialog
     return tuple(entries)
 
 
-def entry_attributes() -> AttributeData:
-    # Keep this down here only to make it easier to see if we're missing
-    # something in index_stories
-    f = FilterFuncs
-    p = ParseFuncs
-    # TODO: type this better
-    attributes: Dict[str, Dict[str, Callable[..., Any]]] = {
-        'title': {'filter': f.text, 'parser': p.text},
-        'tags': {'filter': f.tags, 'parser': p.tags},
-        'description': {'filter': f.text, 'parser': p.text},
-        'wordcount': {'filter': f.number},
-        'backstorywordcount': {'filter': f.number},
-        'backstorypages': {'filter': f.number},
-        'file': {},
-        'lastmodified': {},
-        'metadatafile': {},
-        'recap': {'filter': f.text, 'parser': p.text},
-    }
-    return attributes
-
-
-def write_metadata(entries: Iterable[Entry]) -> None:
+def write_metadata(entries: Iterable[Entry], attributes: AttributeData) -> None:
     for entry in entries:
         metadata = {
-            'title': entry.title,
-            'description': entry.description,
-            'tags': list(entry.tags),
-            'recap': entry.recap,
+            name: attr._encode_value(entry)
+            for name, attr in attributes.items()
+            if attr.editable
         }
-        entry.metadatafile.write_text(json.dumps(metadata), encoding='utf-8')
+        entry[ATTR_METADATA_FILE].write_text(json.dumps(metadata), encoding='utf-8')

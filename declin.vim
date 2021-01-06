@@ -11,7 +11,7 @@ highlight default link declinTrailingWhitespace Error
 
 "syntax keyword declinCommand COLUMN ITEM LINE ROW contained
 syntax match declinCommand /^[A-Z_]\+\ze\( \|$\)/ contained
-syntax match declinSpecialCommand /^!\(DEFAULT\|EXPORT\)/ contained
+syntax match declinSpecialCommand /^!\(DEFAULT\|EXPORT\|ATTRIBUTE\)/ contained
 
 syntax match declinCommandWrapper /^\S\+/ contains=declinCommand,declinSpecialCommand nextgroup=declinCommandArg
 

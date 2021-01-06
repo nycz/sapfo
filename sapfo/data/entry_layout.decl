@@ -1,3 +1,4 @@
+; vim: ft=declin
 !DEFAULT
     background_color #0000
     border 0 #0000
@@ -9,6 +10,13 @@
     text_color #ccc
     vertical_align middle
     wrap false
+
+
+!ATTRIBUTE recap
+    type text
+    abbreviation 'r'
+    filterable true
+    filter_description "recaps"
 
 
 ITEM num
@@ -92,7 +100,7 @@ LINE entry_sep
     margin top 10 horizontal 5
     border #000
     thickness 1
-    
+
 
 COLUMN entry
     items top_row description recap entry_sep

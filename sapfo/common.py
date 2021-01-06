@@ -19,14 +19,7 @@ STATE_SORT_KEY = 'sorted by'
 STATE_FILTER_KEY = 'active filters'
 
 
-class ActiveFilters(NamedTuple):
-    title: Optional[str]
-    description: Optional[str]
-    recap: Optional[str]
-    tags: Optional[FrozenSet[str]]
-    wordcount: Optional[int]
-    backstorywordcount: Optional[int]
-    backstorypages: Optional[int]
+ActiveFilters = Dict[str, Union[None, str, FrozenSet[str], int]]
 
 
 class SortBy(NamedTuple):

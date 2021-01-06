@@ -11,7 +11,7 @@ from libsyntyche.cli import ArgumentRules, Command
 from .backstorywindow import BackstoryWindow
 from .common import CSS_FILE, DATA_DIR, DECLIN_FILE, read_with_default, Settings
 from .indexview import IndexView
-from .taggedlist import Entry
+from .taggedlist import ATTR_FILE, Entry
 
 
 class MainWindow(QtWidgets.QWidget):
@@ -92,14 +92,14 @@ class MainWindow(QtWidgets.QWidget):
         self.index_view.terminal.setFocus()
 
     def open_backstory_editor(self, entry: Entry) -> None:
-        if entry.file in self.backstorywindows:
-            self.backstorywindows[entry.file].activateWindow()
-            self.backstorywindows[entry.file].raise_()
+        if entry[ATTR_FILE] in self.backstorywindows:
+            self.backstorywindows[entry[ATTR_FILE]].activateWindow()
+            self.backstorywindows[entry[ATTR_FILE]].raise_()
             return
         bsw = BackstoryWindow(entry, self.settings,
                               self.backstory_termhistory_path)
         bsw.setStyleSheet(self.styleSheet())
-        self.backstorywindows[entry.file] = bsw
+        self.backstorywindows[entry[ATTR_FILE]] = bsw
         bsw.closed.connect(self.forget_backstory_window)
 
     def forget_backstory_window(self, file: Path) -> None:

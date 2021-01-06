@@ -22,7 +22,9 @@ from .declarative import hbox, label, Stretch, vbox
 from .index.entrylist import EntryList, index_stories
 from .index.taginfolist import TagInfoList
 from .index.terminal import Terminal
-from .taggedlist import AttrNames, make_abbrev_dict, NONEMPTY_SEARCH
+from .taggedlist import (ATTR_BACKSTORY_PAGES, ATTR_BACKSTORY_WORDCOUNT,
+                         ATTR_FILE, ATTR_TAGS, ATTR_TITLE, ATTR_WORDCOUNT,
+                         AttributeData, AttrParseError, NewAttrType, NONEMPTY_SEARCH)
 
 
 class IconWidget(QtSvg.QSvgWidget):
@@ -57,8 +59,9 @@ class IconWidget(QtSvg.QSvgWidget):
 class StatusBar(QtWidgets.QFrame):
     moved = pyqtSignal()
 
-    def __init__(self, parent: QtWidgets.QWidget) -> None:
+    def __init__(self, parent: 'IndexView') -> None:
         super().__init__(parent)
+        self.parent_index_view = parent
         self.filter_icon = IconWidget('filter', 13, self)
         self.filter_icon.setObjectName('status_filter_icon')
         self.sort_label = label('', 'status_sort_label', parent=self)
@@ -98,12 +101,10 @@ class StatusBar(QtWidgets.QFrame):
 
     def set_filter_info(self, filters: ActiveFilters) -> None:
         active_filters = []
-        for cmd, payload in filters._asdict().items():
+        for cmd, payload in filters.items():
             if payload is None:
                 continue
-            if cmd in {AttrNames.DESCRIPTION.name,
-                       AttrNames.TITLE.name,
-                       AttrNames.RECAP.name}:
+            if self.parent_index_view.attribute_data[cmd].type_ == NewAttrType.TEXT:
                 if payload == '':
                     payload = '<empty>'
                 elif payload == NONEMPTY_SEARCH:
@@ -182,13 +183,17 @@ class IndexView(QtWidgets.QWidget):
         self.terminal.show_message.connect(self.message_tray.add_message)
         self.status_bar.moved.connect(self.adjust_tray)
 
+    @property
+    def attribute_data(self) -> AttributeData:
+        return self.entry_view.attribute_data
+
     def setStyleSheet(self, css: str) -> None:
         super().setStyleSheet(css)
         self.terminal.setStyleSheet(css)
 
     def save_state(self) -> None:
         state = {
-            STATE_FILTER_KEY: self.entry_view.active_filters._asdict(),
+            STATE_FILTER_KEY: self.entry_view.active_filters,
             STATE_SORT_KEY: list(self.entry_view.sorted_by)
         }
         self.statepath.write_bytes(pickle.dumps(state))
@@ -219,6 +224,8 @@ class IndexView(QtWidgets.QWidget):
     def connect_signals(self) -> None:
         t = self.terminal
         s = self.settings
+        tag_abbrev = self.attribute_data[ATTR_TAGS].abbrev
+        assert tag_abbrev != ''
         # TODO: maybe better typing with Signal0, Signal1 etc here?
         connects: Tuple[Tuple[pyqtSignal, Callable[..., Any]], ...] = (
             # (t.input_term.scroll_index, self.entry_view.event),
@@ -230,46 +237,63 @@ class IndexView(QtWidgets.QWidget):
         for signal, slot in connects:
             signal.connect(slot)
 
+        filter_abbrevs = ''.join(a.abbrev for a in self.attribute_data.values()
+                                 if a.abbrev and a._is_filterable)
+        text_filter_abbrevs = ''.join(
+            a.abbrev for a in self.attribute_data.values()
+            if a.abbrev and a._is_filterable
+            and a.type_ in {NewAttrType.TEXT, NewAttrType.TAGS}
+        )
+        text_filter_helps = tuple(
+            (a.abbrev, f'Filter on {a.filter_help} (case insensitive).')
+            for a in self.attribute_data.values()
+            if a.abbrev and a._is_filterable
+            and a.type_ == NewAttrType.TEXT
+        )
+        tag_filter_syntax_help = (
+            'Filter on tags. Supports AND (comma , ), OR (vertical bar | ), '
+            'NOT prefix (dash - ), and tag macros (use @ as prefix) '
+            "specified in the config. AND and OR can't be used mixed without "
+            'explicit parentheses to specify precedence. Spaces are allowed '
+            'in tag names, but not (),| . Tags are case sensitive.'
+        )
+        num_filter_syntax_help = (
+            'Supports the operators > < >= <= followed by the target number. '
+            'A "k" suffix in the number is replaced by 000. Operator '
+            'expressions can be combined without any delimiters. '
+            'Eg.: >900<=50k'
+        )
+        num_filter_helps = tuple(
+            (a.abbrev, (f'Filter on {a.filter_help}'
+                        + ('. ' + num_filter_syntax_help if n == 0
+                           else ' (with same syntax as before).')))
+            for n, a in enumerate(
+                a for a in self.attribute_data.values()
+                if a.abbrev and a._is_filterable
+                and a.type_ in {NewAttrType.INT, NewAttrType.FLOAT}
+            )
+        )
         self.terminal.add_command(Command(
-            'filter', 'Filter entries (aka show only entries matching the filter)',
+            'filter',
+            'Filter entries (aka show only entries matching the filter)',
             self.filter_entries,
             short_name='f',
-            arg_help=(('', 'List the active filters.'),
-                      ('-', 'Reset all filters.'),
-                      ('[ndrtcbp]-', 'Reset the specified filter.'),
-                      ('[ndrtcbp]', 'Don\'t apply any filter, instead set the '
-                                    'terminal\'s input text to the specified '
-                                    'filter\'s current value.'),
-                      (AttrNames.TITLE.abbrev,
-                       'Filter on titles (case insensitive).'),
-                      (AttrNames.DESCRIPTION.abbrev,
-                       'Filter on descriptions (case insensitive).'),
-                      (AttrNames.RECAP.abbrev,
-                       'Filter on recaps (case insensitive).'),
-                      (AttrNames.TAGS.abbrev,
-                       'Filter on tags. Supports AND (comma , ), '
-                       'OR (vertical bar | ), NOT prefix (dash - ), and '
-                       'tag macros (use @ as prefix) specified in the '
-                       'config. AND and OR can\'t be used mixed without '
-                       'explicit parentheses to specify precedence. '
-                       'Spaces are allowed in tag names, but not (),| . '
-                       'Tags are case sensitive.'),
-                      ('[ndrt]_', 'Show only entries with this '
-                                  'attribute empty.'),
-                      ('[ndrt]*', 'Show no entries with this '
-                                  'attribute empty.'),
-                      (AttrNames.WORDCOUNT.abbrev,
-                       'Filter on wordcount. Supports the operators '
-                       '> < >= <= followed by the target number. A "k" '
-                       'suffix in the number is replaced by 000. '
-                       'Operator expressions can be combined without any '
-                       'delimiters. Eg.: >900<=50k'),
-                      (AttrNames.BACKSTORY_WORDCOUNT.abbrev,
-                       'Filter on backstory wordcount. This uses '
-                       'the same syntax as the wordcount filter.'),
-                      (AttrNames.BACKSTORY_PAGES.abbrev,
-                       'Filter on number of backstory pages. This uses '
-                       'the same syntax as the wordcount filter.')),
+            arg_help=(
+                ('', 'List the active filters.'),
+                ('-', 'Reset all filters.'),
+                (f'[{filter_abbrevs}]-', 'Reset the specified filter.'),
+                (f'[{filter_abbrevs}]',
+                 "Don't apply any filter, instead set the terminal's input "
+                 "text to the specified filter's current value."),
+            ) + text_filter_helps + (
+                (tag_abbrev,
+                 f'Filter on {self.attribute_data[ATTR_TAGS].filter_help}. '
+                 + tag_filter_syntax_help),
+                (f'[{text_filter_abbrevs}]_',
+                 'Show only entries with this attribute empty.'),
+                (f'[{text_filter_abbrevs}]*',
+                 'Show no entries with this attribute empty.'),
+            ) + num_filter_helps
         ))
 
         def complete_tag_filter(name: str, match_text: str) -> List[str]:
@@ -285,60 +309,64 @@ class IndexView(QtWidgets.QWidget):
         # TODO: insert an extra space before the first tag maybe
         self.terminal.add_autocompletion_pattern(AutocompletionPattern(
             'filter-entries-tags',
-            prefix=rf'f{AttrNames.TAGS.abbrev}\s*',
+            prefix=rf'f{tag_abbrev}\s*',
             start=r'(^|[(,|])\s*',
             end=r'([),|]|$)',
             illegal_chars='()|,',
             get_suggestions=complete_tag_filter,
         ))
 
+        sort_abbrevs = ''.join(a.abbrev for a in self.attribute_data.values()
+                               if a.abbrev and a._is_sortable)
+        sort_helps = tuple((a.abbrev, f'Sort by {a.sort_help}.')
+                           for a in self.attribute_data.values()
+                           if a.abbrev and a._is_sortable)
         self.terminal.add_command(Command(
             'sort', 'Sort entries',
             self.sort_entries,
             short_name='s',
-            arg_help=(('[ncbpm][!<>]', 'Sort using the specified '
-                                       'key and order.'),
-                      (AttrNames.TITLE.abbrev,
-                       'Sort by title.'),
-                      (AttrNames.WORDCOUNT.abbrev,
-                       'Sort by wordcount.'),
-                      (AttrNames.BACKSTORY_WORDCOUNT.abbrev,
-                       'Sort by backstory wordcount.'),
-                      (AttrNames.BACKSTORY_PAGES.abbrev,
-                       'Sort by number of backstory pages.'),
-                      (AttrNames.LAST_MODIFIED.abbrev,
-                       'Sort by last modified date.'),
-                      ('!', 'Reverse sort order.'),
-                      ('<', 'Sort ascending.'),
-                      ('>', 'Sort descending.')),
+            arg_help=(
+                (f'[{sort_abbrevs}][!<>]',
+                 'Sort using the specified key and order.'),
+            ) + sort_helps + (
+                ('!', 'Reverse sort order.'),
+                ('<', 'Sort ascending.'),
+                ('>', 'Sort descending.')
+            ),
         ))
+        editable_abbrevs = ''.join(a.abbrev for a in self.attribute_data.values()
+                                   if a.abbrev and a.editable
+                                   and a.abbrev != tag_abbrev)
         self.terminal.add_command(Command(
             'edit', 'Edit entry',
             self.edit_entry,
             short_name='e',
             args=ArgumentRules.REQUIRED,
-            arg_help=(('u', 'Undo last edit.'),
-                      ('[ndrt]123', "Don't edit anything, instead set the "
-                                    "terminal's input text to the current "
-                                    "value of the specified attribute in "
-                                    "entry 123."),
-                      ('[ndr]123 text', 'Set the value of the specified '
-                                        'attribute in entry 123 to "text".'),
-                      ('r123-', 'Clear the recap in entry 123.'),
-                      ('t123 tag1, tag2',
-                       'Set the tags of entry 123 to tag1 and tag2. The list '
-                       'is comma separated and all tags are stripped of '
-                       'surrounding whitespace before saved.'),
-                      ('t* tag1, tag2', 'Replace all instances of tag1 with '
-                                        'tag2 in all visible entries.'),
-                      ('t* tag1,', 'Remove all instances of tag1 '
-                                   'from all visible entries.'),
-                      ('t* ,tag2', 'Add tag2 to all visible entries.')),
+            arg_help=(
+                ('u', 'Undo last edit.'),
+                (f'[{editable_abbrevs + tag_abbrev}]123',
+                 "Don't edit anything, instead set the terminal's "
+                 "input text to the current value of the specified "
+                 "attribute in entry 123."),
+                (f'[{editable_abbrevs}]123 value',
+                 'Set the value of the specified '
+                 'attribute in entry 123 to "value".'),
+                (f'{tag_abbrev}123 tag1, tag2',
+                 'Set the tags of entry 123 to tag1 and tag2. The list '
+                 'is comma separated and all tags are stripped of '
+                 'surrounding whitespace before saved.'),
+                (f'{tag_abbrev}* tag1, tag2',
+                 'Replace all instances of tag1 with '
+                 'tag2 in all visible entries.'),
+                (f'{tag_abbrev}* tag1,', 'Remove all instances of tag1 '
+                 'from all visible entries.'),
+                (f'{tag_abbrev}* ,tag2', 'Add tag2 to all visible entries.'),
+            ),
         ))
 
         self.terminal.add_autocompletion_pattern(AutocompletionPattern(
             'edit-entries-tags',
-            prefix=rf'e{AttrNames.TAGS.abbrev}[*0-9]\s*',
+            prefix=rf'e{tag_abbrev}[*0-9]\s*',
             start=r'(^|,)\s*',
             end=r'(,|$)',
             illegal_chars='()|,',
@@ -350,10 +378,11 @@ class IndexView(QtWidgets.QWidget):
             self.new_entry,
             short_name='n',
             args=ArgumentRules.REQUIRED,
-            arg_help=(('(tag1, tag2, ..) path',
-                       ('Create a new entry with the tags at the path. '
-                        'The title is generate automatically from '
-                        'the path.')),),
+            arg_help=(
+                ('(tag1, tag2, ..) path',
+                 ('Create a new entry with the tags at the path. '
+                  'The title is generate automatically from the path.')),
+            ),
         ))
 
         def complete_tags(name: str, match_text: str) -> List[str]:
@@ -391,29 +420,37 @@ class IndexView(QtWidgets.QWidget):
             'manage_tags', 'Manage tags.',
             self.manage_tags,
             short_name='t',
-            arg_help=(('', 'Hide tag list if visible, otherwise show '
-                           'tag list in default order, sorted by '
-                           'usage count.'),
-                      ('[ac]-[/tagname]', 'Show tags in reverse order.'),
-                      ('a[-][/tagname]', 'Show tags alphabetically sorted.'),
-                      ('c[-][/tagname]', 'Show tags sorted by usage count.'),
-                      ('[ac][-]/tagname', 'Show tags that includes '
-                                          '"tagname".'),
-                      ('@', 'List tag macros.')),
+            arg_help=(
+                ('',
+                 'Hide tag list if visible, otherwise show tag list in '
+                 'default order, sorted by usage count.'),
+                ('[ac]-[/tagname]', 'Show tags in reverse order.'),
+                ('a[-][/tagname]', 'Show tags alphabetically sorted.'),
+                ('c[-][/tagname]', 'Show tags sorted by usage count.'),
+                ('[ac][-]/tagname', 'Show tags that includes "tagname".'),
+                ('@', 'List tag macros.')),
         ))
+        wordcount_abbrev = self.attribute_data[ATTR_WORDCOUNT].abbrev
+        assert wordcount_abbrev is not None
+        backstory_wordcount_abbrev = self.attribute_data[ATTR_BACKSTORY_WORDCOUNT].abbrev
+        assert backstory_wordcount_abbrev is not None
+        backstory_pages_abbrev = self.attribute_data[ATTR_BACKSTORY_PAGES].abbrev
+        assert backstory_pages_abbrev is not None
         self.terminal.add_command(Command(
             'count_length', 'Show combined size of wordcount and more',
             self.count_length,
             short_name='c',
             args=ArgumentRules.REQUIRED,
-            arg_help=((AttrNames.WORDCOUNT.abbrev,
-                       'Show combined wordcount for all visible entries.'),
-                      (AttrNames.BACKSTORY_WORDCOUNT.abbrev,
-                       'Show combined backstory wordcount '
-                       'for all visible entries.'),
-                      (AttrNames.BACKSTORY_PAGES.abbrev,
-                       'Show combined number of backstory pages '
-                       'for all visible entries.')),
+            arg_help=(
+                (wordcount_abbrev,
+                 'Show combined wordcount for all visible entries.'),
+                (backstory_wordcount_abbrev,
+                 'Show combined backstory wordcount '
+                 'for all visible entries.'),
+                (backstory_pages_abbrev,
+                 'Show combined number of backstory pages '
+                 'for all visible entries.'),
+            ),
         ))
         self.terminal.add_command(Command(
             'external_edit', 'Open entry file in external editor',
@@ -462,14 +499,14 @@ class IndexView(QtWidgets.QWidget):
         self.progress.setMaximum(0)
         self.progress.setMinimumDuration(0)
         self.progress.setValue(0)
-        raw_entries = index_stories(self.rootpath, self.progress)
+        raw_entries = index_stories(self.rootpath, self.progress,
+                                    self.attribute_data)
         try:
             self.entry_view.set_entries(raw_entries, self.progress)
         except tagsystem.ParsingError as e:
-            self.error(f'Failed to reload active tag filter, resetting')
+            self.error('Failed to reload active tag filter, resetting')
             self.error(f'[Tag parsing] {e}')
-            self.entry_view.active_filters = \
-                self.entry_view.active_filters._replace(tags=None)
+            self.entry_view.active_filters[ATTR_TAGS] = None
             self.status_bar.set_filter_info(self.entry_view.active_filters)
             self.entry_view.set_entries(raw_entries, self.progress)
             self.save_state()
@@ -481,7 +518,7 @@ class IndexView(QtWidgets.QWidget):
         Called by the terminal for the tab completion.
         """
         return Counter(tag for entry in self.entry_view.entries
-                       for tag in entry.tags).most_common()
+                       for tag in entry[ATTR_TAGS]).most_common()
 
     def manage_tags(self, arg: Optional[str]) -> None:
         # self.tag_info.view_tags(self.get_tags())
@@ -522,19 +559,18 @@ class IndexView(QtWidgets.QWidget):
         nothing in that particular category (eg. empty description).
         If arg is a category, prompt with the active filter (if any).
         """
-        filters = make_abbrev_dict(AttrNames.TITLE,
-                                   AttrNames.DESCRIPTION,
-                                   AttrNames.RECAP,
-                                   AttrNames.TAGS,
-                                   AttrNames.WORDCOUNT,
-                                   AttrNames.BACKSTORY_WORDCOUNT,
-                                   AttrNames.BACKSTORY_PAGES)
+        filters = {a.abbrev: k for k, a in self.attribute_data.items()
+                   if a._is_filterable}
+        text_filters = {a.abbrev: k for k, a in self.attribute_data.items()
+                        if a._is_filterable and a.type_ in {NewAttrType.TEXT,
+                                                            NewAttrType.TAGS}}
         filterchars = ''.join(filters)
+        text_filterchars = ''.join(text_filters)
         # Print active filters
         if not arg:
             active_filters = [f'{cmd}: {payload}'
                               for cmd, payload
-                              in self.entry_view.active_filters._asdict().items()
+                              in self.entry_view.active_filters.items()
                               if payload is not None]
             if active_filters:
                 self.print_('; '.join(active_filters))
@@ -544,29 +580,28 @@ class IndexView(QtWidgets.QWidget):
         # Reset all filters
         elif arg.strip() == '-':
             kwargs = dict(zip(filters.values(), len(filters)*(None,)))
-            self.entry_view.active_filters = self.entry_view.active_filters._replace(**kwargs)
+            self.entry_view.active_filters.update(**kwargs)
             self.entry_view.filter_()
             resultstr = 'Filters reset'
         # Reset specified filter
         elif re.fullmatch(rf'[{filterchars}]-\s*', arg):
-            self.entry_view.active_filters = self.entry_view.active_filters._replace(
-                **{filters[arg[0]]: None})
+            self.entry_view.active_filters[filters[arg[0]]] = None
             self.entry_view.filter_()
             resultstr = f'Filter on {filters[arg[0]]} reset'
         else:
             # Prompt active filter
             if arg.strip() in filters.keys():
-                payload = getattr(self.entry_view.active_filters, filters[arg])
+                payload = self.entry_view.active_filters[filters[arg]]
                 if payload is None:
                     payload = ''
                 self.set_terminal_text('f' + arg.strip() + ' ' + payload)
                 return
             # Filter empty entries
-            if re.fullmatch(r'[nrdt]_\s*', arg):
+            if re.fullmatch(rf'[{text_filterchars}]_\s*', arg):
                 cmd = arg[0]
                 payload = ''
             # Filter nonempty entries
-            elif re.fullmatch(r'[nrdt]\*\s*', arg):
+            elif re.fullmatch(rf'[{text_filterchars}]\*\s*', arg):
                 cmd = arg[0]
                 payload = NONEMPTY_SEARCH
             # Regular filter command
@@ -578,7 +613,7 @@ class IndexView(QtWidgets.QWidget):
                 self.error('Invalid filter command')
                 return
             # Do the filtering
-            self.entry_view.active_filters = self.entry_view.active_filters._replace(**{filters[cmd]: payload})
+            self.entry_view.active_filters[filters[cmd]] = payload
             try:
                 self.entry_view.filter_()
             except tagsystem.ParsingError as e:
@@ -596,15 +631,12 @@ class IndexView(QtWidgets.QWidget):
 
         If arg is not specified, print the current sort order.
         """
-        acronyms = make_abbrev_dict(AttrNames.TITLE,
-                                    AttrNames.WORDCOUNT,
-                                    AttrNames.BACKSTORY_WORDCOUNT,
-                                    AttrNames.BACKSTORY_PAGES,
-                                    AttrNames.LAST_MODIFIED)
+        acronyms = {a.abbrev: k for k, a in self.attribute_data.items()
+                    if a._is_sortable}
         if not arg:
             self.error('Nothing to sort by')
             return
-        rx = re.fullmatch(r'(\w?)([><!]?)', arg)
+        rx = re.fullmatch(r'([a-z]?)([><!]?)', arg)
         if not rx:
             self.error('Invalid sort command')
             return
@@ -652,56 +684,61 @@ class IndexView(QtWidgets.QWidget):
             else:
                 self.print_(f'{edits} edits reverted')
             return
-        replace_tags = re.fullmatch(AttrNames.TAGS.abbrev
+        replace_tags = re.fullmatch(self.attribute_data[ATTR_TAGS].abbrev
                                     + r'\*\s*(.*?)\s*,\s*(.*?)\s*', arg)
-        abbrevs = ''.join(x.abbrev for x in [AttrNames.RECAP,
-                                             AttrNames.DESCRIPTION,
-                                             AttrNames.TAGS,
-                                             AttrNames.TITLE])
-        main_data = re.fullmatch(rf'[{abbrevs}](\d+)(.*)', arg)
+        attrs = {a.abbrev: a for a in self.attribute_data.values() if a.editable}
+        main_data = re.fullmatch(r'([a-z])(\d+)(.*)', arg)
         # Replace/add/remove a bunch of tags
         if replace_tags:
             oldtag, newtag = replace_tags.groups()
             if not oldtag and not newtag:
                 self.error('No tags specified, nothing to do')
                 return
-            count = self.entry_view.replace_tags(oldtag, newtag,
-                                                 AttrNames.TAGS.name)
+            count = self.entry_view.replace_tags(oldtag, newtag, ATTR_TAGS)
             if count > 0:
                 self.print_(f'Edited tags in {count} entries')
             else:
                 self.error('No tags edited')
         # Edit a single entry
         elif main_data:
-            entry_id = int(main_data.group(1))
+            abbrev = main_data[1]
+            if abbrev not in attrs:
+                self.error(f'Unknown attribute to edit: "{abbrev}"')
+                return
+            entry_id = int(main_data[2])
             if entry_id >= self.entry_view.visible_count():
                 self.error('Index out of range')
                 return
-            payload = main_data.group(2).strip()
-            category = make_abbrev_dict(AttrNames.DESCRIPTION,
-                                        AttrNames.TITLE,
-                                        AttrNames.RECAP,
-                                        AttrNames.TAGS)[arg[0]]
-            # category = {'d': AttrNames.DESCRIPTION,
-                        # 'n': AttrNames.TITLE,
-                        # 'r': AttrNames.RECAP,
-                        # 't': AttrNames.TAGS}[arg[0]]
+            payload = main_data[3].strip()
+            category = attrs[abbrev]
             # No data specified, so the current is provided instead
             if not payload:
-                data = getattr(self.entry_view.visible_entry(entry_id),
-                               category)
+                try:
+                    data = self.entry_view.visible_entry(entry_id)[category.name]
+                except KeyError:
+                    if category.type_ == NewAttrType.TEXT:
+                        data = ''
+                    elif category.type_ in {NewAttrType.INT, NewAttrType.FLOAT}:
+                        data = 0
+                    else:
+                        raise
                 new = (', '.join(sorted(data))
-                       if arg[0] == AttrNames.TAGS.abbrev else data)
-                self.set_terminal_text('e' + arg.strip() + ' ' + new)
+                       if category.type_ == NewAttrType.TAGS
+                       else data)
+                self.set_terminal_text(f'e{arg.strip()} {new}')
             else:
-                if arg[0] == AttrNames.RECAP.abbrev and payload == '-':
-                    # Clear recap if the arg is -
+                if category.type_ == NewAttrType.TEXT and payload == '-':
+                    # Clear text attr if the arg is -
                     payload = ''
-                edited = self.entry_view.edit_(entry_id, category, payload)
-                if edited:
-                    self.print_('Entry edited')
+                try:
+                    edited = self.entry_view.edit_(entry_id, category.name, payload)
+                except AttrParseError:
+                    self.error('Bad value, nothing edited')
                 else:
-                    self.print_('Same data as before, nothing edited')
+                    if edited:
+                        self.print_('Entry edited')
+                    else:
+                        self.print_('Same data as before, nothing edited')
         else:
             self.error('Invalid edit command')
 
@@ -762,7 +799,7 @@ class IndexView(QtWidgets.QWidget):
         if not arg.isdigit():
             partialnames = [n for n, entry
                             in enumerate(self.entry_view.visible_entries)
-                            if arg.lower() in entry.title.lower()]
+                            if arg.lower() in entry[ATTR_TITLE].lower()]
             if not partialnames:
                 self.error(f'Entry not found: "{arg}"')
                 return
@@ -783,7 +820,7 @@ class IndexView(QtWidgets.QWidget):
         """
         def print_length(targetstr: str, targetattr: str) -> None:
             self.print_('Total {}: {}'.format(targetstr,
-                        sum(getattr(x, targetattr)
+                        sum(x[targetattr]
                             for x in self.entry_view.visible_entries)))
         cmd = arg.strip()
         if cmd == 'c':
@@ -802,7 +839,7 @@ class IndexView(QtWidgets.QWidget):
         if not arg.isdigit():
             partialnames = [n for n, entry
                             in enumerate(self.entry_view.visible_entries)
-                            if arg.lower() in entry.title.lower()]
+                            if arg.lower() in entry[ATTR_TITLE].lower()]
             if not partialnames:
                 self.error(f'Entry not found: "{arg}"')
                 return
@@ -819,5 +856,5 @@ class IndexView(QtWidgets.QWidget):
             self.error('No editor command defined')
             return
         subprocess.Popen([self.settings.editor,
-                          self.entry_view.visible_entry(int(arg)).file])
+                          self.entry_view.visible_entry(int(arg))[ATTR_FILE]])
         self.print_(f'Opening entry with {self.settings.editor}')

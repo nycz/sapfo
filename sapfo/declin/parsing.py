@@ -7,6 +7,7 @@ from typing import (Any, cast, List, NamedTuple, Optional,
 from .common import Constants, ParsingError, Pos, Token, TokenType
 from .types import (AttributeRef, Border, Color, Direction,
                     Font, HorizontalAlign, ItemRef, Margins, VerticalAlign)
+from ..taggedlist import builtin_attrs, NewAttr, NewAttrType
 
 
 COMMENT_CHAR = ';'
@@ -14,6 +15,7 @@ SPECIAL_PREFIX = '!'
 SECTION_RX = fr'{re.escape(SPECIAL_PREFIX)}?[A-Z][A-Z0-9_]*(?=$|\s)'
 DEFAULT_CMD = f'{SPECIAL_PREFIX}DEFAULT'
 EXPORT_CMD = f'{SPECIAL_PREFIX}EXPORT'
+ATTRIBUTE_CMD = f'{SPECIAL_PREFIX}ATTRIBUTE'
 
 
 RawSection = List[Tuple[int, str]]
@@ -22,19 +24,21 @@ RawSection = List[Tuple[int, str]]
 class Chunks(NamedTuple):
     default: Optional[RawSection]
     export: Optional[RawSection]
+    attributes: List[RawSection]
     sections: List[RawSection]
 
 
 def text_to_chunks(code: str) -> Chunks:
     default: Optional[RawSection] = None
     export: Optional[RawSection] = None
+    attributes: List[RawSection] = [[]]
     chunks: List[RawSection] = [[]]
     # Split into chunks
     for line_num, line_text in enumerate(chain(code.splitlines(), [None]), 1):
         # Check the specials
         if line_text and line_text.startswith(SPECIAL_PREFIX):
             cmd = line_text.split(None, 1)[0]
-            if cmd not in (DEFAULT_CMD, EXPORT_CMD):
+            if cmd not in (DEFAULT_CMD, EXPORT_CMD, ATTRIBUTE_CMD):
                 raise ParsingError(f'unknown special section: {line_text!r}',
                                    Pos(line_text, line_num))
             elif cmd == DEFAULT_CMD and default is not None:
@@ -51,6 +55,8 @@ def text_to_chunks(code: str) -> Chunks:
                     default = chunks.pop()
                 elif latest_chunk[0][1].startswith(EXPORT_CMD):
                     export = chunks.pop()
+                elif latest_chunk[0][1].startswith(ATTRIBUTE_CMD):
+                    attributes.append(chunks.pop())
                 chunks.append([])
                 latest_chunk = chunks[-1]
             if line_text is not None:
@@ -70,7 +76,8 @@ def text_to_chunks(code: str) -> Chunks:
         else:
             raise ParsingError('all code except section names '
                                'has to be indented', Pos(line_text, line_num))
-    return Chunks(default=default, export=export, sections=chunks)
+    return Chunks(default=default, export=export,
+                  attributes=attributes, sections=chunks)
 
 
 def parse_value(text: str, row: int, col: int) -> Tuple[Token, str]:
@@ -349,6 +356,86 @@ class StyleSpec:
         if missing_keys:
             raise ParsingError(f'missing style keys: {missing_keys}')
         return style, remaining
+
+
+# Parse attributes
+
+def parse_attribute(raw_section: RawSection) -> Tuple[str, NewAttr]:
+    start_row, cmd_line = raw_section[0]
+    match = cmd_line.split()
+    cmd_pos = Pos(cmd_line, start_row)
+    if len(match) == 1:
+        raise ParsingError('no name specified for attribute', cmd_pos)
+    elif len(match) > 2:
+        raise ParsingError('too many arguments', cmd_pos)
+    name = match[1]
+    if name in builtin_attrs:
+        print(name)
+        for k,v in builtin_attrs.items():
+            print('==', k)
+            print(v)
+        raise ParsingError(f'attribute name {name!r} already a builtin attr', cmd_pos)
+    type_: Optional[NewAttrType] = None
+    abbrev: Optional[str] = None
+    sortable = False
+    filterable = False
+    sort_desc = ''
+    filter_desc = ''
+    statements = parse_statements(raw_section[1:])
+    used_abbrevs = {a.abbrev for a in builtin_attrs.values()}
+    for stmt in statements:
+        key = stmt.key.lexeme
+        args = stmt.values
+        if key == 'type':
+            _require(args, length=1, type_=TokenType.NAME)
+            if args[0].lexeme == 'text':
+                type_ = NewAttrType.TEXT
+            elif args[0].lexeme == 'int':
+                type_ = NewAttrType.INT
+            else:
+                raise ParsingError('invalid attribute type',
+                                   Pos(args[0].lexeme, args[0].row))
+        elif key == 'abbreviation':
+            _require(args, length=1, type_=TokenType.STRING)
+            abbrev = cast(str, args[0].literal)
+            if len(abbrev) != 1:
+                raise ParsingError('abbreviation has to be 1 char',
+                                   Pos(args[0].lexeme, args[0].row))
+            if abbrev in used_abbrevs:
+                raise ParsingError('abbreviation is already in use',
+                                   Pos(args[0].lexeme, args[0].row))
+            used_abbrevs.add(abbrev)
+        elif key == 'sortable':
+            _require(args, length=1, type_=TokenType.BOOL)
+            sortable = cast(bool, args[0].literal)
+        elif key == 'filterable':
+            _require(args, length=1, type_=TokenType.BOOL)
+            filterable = cast(bool, args[0].literal)
+        elif key == 'sort_description':
+            _require(args, length=1, type_=TokenType.STRING)
+            sort_desc = cast(str, args[0].literal)
+        elif key == 'filter_description':
+            _require(args, length=1, type_=TokenType.STRING)
+            filter_desc = cast(str, args[0].literal)
+        else:
+            raise ParsingError('unrecognized attribute',
+                               Pos(key, args[0].row))
+    if type_ is None:
+        raise ParsingError('missing type', cmd_pos)
+    if abbrev is None:
+        raise ParsingError('missing abbreviation', cmd_pos)
+    if sortable and not sort_desc:
+        raise ParsingError('missing sort_description', cmd_pos)
+    if filterable and not filter_desc:
+        raise ParsingError('missing filter_description', cmd_pos)
+    return name, NewAttr(
+        name=name,
+        abbrev=abbrev,
+        type_=type_,
+        editable=True,
+        sort_help=sort_desc,
+        filter_help=filter_desc,
+    )
 
 
 # Parse sections

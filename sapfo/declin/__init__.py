@@ -3,6 +3,7 @@ from typing import Dict, NamedTuple
 
 from . import parsing
 from .common import ParsingError, Pos
+from ..taggedlist import NewAttr
 
 
 StyleSpec = parsing.StyleSpec
@@ -14,6 +15,7 @@ ContainerSection = parsing.ContainerSection
 
 class Model(NamedTuple):
     main: str
+    attributes: Dict[str, NewAttr]
     sections: Dict[str, parsing.Section]
 
 
@@ -44,6 +46,17 @@ def parse(base_code: str, *overrides: str) -> Model:
             chunks.sections.extend(updated_sections.values())
     default_style = parsing.parse_default(chunks.default)
     main_target = parsing.parse_export(chunks.export)
+    # Parse the attributes
+    attributes: Dict[str, NewAttr] = {}
+    for chunk in chunks.attributes:
+        if not chunk:
+            continue
+        pos, cmd_line = chunk[0]
+        name, attr = parsing.parse_attribute(chunk)
+        if name in attributes:
+            raise ParsingError(f'attribute name {name!r} already in use',
+                               Pos(cmd_line, pos))
+        attributes[name] = attr
     # Parse the chunks
     sections: Dict[str, parsing.Section] = {}
     for chunk in chunks.sections:
@@ -57,7 +70,7 @@ def parse(base_code: str, *overrides: str) -> Model:
         sections[name] = section
     if not sections:
         raise ParsingError('no sections defined')
-    return Model(main_target, sections)
+    return Model(main_target, attributes, sections)
 
 
 if __name__ == '__main__':

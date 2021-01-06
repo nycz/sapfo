@@ -20,7 +20,7 @@ from libsyntyche.widgets import Signal0
 
 from .common import Settings
 from .declarative import hbox, vbox, Stretch
-from .taggedlist import Entry
+from .taggedlist import ATTR_FILE, ATTR_TITLE, Entry
 
 
 Color = Union[QtGui.QColor, Qt.GlobalColor]
@@ -342,7 +342,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         class BackstoryRevisionNotice(QtWidgets.QLabel):
             pass
         self.revisionnotice = BackstoryRevisionNotice(self)
-        history_file = history_path / (entry.file.name + '.history')
+        history_file = history_path / (entry[ATTR_FILE].name + '.history')
         self.terminal = BackstoryTerminal(self, history_file)
         self.textarea.initialize_search_and_replace(self.terminal.error,
                                                     self.terminal.print_)
@@ -365,13 +365,13 @@ class BackstoryWindow(QtWidgets.QFrame):
         }
         self.update_hotkeys(settings.hotkeys)
         self.ignorewheelevent = False
-        self.entryfile = entry.file
-        self.root = entry.file.with_name(entry.file.name + '.metadir')
+        self.entryfile = entry[ATTR_FILE]
+        self.root = entry[ATTR_FILE].with_name(entry[ATTR_FILE].name + '.metadir')
         self.make_sure_metadir_exists(self.root)
         self.tabbar.open_entry(self.root)
         self.load_tab(0)
-        self.titlelabel.setText(entry.title)
-        self.setWindowTitle(entry.title)
+        self.titlelabel.setText(entry[ATTR_TITLE])
+        self.setWindowTitle(entry[ATTR_TITLE])
         self.textarea.setFocus()
         # Message tray
         self.message_tray = terminal.MessageTray(self)
