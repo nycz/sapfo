@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from libsyntyche.cli import ArgumentRules, Command
 from libsyntyche.widgets import Signal0, mk_signal0

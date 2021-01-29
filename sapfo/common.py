@@ -1,8 +1,8 @@
 import json
 import shutil
 from pathlib import Path
-from typing import (Any, Dict, FrozenSet, List, NamedTuple, Set,
-                    Tuple, Type, TypeVar, Union)
+from typing import (Any, Dict, FrozenSet, List, NamedTuple, Set, Tuple, Type,
+                    TypeVar, Union)
 
 from libsyntyche.widgets import Signal1, mk_signal1
 from PyQt5.QtCore import QObject

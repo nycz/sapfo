@@ -1,8 +1,6 @@
 import enum
 import re
-from pathlib import Path
-from typing import (Any, Dict, FrozenSet, ItemsView, Iterable, Mapping,
-                    NamedTuple, Optional, Tuple, Union, ValuesView)
+from typing import Any, Dict, Iterable, NamedTuple, Optional, Tuple
 
 from .tagsystem import compile_tag_filter, match_tag_filter
 

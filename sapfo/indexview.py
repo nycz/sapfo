@@ -6,11 +6,11 @@ import subprocess
 from collections import Counter
 from operator import itemgetter
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Match, Optional, Tuple
+from typing import Dict, List, Match, Optional, Tuple
 
 from libsyntyche.cli import ArgumentRules, AutocompletionPattern, Command
-from libsyntyche.widgets import mk_signal0, mk_signal1
 from libsyntyche.terminal import MessageTray
+from libsyntyche.widgets import mk_signal0, mk_signal1
 from PyQt5 import QtCore, QtGui, QtSvg, QtWidgets
 from PyQt5.QtCore import Qt, pyqtProperty  # type: ignore
 from PyQt5.QtGui import QColor

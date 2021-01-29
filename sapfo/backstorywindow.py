@@ -4,17 +4,16 @@ import re
 import shutil
 import subprocess
 from datetime import datetime
-from itertools import chain
 from pathlib import Path
 from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
-                    Set, Tuple, Union, cast)
+                    Tuple, Union)
 
 from libsyntyche import terminal
 from libsyntyche.cli import ArgumentRules, Command
 from libsyntyche.texteditor import SearchAndReplaceable
-from libsyntyche.widgets import Signal0, mk_signal0, mk_signal1
+from libsyntyche.widgets import mk_signal0, mk_signal1
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import QRect, Qt
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QTextCharFormat
 
 from .common import Settings
@@ -308,7 +307,8 @@ class TabBar(QtWidgets.QTabBar):
         self.moveTab(i, new_i)
 
 
-class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):
+class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):  # type: ignore
+    # Ignore redefinition of print_ and find in QTextEdit
     resized = mk_signal0()
 
     def resizeEvent(self, ev: QtGui.QResizeEvent) -> None:
@@ -351,15 +351,15 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.connect_signals()
         self.revisionactive = False
         self.forcequitflag = False
-        hotkeypairs = (
-            ('next tab', self.tabbar.next_tab),
-            ('prev tab', self.tabbar.prev_tab),
-            ('save', self.save_tab),
-            ('toggle terminal', self.toggle_terminal),
-        )
+        hotkeypairs: Dict[str, Callable[[], Any]] = {
+            'next tab': self.tabbar.next_tab,
+            'prev tab': self.tabbar.prev_tab,
+            'save': self.save_tab,
+            'toggle terminal': self.toggle_terminal,
+        }
         self.hotkeys = {
             key: QtWidgets.QShortcut(QtGui.QKeySequence(), self, callback)
-            for key, callback in hotkeypairs
+            for key, callback in hotkeypairs.items()
         }
         self.update_hotkeys(settings.hotkeys)
         self.ignorewheelevent = False

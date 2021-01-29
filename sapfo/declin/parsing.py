@@ -147,7 +147,7 @@ def parse_statements(lines: List[Tuple[int, str]]) -> List[Statement]:
     for line_num, line_text in lines:
         match = re.fullmatch(r'\s+(\S+)(?:\s+(.+?))\s*', line_text)
         if match is None:
-            raise ParsingError(f'invalid line', Pos(line_text, line_num))
+            raise ParsingError('invalid line', Pos(line_text, line_num))
         cmd = match[1]
         arg_str = match[2]
         values: List[Token] = []
@@ -369,7 +369,7 @@ def parse_attribute(raw_section: RawSection) -> Tuple[str, Attr]:
     name = match[1]
     if name in builtin_attrs:
         print(name)
-        for k,v in builtin_attrs.items():
+        for k, v in builtin_attrs.items():
             print('==', k)
             print(v)
         raise ParsingError(f'attribute name {name!r} already a builtin attr', cmd_pos)
@@ -617,7 +617,7 @@ class LineSection(Section):
                     e.pos = Pos('', stmt.key.row)
                 raise e
         if not hasattr(self, '_direction'):
-            raise ParsingError(f'missing attribute direction',
+            raise ParsingError('missing attribute direction',
                                Pos(lines[0][1], lines[0][0]))
 
     @property

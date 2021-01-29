@@ -222,8 +222,10 @@ class EntryList(QtWidgets.QWidget):
         return len(self._visible_to_real_pos)
 
     def sort(self) -> None:
+        def getter(entry_item: EntryItem) -> Any:
+            return entry_item.entry[self.sorted_by.key]
         self.entry_items.sort(
-            key=lambda e: e.entry[self.sorted_by.key],
+            key=getter,
             reverse=self.sorted_by.descending
         )
         self._visible_to_real_pos.clear()
