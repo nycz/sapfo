@@ -1,14 +1,8 @@
 import enum
 import re
-from typing import Any, List, Optional, TypeVar, Union, cast
+from typing import Any, List, Optional, cast
 
 from .common import Constants, ParsingError, Token, TokenType
-
-C = TypeVar('C')
-
-
-Value = Union['BaseType', 'Direction', 'HorizontalAlign', 'VerticalAlign',
-              int, str, bool]
 
 
 class BaseType:

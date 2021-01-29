@@ -30,10 +30,6 @@ class SortBy(NamedTuple):
         return 'descending' if self.descending else 'ascending'
 
 
-def local_path(path: str) -> str:
-    return str(LOCAL_DIR / path)
-
-
 T = TypeVar('T', bound='Settings')
 U = TypeVar('U')
 

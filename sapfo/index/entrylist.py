@@ -32,42 +32,11 @@ def calc_entry_layout(entry: Entry, visible_pos: int,
 class EntryItem:
     def __init__(self, entry: Entry, group: declin_qt.DrawGroup,
                  real_pos: int) -> None:
-        self._entry = entry
+        self.entry = entry
         self.group = group
         self.pos = real_pos
-        self._visible_pos = real_pos
-        self._hidden = False
-        self.needs_refresh = False
-
-    @property
-    def entry(self) -> Entry:
-        return self._entry
-
-    @entry.setter
-    def entry(self, new_entry: Entry) -> None:
-        if self._entry != new_entry:
-            self._entry = new_entry
-            self.needs_refresh = True
-
-    @property
-    def visible_pos(self) -> int:
-        return self._visible_pos
-
-    @visible_pos.setter
-    def visible_pos(self, new_pos: int) -> None:
-        if self._visible_pos != new_pos:
-            self._visible_pos = new_pos
-            self.needs_refresh = True
-
-    @property
-    def hidden(self) -> bool:
-        return self._hidden
-
-    @hidden.setter
-    def hidden(self, new_val: bool) -> None:
-        if self._hidden != new_val:
-            self._hidden = new_val
-            self.needs_refresh = True
+        self.visible_pos = real_pos
+        self.hidden = False
 
 
 class EntryList(QtWidgets.QWidget):

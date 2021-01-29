@@ -124,7 +124,6 @@ class StatusBar(QtWidgets.QFrame):
 
 class IndexView(QtWidgets.QWidget):
     view_meta = mk_signal1(Entry)
-    quit = mk_signal1(str)
 
     def __init__(self, parent: QtWidgets.QWidget, dry_run: bool,
                  settings: Settings, statepath: Path, history_file: Path,

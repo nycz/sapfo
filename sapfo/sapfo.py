@@ -32,7 +32,6 @@ class MainWindow(QtWidgets.QWidget):
         self.settings, missing_keys = Settings.load(self.configdir)
         self.setWindowTitle(self.settings.title)
         activation_event.connect(self.reload_settings)
-        self.force_quit_flag = False
 
         # Create layouts
         self.stack = QtWidgets.QStackedLayout(self)
@@ -69,11 +68,6 @@ class MainWindow(QtWidgets.QWidget):
         else:
             event.accept()
 
-    def quit(self, force: bool) -> None:
-        # This flag is not used atm
-        self.force_quit_flag = force
-        self.close()
-
     def connect_signals(self) -> None:
         self.index_view.view_meta.connect(self.open_backstory_editor)
         self.settings.title_changed.connect(self.setWindowTitle)
@@ -83,10 +77,6 @@ class MainWindow(QtWidgets.QWidget):
             short_name='q',
             args=ArgumentRules.NONE
         ))
-
-    def show_index(self) -> None:
-        self.stack.setCurrentWidget(self.index_view)
-        self.index_view.terminal.setFocus()
 
     def open_backstory_editor(self, entry: Entry) -> None:
         if entry[ATTR_FILE] in self.backstorywindows:

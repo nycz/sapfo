@@ -1,4 +1,3 @@
-import enum
 import json
 import re
 import shutil
@@ -79,63 +78,6 @@ def check_and_fix_page_metadata(jsondata: Dict[str, Any], payload: str,
     if fixed:
         file.write_text(json.dumps(jsondata) + '\n' + payload)
     return jsondata
-
-
-def _text_char_format(foreground: Optional[Union[str, Color]] = None,
-                      background: Optional[Union[str, Color]] = None,
-                      bold: bool = False,
-                      italic: bool = False,
-                      underline: bool = False,
-                      underline_style: Optional[QTextCharFormat.UnderlineStyle] = None,
-                      underline_color: Optional[Union[str, Color]] = None,
-                      point_size: Optional[int] = None
-                      ) -> QTextCharFormat:
-    fmt = QTextCharFormat()
-    fmt.setFontFamily('monospace')
-    if foreground:
-        if isinstance(foreground, str):
-            foreground = QtGui.QColor(foreground)
-        fmt.setForeground(foreground)
-    if background:
-        if isinstance(background, str):
-            background = QtGui.QColor(background)
-        fmt.setBackground(background)
-    if bold:
-        fmt.setFontWeight(QtGui.QFont.Bold)
-    if italic:
-        fmt.setFontItalic(True)
-    if underline:
-        fmt.setFontUnderline(True)
-    if underline_style is not None:
-        fmt.setUnderlineStyle(underline_style)
-    if underline_color is not None:
-        if isinstance(underline_color, str):
-            underline_color = QtGui.QColor(underline_color)
-        fmt.setUnderlineColor(underline_color)
-    if point_size is not None:
-        fmt.setFontPointSize(point_size)
-    return fmt
-
-
-class ChunkType(enum.IntFlag):
-    ATOM = 0
-    STRING = 0b00000001
-    BROKEN_STRING = 0b10000001
-    NUMBER = 0b00000010
-    TAG = 0b00000100
-    COLOR = 0b00001000
-    BACKGROUND = 0b00011000
-    FOREGROUND = 0b00101000
-
-
-class Chunk(NamedTuple):
-    start: int
-    text: str
-    type_: ChunkType
-
-    def _format(self, highlighter: QtGui.QSyntaxHighlighter,
-                fmt: QTextCharFormat) -> None:
-        highlighter.setFormat(self.start, len(self.text), fmt)
 
 
 class Formatter(QtGui.QSyntaxHighlighter):
@@ -220,9 +162,6 @@ class TabBar(QtWidgets.QTabBar):
 
     def current_page_file(self) -> Path:
         i: int = self.currentIndex()
-        return self.pages[i].file
-
-    def get_page_file(self, i: int) -> Path:
         return self.pages[i].file
 
     def set_page_position(self, i: int, cursorpos: int,
