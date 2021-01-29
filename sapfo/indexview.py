@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Match, Optional, Tuple
 
 from libsyntyche.cli import ArgumentRules, AutocompletionPattern, Command
+from libsyntyche.widgets import mk_signal0, mk_signal1
 from libsyntyche.terminal import MessageTray
 from PyQt5 import QtCore, QtGui, QtSvg, QtWidgets
-from PyQt5.QtCore import Qt, pyqtProperty, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtProperty  # type: ignore
 from PyQt5.QtGui import QColor
 
 from . import tagsystem
@@ -24,7 +25,7 @@ from .index.terminal import Terminal
 from .taggedlist import (ATTR_BACKSTORY_PAGES, ATTR_BACKSTORY_WORDCOUNT,
                          ATTR_FILE, ATTR_TAGS, ATTR_TITLE, ATTR_WORDCOUNT,
                          NONEMPTY_SEARCH, AttributeData, AttrParseError,
-                         AttrType)
+                         AttrType, Entry)
 
 
 class IconWidget(QtSvg.QSvgWidget):
@@ -57,7 +58,7 @@ class IconWidget(QtSvg.QSvgWidget):
 
 
 class StatusBar(QtWidgets.QFrame):
-    moved = pyqtSignal()
+    moved = mk_signal0()
 
     def __init__(self, parent: 'IndexView') -> None:
         super().__init__(parent)
@@ -122,8 +123,8 @@ class StatusBar(QtWidgets.QFrame):
 
 
 class IndexView(QtWidgets.QWidget):
-    view_meta = pyqtSignal(tuple)
-    quit = pyqtSignal(str)
+    view_meta = mk_signal1(Entry)
+    quit = mk_signal1(str)
 
     def __init__(self, parent: QtWidgets.QWidget, dry_run: bool,
                  settings: Settings, statepath: Path, history_file: Path,
@@ -209,9 +210,9 @@ class IndexView(QtWidgets.QWidget):
 
     def on_external_key_event(self, ev: QtGui.QKeyEvent, press: bool) -> None:
         target = None
-        if ev.modifiers() == Qt.NoModifier:
+        if int(ev.modifiers()) == Qt.NoModifier:
             target = self.scroll_area
-        elif ev.modifiers() & Qt.ShiftModifier and self.tag_info.isVisible():
+        elif int(ev.modifiers()) & Qt.ShiftModifier and self.tag_info.isVisible():
             target = self.tag_info
             ev = QtGui.QKeyEvent(ev.type(), ev.key(), Qt.NoModifier,
                                  autorep=ev.isAutoRepeat(), count=ev.count())
@@ -222,20 +223,11 @@ class IndexView(QtWidgets.QWidget):
                 target.keyReleaseEvent(ev)
 
     def connect_signals(self) -> None:
-        t = self.terminal
-        s = self.settings
         tag_abbrev = self.attribute_data[ATTR_TAGS].abbrev
         assert tag_abbrev != ''
-        # TODO: maybe better typing with Signal0, Signal1 etc here?
-        connects: Tuple[Tuple[pyqtSignal, Callable[..., Any]], ...] = (
-            # (t.input_term.scroll_index, self.entry_view.event),
-            (self.tag_info.print_,      t.print_),
-            (self.tag_info.error,       t.error),
-            # Settings
-            (s.hotkeys_changed, self.update_hotkeys),
-        )
-        for signal, slot in connects:
-            signal.connect(slot)
+        self.tag_info.print_.connect(self.terminal.print_)
+        self.tag_info.error.connect(self.terminal.error)
+        self.settings.hotkeys_changed.connect(self.update_hotkeys)
 
         filter_abbrevs = ''.join(a.abbrev for a in self.attribute_data.values()
                                  if a.abbrev and a._is_filterable)

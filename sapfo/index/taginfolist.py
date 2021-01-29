@@ -1,16 +1,17 @@
 from operator import itemgetter
 from typing import Dict, List, Optional, Tuple, cast
 
+from libsyntyche.widgets import mk_signal1
 from PyQt5 import QtGui, QtWidgets
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt
 
 from ..common import Settings
 from ..declarative import fix_layout, label
 
 
 class TagInfoList(QtWidgets.QScrollArea):
-    error = pyqtSignal(str)
-    print_ = pyqtSignal(str)
+    error = mk_signal1(str)
+    print_ = mk_signal1(str)
 
     class TagCountBar(QtWidgets.QWidget):
         def __init__(self, parent: QtWidgets.QWidget,

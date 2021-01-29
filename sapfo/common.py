@@ -1,10 +1,11 @@
 import json
 import shutil
 from pathlib import Path
-from typing import (Any, Dict, FrozenSet, List, NamedTuple, Optional, Set,
+from typing import (Any, Dict, FrozenSet, List, NamedTuple, Set,
                     Tuple, Type, TypeVar, Union)
 
-from PyQt5.QtCore import QObject, pyqtSignal
+from libsyntyche.widgets import Signal1, mk_signal1
+from PyQt5.QtCore import QObject
 
 LOCAL_DIR = Path(__file__).resolve().parent
 DATA_DIR = LOCAL_DIR / 'data'
@@ -37,27 +38,30 @@ T = TypeVar('T', bound='Settings')
 U = TypeVar('U')
 
 
+_BVF_TypeAlias = Dict[str, List[Union[str, int]]]
+
+
 class Settings(QObject):
     filename = 'settings.json'
     default_config_path = DATA_DIR / 'defaultconfig.json'
 
-    animate_terminal_output_changed = pyqtSignal(bool)
-    backstory_default_pages_changed = pyqtSignal(dict)
-    backstory_viewer_formats_changed = pyqtSignal(dict)
-    capitalize_all_words_in_title_changed = pyqtSignal(bool)
-    editor_changed = pyqtSignal(str)
-    formatting_converters_changed = pyqtSignal(list)
-    hotkeys_changed = pyqtSignal(dict)
-    path_changed = pyqtSignal(Path)
-    tag_colors_changed = pyqtSignal(dict)
-    tag_macros_changed = pyqtSignal(dict)
-    terminal_animation_interval_changed = pyqtSignal(int)
-    title_changed = pyqtSignal(str)
+    animate_terminal_output_changed = mk_signal1(bool)
+    backstory_default_pages_changed: Signal1[Dict[str, str]] = mk_signal1(dict)
+    backstory_viewer_formats_changed: Signal1[_BVF_TypeAlias] = mk_signal1(dict)
+    capitalize_all_words_in_title_changed = mk_signal1(bool)
+    editor_changed = mk_signal1(str)
+    formatting_converters_changed: Signal1[List[List[str]]] = mk_signal1(list)
+    hotkeys_changed: Signal1[Dict[str, str]] = mk_signal1(dict)
+    path_changed = mk_signal1(Path)
+    tag_colors_changed: Signal1[Dict[str, str]] = mk_signal1(dict)
+    tag_macros_changed: Signal1[Dict[str, str]] = mk_signal1(dict)
+    terminal_animation_interval_changed = mk_signal1(int)
+    title_changed = mk_signal1(str)
 
     def __init__(self) -> None:
         super().__init__()
         self.animate_terminal_output = True
-        self.backstory_viewer_formats: Dict[str, List[Union[str, int]]] = {}
+        self.backstory_viewer_formats: _BVF_TypeAlias = {}
         self.backstory_default_pages: Dict[str, str] = {}
         self.capitalize_all_words_in_title = True
         self.editor = ''
@@ -83,7 +87,7 @@ class Settings(QObject):
         return data
 
     def _update_value(self, send_signals: bool, new_value: U,
-                      old_value: U, changed_signal: pyqtSignal) -> U:
+                      old_value: U, changed_signal: Signal1[U]) -> U:
         if send_signals and new_value != old_value:
             changed_signal.emit(new_value)
         return new_value
@@ -101,7 +105,7 @@ class Settings(QObject):
                 missing_keys.add(key)
                 return default_config[key]
 
-        def u(new_value: U, old_value: U, changed_signal: pyqtSignal) -> U:
+        def u(new_value: U, old_value: U, changed_signal: Signal1[U]) -> U:
             return self._update_value(send_signals, new_value, old_value,
                                       changed_signal)
 

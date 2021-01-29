@@ -6,6 +6,7 @@ from operator import attrgetter
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Tuple
 
+from libsyntyche.widgets import mk_signal2
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
 
@@ -71,7 +72,7 @@ class EntryItem:
 
 class EntryList(QtWidgets.QWidget):
 
-    visible_count_changed = QtCore.pyqtSignal(int, int)
+    visible_count_changed = mk_signal2(int, int)
 
     def __init__(self, parent: QtWidgets.QWidget, settings: Settings,
                  dry_run: bool, statepath: Path,

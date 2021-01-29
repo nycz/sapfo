@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from libsyntyche.cli import ArgumentRules, Command
+from libsyntyche.widgets import Signal0, mk_signal0
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
 
@@ -16,7 +17,7 @@ from .taggedlist import ATTR_FILE, Entry
 
 class MainWindow(QtWidgets.QWidget):
     def __init__(self, configdir: Optional[Path],
-                 activation_event: QtCore.pyqtSignal, dry_run: bool) -> None:
+                 activation_event: Signal0, dry_run: bool) -> None:
         super().__init__()
         if configdir:
             self.configdir = configdir
@@ -74,12 +75,8 @@ class MainWindow(QtWidgets.QWidget):
         self.close()
 
     def connect_signals(self) -> None:
-        connects: Tuple[Tuple[QtCore.pyqtSignal, Callable[..., Any]], ...] = (
-            (self.index_view.view_meta,   self.open_backstory_editor),
-            (self.settings.title_changed, self.setWindowTitle),
-        )
-        for signal, slot in connects:
-            signal.connect(slot)
+        self.index_view.view_meta.connect(self.open_backstory_editor)
+        self.settings.title_changed.connect(self.setWindowTitle)
         self.index_view.terminal.add_command(Command(
             'quit', 'Quit sapfo',
             self.close,
@@ -156,7 +153,7 @@ def main() -> int:
     app = QtWidgets.QApplication(sys.argv)
 
     class AppEventFilter(QtCore.QObject):
-        activation_event = QtCore.pyqtSignal()
+        activation_event = mk_signal0()
 
         def eventFilter(self, object: QtCore.QObject,
                         event: QtCore.QEvent) -> bool:

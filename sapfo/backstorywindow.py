@@ -12,9 +12,9 @@ from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
 from libsyntyche import terminal
 from libsyntyche.cli import ArgumentRules, Command
 from libsyntyche.texteditor import SearchAndReplaceable
-from libsyntyche.widgets import Signal0
+from libsyntyche.widgets import Signal0, mk_signal0, mk_signal1
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import QRect, Qt, pyqtSignal
+from PyQt5.QtCore import QRect, Qt
 from PyQt5.QtGui import QTextCharFormat
 
 from .common import Settings
@@ -176,7 +176,7 @@ class Formatter(QtGui.QSyntaxHighlighter):
 
 
 class TabBar(QtWidgets.QTabBar):
-    set_tab_index = pyqtSignal(int)
+    set_tab_index = mk_signal1(int)
 
     def __init__(self, parent: QtWidgets.QWidget,
                  print_: Callable[[str], None]) -> None:
@@ -309,7 +309,7 @@ class TabBar(QtWidgets.QTabBar):
 
 
 class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):
-    resized = QtCore.pyqtSignal()
+    resized = mk_signal0()
 
     def resizeEvent(self, ev: QtGui.QResizeEvent) -> None:
         super().resizeEvent(ev)
@@ -317,7 +317,7 @@ class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):
 
 
 class BackstoryWindow(QtWidgets.QFrame):
-    closed = pyqtSignal(Path)
+    closed = mk_signal1(Path)
 
     def __init__(self, entry: Entry, settings: Settings,
                  history_path: Path) -> None:
@@ -426,19 +426,11 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.close()
 
     def connect_signals(self) -> None:
+        self.tabbar.set_tab_index.connect(self.set_tab_index)
+        self.settings.backstory_viewer_formats_changed.connect(
+            self.formatter.update_formats)
+        self.settings.hotkeys_changed.connect(self.update_hotkeys)
         t = self.terminal
-        s = self.settings
-        connects: Tuple[Tuple[pyqtSignal, Callable[..., Any]], ...] = (
-            # Misc
-            (self.tabbar.set_tab_index, self.set_tab_index),
-            # Settings
-            (s.backstory_viewer_formats_changed,
-             self.formatter.update_formats),
-            (s.hotkeys_changed, self.update_hotkeys),
-        )
-        for signal, slot in connects:
-            signal.connect(slot)
-
         t.add_command(Command(
             'new-page', 'New page',
             self.cmd_new_page,
