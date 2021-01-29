@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Dict, NamedTuple
 
-from ..taggedlist import NewAttr
+from ..taggedlist import Attr
 from . import parsing
 from .common import ParsingError, Pos
 
@@ -14,7 +14,7 @@ ContainerSection = parsing.ContainerSection
 
 class Model(NamedTuple):
     main: str
-    attributes: Dict[str, NewAttr]
+    attributes: Dict[str, Attr]
     sections: Dict[str, parsing.Section]
 
 
@@ -46,7 +46,7 @@ def parse(base_code: str, *overrides: str) -> Model:
     default_style = parsing.parse_default(chunks.default)
     main_target = parsing.parse_export(chunks.export)
     # Parse the attributes
-    attributes: Dict[str, NewAttr] = {}
+    attributes: Dict[str, Attr] = {}
     for chunk in chunks.attributes:
         if not chunk:
             continue

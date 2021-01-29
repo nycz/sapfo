@@ -3,7 +3,7 @@ import re
 from itertools import chain
 from typing import Any, List, NamedTuple, Optional, Set, Tuple, Union, cast
 
-from ..taggedlist import NewAttr, NewAttrType, builtin_attrs
+from ..taggedlist import Attr, AttrType, builtin_attrs
 from .common import Constants, ParsingError, Pos, Token, TokenType
 from .types import (AttributeRef, Border, Color, Direction, Font,
                     HorizontalAlign, ItemRef, Margins, VerticalAlign)
@@ -358,7 +358,7 @@ class StyleSpec:
 
 # Parse attributes
 
-def parse_attribute(raw_section: RawSection) -> Tuple[str, NewAttr]:
+def parse_attribute(raw_section: RawSection) -> Tuple[str, Attr]:
     start_row, cmd_line = raw_section[0]
     match = cmd_line.split()
     cmd_pos = Pos(cmd_line, start_row)
@@ -373,7 +373,7 @@ def parse_attribute(raw_section: RawSection) -> Tuple[str, NewAttr]:
             print('==', k)
             print(v)
         raise ParsingError(f'attribute name {name!r} already a builtin attr', cmd_pos)
-    type_: Optional[NewAttrType] = None
+    type_: Optional[AttrType] = None
     abbrev: Optional[str] = None
     sortable = False
     filterable = False
@@ -387,9 +387,9 @@ def parse_attribute(raw_section: RawSection) -> Tuple[str, NewAttr]:
         if key == 'type':
             _require(args, length=1, type_=TokenType.NAME)
             if args[0].lexeme == 'text':
-                type_ = NewAttrType.TEXT
+                type_ = AttrType.TEXT
             elif args[0].lexeme == 'int':
-                type_ = NewAttrType.INT
+                type_ = AttrType.INT
             else:
                 raise ParsingError('invalid attribute type',
                                    Pos(args[0].lexeme, args[0].row))
@@ -426,7 +426,7 @@ def parse_attribute(raw_section: RawSection) -> Tuple[str, NewAttr]:
         raise ParsingError('missing sort_description', cmd_pos)
     if filterable and not filter_desc:
         raise ParsingError('missing filter_description', cmd_pos)
-    return name, NewAttr(
+    return name, Attr(
         name=name,
         abbrev=abbrev,
         type_=type_,

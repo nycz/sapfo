@@ -24,7 +24,7 @@ from .index.terminal import Terminal
 from .taggedlist import (ATTR_BACKSTORY_PAGES, ATTR_BACKSTORY_WORDCOUNT,
                          ATTR_FILE, ATTR_TAGS, ATTR_TITLE, ATTR_WORDCOUNT,
                          NONEMPTY_SEARCH, AttributeData, AttrParseError,
-                         NewAttrType)
+                         AttrType)
 
 
 class IconWidget(QtSvg.QSvgWidget):
@@ -104,7 +104,7 @@ class StatusBar(QtWidgets.QFrame):
         for cmd, payload in filters.items():
             if payload is None:
                 continue
-            if self.parent_index_view.attribute_data[cmd].type_ == NewAttrType.TEXT:
+            if self.parent_index_view.attribute_data[cmd].type_ == AttrType.TEXT:
                 if payload == '':
                     payload = '<empty>'
                 elif payload == NONEMPTY_SEARCH:
@@ -242,13 +242,13 @@ class IndexView(QtWidgets.QWidget):
         text_filter_abbrevs = ''.join(
             a.abbrev for a in self.attribute_data.values()
             if a.abbrev and a._is_filterable
-            and a.type_ in {NewAttrType.TEXT, NewAttrType.TAGS}
+            and a.type_ in {AttrType.TEXT, AttrType.TAGS}
         )
         text_filter_helps = tuple(
             (a.abbrev, f'Filter on {a.filter_help} (case insensitive).')
             for a in self.attribute_data.values()
             if a.abbrev and a._is_filterable
-            and a.type_ == NewAttrType.TEXT
+            and a.type_ == AttrType.TEXT
         )
         tag_filter_syntax_help = (
             'Filter on tags. Supports AND (comma , ), OR (vertical bar | ), '
@@ -270,7 +270,7 @@ class IndexView(QtWidgets.QWidget):
             for n, a in enumerate(
                 a for a in self.attribute_data.values()
                 if a.abbrev and a._is_filterable
-                and a.type_ in {NewAttrType.INT, NewAttrType.FLOAT}
+                and a.type_ in {AttrType.INT, AttrType.FLOAT}
             )
         )
         self.terminal.add_command(Command(
@@ -562,8 +562,8 @@ class IndexView(QtWidgets.QWidget):
         filters = {a.abbrev: k for k, a in self.attribute_data.items()
                    if a._is_filterable}
         text_filters = {a.abbrev: k for k, a in self.attribute_data.items()
-                        if a._is_filterable and a.type_ in {NewAttrType.TEXT,
-                                                            NewAttrType.TAGS}}
+                        if a._is_filterable and a.type_ in {AttrType.TEXT,
+                                                            AttrType.TAGS}}
         filterchars = ''.join(filters)
         text_filterchars = ''.join(text_filters)
         # Print active filters
@@ -716,18 +716,18 @@ class IndexView(QtWidgets.QWidget):
                 try:
                     data = self.entry_view.visible_entry(entry_id)[category.name]
                 except KeyError:
-                    if category.type_ == NewAttrType.TEXT:
+                    if category.type_ == AttrType.TEXT:
                         data = ''
-                    elif category.type_ in {NewAttrType.INT, NewAttrType.FLOAT}:
+                    elif category.type_ in {AttrType.INT, AttrType.FLOAT}:
                         data = 0
                     else:
                         raise
                 new = (', '.join(sorted(data))
-                       if category.type_ == NewAttrType.TAGS
+                       if category.type_ == AttrType.TAGS
                        else data)
                 self.set_terminal_text(f'e{arg.strip()} {new}')
             else:
-                if category.type_ == NewAttrType.TEXT and payload == '-':
+                if category.type_ == AttrType.TEXT and payload == '-':
                     # Clear text attr if the arg is -
                     payload = ''
                 try:

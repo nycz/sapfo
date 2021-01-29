@@ -36,7 +36,7 @@ class Entry:
 Entries = Tuple[Entry, ...]
 
 
-class NewAttrType(enum.Enum):
+class AttrType(enum.Enum):
     TEXT = enum.auto()
     INT = enum.auto()
     FLOAT = enum.auto()
@@ -44,9 +44,9 @@ class NewAttrType(enum.Enum):
     PATH = enum.auto()
 
 
-class NewAttr(NamedTuple):
+class Attr(NamedTuple):
     name: str
-    type_: NewAttrType
+    type_: AttrType
     abbrev: str = ''
     editable: bool = False
     filter_help: str = ''
@@ -61,22 +61,22 @@ class NewAttr(NamedTuple):
         return len(self.filter_help) > 0
 
     def _load_value(self, raw_value: Any) -> Any:
-        if self.type_ in {NewAttrType.TEXT, NewAttrType.INT}:
+        if self.type_ in {AttrType.TEXT, AttrType.INT}:
             return raw_value
-        elif self.type_ == NewAttrType.TAGS:
+        elif self.type_ == AttrType.TAGS:
             return frozenset(raw_value)
         else:
             raise NotImplementedError(f"Can't load attribute of type {self.type_}")
 
     def _encode_value(self, entry: Entry) -> Any:
         assert self.editable
-        if self.type_ == NewAttrType.TEXT:
+        if self.type_ == AttrType.TEXT:
             return entry[self.name] if self.name in entry else ''
-        elif self.type_ == NewAttrType.INT:
+        elif self.type_ == AttrType.INT:
             return entry[self.name] if self.name in entry else 0
-        elif self.type_ == NewAttrType.FLOAT:
+        elif self.type_ == AttrType.FLOAT:
             return entry[self.name] if self.name in entry else 0.0
-        elif self.type_ == NewAttrType.TAGS:
+        elif self.type_ == AttrType.TAGS:
             return list(entry[self.name]) if self.name in entry else []
         else:
             raise NotImplementedError(f"Can't encode attribute of type {self.type_}")
@@ -84,31 +84,31 @@ class NewAttr(NamedTuple):
     def _run_parser(self, rawtext: str) -> Any:
         # TODO: better typing?
         assert self.editable
-        if self.type_ == NewAttrType.TEXT:
+        if self.type_ == AttrType.TEXT:
             return rawtext
-        elif self.type_ == NewAttrType.INT:
+        elif self.type_ == AttrType.INT:
             try:
                 return int(rawtext)
             except ValueError:
                 raise AttrParseError()
-        elif self.type_ == NewAttrType.TAGS:
+        elif self.type_ == AttrType.TAGS:
             return frozenset(re.split(r'\s*,\s*', rawtext)) - frozenset([''])
         else:
             raise NotImplementedError(f"Can't parse attribute of type {self.type_}")
 
     def _run_filter(self, payload: str, entries: Entries,
                     tagmacros: Dict[str, str]) -> bool:
-        if self.type_ == NewAttrType.TEXT:
+        if self.type_ == AttrType.TEXT:
             return any(_filter_text(self.name, payload, entries))
-        elif self.type_ == NewAttrType.INT:
+        elif self.type_ == AttrType.INT:
             return any(_filter_number(self.name, payload, entries))
-        elif self.type_ == NewAttrType.TAGS:
+        elif self.type_ == AttrType.TAGS:
             return any(_filter_tags(self.name, payload, entries, tagmacros))
         else:
             raise NotImplementedError(f"Can't filter attribute of type {self.type_}")
 
 
-AttributeData = Dict[str, NewAttr]
+AttributeData = Dict[str, Attr]
 
 
 def _filter_text(attribute: str, payload: str, entries: Entries
@@ -174,67 +174,67 @@ ATTR_METADATA_FILE = 'metadatafile'
 
 
 builtin_attrs = {
-    ATTR_INDEX: NewAttr(
+    ATTR_INDEX: Attr(
         name=ATTR_INDEX,
-        type_=NewAttrType.INT,
+        type_=AttrType.INT,
     ),
-    ATTR_TITLE: NewAttr(
+    ATTR_TITLE: Attr(
         name=ATTR_TITLE,
-        type_=NewAttrType.TEXT,
+        type_=AttrType.TEXT,
         abbrev='n',
         editable=True,
         filter_help='titles',
         sort_help='title',
     ),
-    ATTR_TAGS: NewAttr(
+    ATTR_TAGS: Attr(
         name=ATTR_TAGS,
-        type_=NewAttrType.TAGS,
+        type_=AttrType.TAGS,
         abbrev='t',
         editable=True,
         filter_help='tags',
     ),
-    ATTR_DESCRIPTION: NewAttr(
+    ATTR_DESCRIPTION: Attr(
         name=ATTR_DESCRIPTION,
-        type_=NewAttrType.TEXT,
+        type_=AttrType.TEXT,
         abbrev='d',
         editable=True,
         filter_help='descriptions',
     ),
-    ATTR_WORDCOUNT: NewAttr(
+    ATTR_WORDCOUNT: Attr(
         name=ATTR_WORDCOUNT,
-        type_=NewAttrType.INT,
+        type_=AttrType.INT,
         abbrev='c',
         filter_help='wordcount',
         sort_help='wordcount',
     ),
-    ATTR_BACKSTORY_WORDCOUNT: NewAttr(
+    ATTR_BACKSTORY_WORDCOUNT: Attr(
         name=ATTR_BACKSTORY_WORDCOUNT,
-        type_=NewAttrType.INT,
+        type_=AttrType.INT,
         abbrev='b',
         filter_help='backstory wordcount',
         sort_help='backstory wordcount',
     ),
-    ATTR_BACKSTORY_PAGES: NewAttr(
+    ATTR_BACKSTORY_PAGES: Attr(
         name=ATTR_BACKSTORY_PAGES,
-        type_=NewAttrType.INT,
+        type_=AttrType.INT,
         abbrev='p',
         editable=True,
         filter_help='number of backstory pages',
         sort_help='number of backstory pages',
     ),
-    ATTR_FILE: NewAttr(
+    ATTR_FILE: Attr(
         name=ATTR_FILE,
-        type_=NewAttrType.PATH,
+        type_=AttrType.PATH,
     ),
-    ATTR_LAST_MODIFIED: NewAttr(
+    ATTR_LAST_MODIFIED: Attr(
         name=ATTR_LAST_MODIFIED,
-        type_=NewAttrType.FLOAT,
+        type_=AttrType.FLOAT,
         abbrev='m',
         sort_help='last modified date',
     ),
-    ATTR_METADATA_FILE: NewAttr(
+    ATTR_METADATA_FILE: Attr(
         name=ATTR_METADATA_FILE,
-        type_=NewAttrType.PATH,
+        type_=AttrType.PATH,
     ),
 }
 
