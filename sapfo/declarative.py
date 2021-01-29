@@ -5,9 +5,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import (QBoxLayout, QGridLayout, QHBoxLayout, QLayout,
                              QVBoxLayout, QWidget)
 
-from .flowlayout import FlowLayout
-
-__all__ = ['grid', 'hflow', 'hbox', 'vbox', 'label']
+__all__ = ['grid', 'hbox', 'vbox', 'label']
 
 
 # TODO: enum and/or Qt.Orientation
@@ -68,18 +66,12 @@ def _parse_span(val: PosOrRange) -> Tuple[int, int]:
         return val, 1
 
 
-def _add_item(item: Union[QLayout, QWidget], layout: Union[Layout, FlowLayout],
+def _add_item(item: Union[QLayout, QWidget], layout: Layout,
               *args: Any) -> None:
     if isinstance(item, QLayout):
-        if isinstance(layout, FlowLayout):
-            layout.addLayout(item)
-        else:
-            layout.addLayout(item, *args)
+        layout.addLayout(item, *args)
     else:
-        if isinstance(layout, FlowLayout):
-            layout.addWidget(item)
-        else:
-            layout.addWidget(item, *args)
+        layout.addWidget(item, *args)
 
 
 def grid(child_map: GridChildMap,
@@ -127,17 +119,6 @@ def vbox(*children: _BoxItem) -> QtWidgets.QVBoxLayout:
     return init_box_layout(children, QVBoxLayout())
 
 
-def hflow(*children: _Item) -> FlowLayout:
-    layout = FlowLayout()
-    fix_layout(layout)
-    for item in children:
-        _add_item(item, layout)
-    return layout
-
-# def vflow(*children: Iterable[_Item]) -> VFlowLayout:
-#     pass
-
-
 # WIDGETS
 
 def label(data: Any, object_name: str, word_wrap: bool = False,
@@ -146,5 +127,3 @@ def label(data: Any, object_name: str, word_wrap: bool = False,
     lbl.setObjectName(object_name)
     lbl.setWordWrap(word_wrap)
     return lbl
-
-# __all__ = [grid, label]
