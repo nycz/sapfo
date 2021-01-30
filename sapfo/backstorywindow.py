@@ -677,6 +677,6 @@ class BackstoryWindow(QtWidgets.QFrame):
 
 class BackstoryTerminal(terminal.Terminal):
     def __init__(self, parent: QtWidgets.QWidget, history_file: Path) -> None:
-        super().__init__(parent, history_file=history_file, short_mode=True)
+        super().__init__(parent, history_file=history_file)
         self.output_field.hide()
         self.hide()

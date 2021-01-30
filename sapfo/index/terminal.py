@@ -7,6 +7,5 @@ from PyQt5 import QtWidgets
 class Terminal(terminal.Terminal):
 
     def __init__(self, parent: QtWidgets.QWidget, history_file: Path) -> None:
-        super().__init__(parent, short_mode=True,
-                         history_file=history_file)
+        super().__init__(parent, history_file=history_file)
         self.output_field.hide()
