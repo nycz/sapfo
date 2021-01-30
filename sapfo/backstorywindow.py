@@ -9,7 +9,7 @@ from typing import (Any, Callable, Dict, Iterable, List, NamedTuple, Optional,
 
 from libsyntyche import terminal
 from libsyntyche.cli import ArgumentRules, Command
-from libsyntyche.texteditor import SearchAndReplaceable
+from libsyntyche.texteditor import Searcher
 from libsyntyche.widgets import mk_signal0, mk_signal1
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt
@@ -246,8 +246,7 @@ class TabBar(QtWidgets.QTabBar):
         self.moveTab(i, new_i)
 
 
-class BackstoryTextEdit(QtWidgets.QTextEdit, SearchAndReplaceable):  # type: ignore
-    # Ignore redefinition of print_ and find in QTextEdit
+class BackstoryTextEdit(QtWidgets.QTextEdit):
     resized = mk_signal0()
 
     def resizeEvent(self, ev: QtGui.QResizeEvent) -> None:
@@ -281,8 +280,8 @@ class BackstoryWindow(QtWidgets.QFrame):
         self.revisionnotice = BackstoryRevisionNotice(self)
         history_file = history_path / (entry[ATTR_FILE].name + '.history')
         self.terminal = BackstoryTerminal(self, history_file)
-        self.textarea.initialize_search_and_replace(self.terminal.error,
-                                                    self.terminal.print_)
+        self.searcher = Searcher(self.textarea, self.terminal.error,
+                                 self.terminal.print_)
         self.tabbar = TabBar(self, self.terminal.print_)
         self.create_layout(self.titlelabel, self.tabbar, self.tabcounter,
                            self.revisionnotice, self.textarea, self.terminal)
@@ -436,7 +435,7 @@ class BackstoryWindow(QtWidgets.QFrame):
         ))
         t.add_command(Command(
             'search-and-replace', 'Search/replace',
-            self.textarea.search_and_replace,
+            self.searcher.search_or_replace,
             short_name='/',
             args=ArgumentRules.REQUIRED,
             strip_input=False,
