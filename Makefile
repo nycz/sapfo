@@ -1,18 +1,10 @@
 PKGDIR = sapfo
 
 
-# Formatting
-
-.PHONY: isort
-isort:
-	isort ${PKGDIR}
-
-
 # Linting
 
-.PHONY: vulture
-vulture:
-	-vulture whitelist.py ${PKGDIR}
+.PHONY: check
+check: flake8 mypy vulture
 
 .PHONY: flake8
 flake8:
@@ -22,8 +14,19 @@ flake8:
 mypy:
 	-mypy --strict --pretty -p ${PKGDIR}
 
-.PHONY: check
-check: mypy flake8 vulture
+.PHONY: vulture
+vulture:
+	-vulture vulture_whitelist.py ${PKGDIR}
+
+
+# Formatting
+
+.PHONY: isort
+isort:
+	isort ${PKGDIR}
+
+.PHONY: format-code
+format-code: isort
 
 
 # Testing
@@ -32,10 +35,21 @@ check: mypy flake8 vulture
 test:
 	@pytest
 
-.PHONY: coverage
-coverage:
+.PHONY: test-coverage
+test-coverage:
 	@pytest --cov=${PKGDIR}
 
-.PHONY: coverage-report
-coverage-report:
+.PHONY: test-coverage-report
+test-coverage-report:
 	@pytest --cov=${PKGDIR} --cov-report=html
+
+
+# Building
+
+.PHONY: build
+build:
+	python -m build .
+
+.PHONY: install-dev
+install-dev:
+	pip install --user -e .[dev]

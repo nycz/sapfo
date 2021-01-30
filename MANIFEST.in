@@ -1,0 +1,4 @@
+include sapfo/data/defaultconfig.json
+include sapfo/data/entry_layout.decl
+include sapfo/data/filter.svg
+include sapfo/data/qt.css
